@@ -1,0 +1,9 @@
+const firebaseConfig = {
+  apiKey: "AIzaSyCJrEyqTInN2YzEwO1eOFibOTpj2Tj-LCQ",
+  authDomain: "automacao-logistica2040.firebaseapp.com",
+  projectId: "automacao-logistica2040",
+  storageBucket: "automacao-logistica2040.firebasestorage.app",
+  messagingSenderId: "980133097947",
+  appId: "1:980133097947:web:4f778878f8e83b97f677fe",
+  measurementId: "G-QZKXBRH4NH"
+};
