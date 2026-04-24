@@ -1,1 +1,1941 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lumen Fretes — Sistema de Controle</title>
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+
+  <!-- Firebase SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+
+  <!-- jsPDF -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+  <!-- Chart.js -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --brand:       #1B3A6B;
+      --brand-mid:   #2756A8;
+      --brand-lt:    #E8EEF8;
+      --brand-dark:  #0F2244;
+      --accent:      #F59E0B;
+      --accent-lt:   #FEF3C7;
+      --danger:      #DC2626;
+      --danger-bg:   #FEF2F2;
+      --warn:        #D97706;
+      --warn-bg:     #FFFBEB;
+      --ok:          #059669;
+      --ok-bg:       #ECFDF5;
+      --info:        #0284C7;
+      --info-bg:     #F0F9FF;
+      --purple:      #7C3AED;
+      --purple-bg:   #F5F3FF;
+      --border:      rgba(0,0,0,0.08);
+      --surface:     #FFFFFF;
+      --bg:          #F1F5FB;
+      --text:        #111827;
+      --muted:       #6B7280;
+      --sidebar-w:   248px;
+      --topbar-h:    58px;
+      --radius:      10px;
+      --radius-lg:   14px;
+    }
+
+    body {
+      font-family: 'Sora', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      font-size: 14px;
+      line-height: 1.55;
+    }
+
+    /* ── AUTH ── */
+    #auth-screen {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(135deg, var(--brand-dark) 0%, var(--brand) 55%, var(--brand-mid) 100%);
+      padding: 20px;
+      position: relative;
+      overflow: hidden;
+    }
+    #auth-screen::before {
+      content: '';
+      position: absolute;
+      width: 600px; height: 600px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.04);
+      top: -200px; right: -100px;
+    }
+    #auth-screen::after {
+      content: '';
+      position: absolute;
+      width: 400px; height: 400px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.04);
+      bottom: -150px; left: -80px;
+    }
+    .auth-box {
+      background: var(--surface);
+      border-radius: 20px;
+      padding: 40px 44px;
+      width: 100%;
+      max-width: 420px;
+      box-shadow: 0 24px 80px rgba(0,0,0,0.3);
+      position: relative;
+      z-index: 1;
+    }
+    .auth-brand { display: flex; align-items: center; gap: 12px; margin-bottom: 32px; }
+    .auth-brand-icon {
+      width: 46px; height: 46px;
+      background: var(--brand);
+      border-radius: 12px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 22px;
+    }
+    .auth-brand-name { font-size: 20px; font-weight: 700; color: var(--brand); }
+    .auth-brand-sub  { font-size: 11px; color: var(--muted); margin-top: 1px; }
+    .auth-title { font-size: 24px; font-weight: 700; color: var(--text); margin-bottom: 6px; }
+    .auth-sub   { font-size: 13px; color: var(--muted); margin-bottom: 24px; }
+
+    .form-label { font-size: 11px; font-weight: 600; color: var(--text); display: block; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.5px; }
+    .form-group { margin-bottom: 14px; }
+    .form-input, .form-select, .form-textarea {
+      width: 100%; padding: 10px 13px;
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius);
+      font-size: 14px; font-family: 'Sora', sans-serif;
+      color: var(--text); background: var(--surface);
+      transition: border-color 0.15s, box-shadow 0.15s;
+      outline: none;
+    }
+    .form-input:focus, .form-select:focus, .form-textarea:focus {
+      border-color: var(--brand);
+      box-shadow: 0 0 0 3px rgba(27,58,107,0.12);
+    }
+    .form-textarea { resize: vertical; min-height: 80px; }
+
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center;
+      gap: 7px; padding: 10px 18px; border-radius: var(--radius);
+      font-size: 14px; font-weight: 600; font-family: 'Sora', sans-serif;
+      cursor: pointer; border: none; transition: all 0.15s;
+      text-decoration: none; white-space: nowrap;
+    }
+    .btn:active { transform: scale(0.98); }
+    .btn:disabled { opacity: 0.5; cursor: default; transform: none; }
+    .btn-primary  { background: var(--brand); color: #fff; }
+    .btn-primary:hover:not(:disabled) { background: var(--brand-mid); }
+    .btn-primary-full { width: 100%; }
+    .btn-secondary { background: var(--brand-lt); color: var(--brand); }
+    .btn-secondary:hover { background: #d4e0f4; }
+    .btn-accent    { background: var(--accent); color: #fff; }
+    .btn-accent:hover { background: #d97706; }
+    .btn-danger    { background: var(--danger-bg); color: var(--danger); }
+    .btn-danger:hover { background: #fecaca; }
+    .btn-outline   { background: transparent; color: var(--text); border: 1.5px solid var(--border); }
+    .btn-outline:hover { background: var(--bg); }
+    .btn-ok        { background: var(--ok-bg); color: var(--ok); }
+    .btn-ok:hover  { background: #d1fae5; }
+    .btn-sm        { padding: 5px 11px; font-size: 12px; }
+    .btn-xs        { padding: 3px 8px; font-size: 11px; }
+
+    .alert { padding: 10px 14px; border-radius: var(--radius); font-size: 13px; margin-bottom: 14px; display: none; }
+    .alert.visible { display: block; }
+    .alert-danger  { background: var(--danger-bg); color: var(--danger); border: 1px solid #fecaca; }
+    .alert-success { background: var(--ok-bg); color: var(--ok); border: 1px solid #a7f3d0; }
+
+    .auth-switch { text-align: center; margin-top: 18px; font-size: 13px; color: var(--muted); }
+    .auth-switch a { color: var(--brand); font-weight: 600; cursor: pointer; }
+
+    /* ── APP LAYOUT ── */
+    #app-screen { display: none; min-height: 100vh; }
+
+    .topbar {
+      position: fixed; top: 0; left: 0; right: 0;
+      height: var(--topbar-h);
+      background: var(--brand);
+      color: #fff;
+      display: flex; align-items: center;
+      padding: 0 20px; z-index: 200; gap: 16px;
+    }
+    .topbar-brand {
+      display: flex; align-items: center; gap: 10px;
+      font-weight: 700; font-size: 16px;
+      width: var(--sidebar-w); flex-shrink: 0;
+    }
+    .topbar-brand-icon {
+      width: 34px; height: 34px;
+      background: var(--accent);
+      border-radius: 9px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px;
+    }
+    .topbar-center { flex: 1; }
+    .topbar-title  { font-size: 15px; font-weight: 600; opacity: 0.9; }
+    .topbar-right  { display: flex; align-items: center; gap: 12px; }
+    .topbar-user   { font-size: 13px; opacity: 0.8; }
+    .topbar-logout {
+      background: rgba(255,255,255,0.15); border: none;
+      color: #fff; padding: 6px 12px; border-radius: 7px;
+      cursor: pointer; font-size: 12px; font-weight: 600;
+      font-family: 'Sora', sans-serif;
+    }
+    .topbar-logout:hover { background: rgba(255,255,255,0.25); }
+
+    .sidebar {
+      position: fixed; left: 0; top: var(--topbar-h); bottom: 0;
+      width: var(--sidebar-w);
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      overflow-y: auto; z-index: 100;
+      padding: 16px 12px;
+    }
+    .sidebar-section { margin-bottom: 24px; }
+    .sidebar-section-title {
+      font-size: 10px; font-weight: 700; color: var(--muted);
+      text-transform: uppercase; letter-spacing: 0.8px;
+      padding: 0 10px; margin-bottom: 6px;
+    }
+    .sidebar-item {
+      display: flex; align-items: center; gap: 9px;
+      padding: 9px 10px; border-radius: var(--radius);
+      cursor: pointer; font-size: 13px; font-weight: 500;
+      color: var(--muted); transition: all 0.15s;
+      border: none; background: none; width: 100%; text-align: left;
+      font-family: 'Sora', sans-serif; margin-bottom: 2px;
+    }
+    .sidebar-item:hover  { background: var(--brand-lt); color: var(--brand); }
+    .sidebar-item.active { background: var(--brand-lt); color: var(--brand); font-weight: 700; }
+    .sidebar-item svg    { width: 16px; height: 16px; flex-shrink: 0; }
+    .sidebar-badge {
+      margin-left: auto; background: var(--danger);
+      color: #fff; font-size: 10px; font-weight: 700;
+      padding: 2px 6px; border-radius: 10px;
+    }
+
+    .main-content {
+      margin-left: var(--sidebar-w);
+      margin-top: var(--topbar-h);
+      padding: 24px;
+      min-height: calc(100vh - var(--topbar-h));
+    }
+    .page { display: none; }
+    .page.active { display: block; }
+    .page-header { margin-bottom: 22px; }
+    .page-title  { font-size: 22px; font-weight: 700; color: var(--text); margin-bottom: 3px; }
+    .page-sub    { font-size: 13px; color: var(--muted); }
+
+    /* ── STATS ── */
+    .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px,1fr)); gap: 12px; margin-bottom: 20px; }
+    .stat-card {
+      background: var(--surface); border-radius: var(--radius-lg);
+      border: 1px solid var(--border); padding: 16px 18px;
+      position: relative; overflow: hidden;
+    }
+    .stat-card::before {
+      content: '';
+      position: absolute; top: 0; left: 0; right: 0; height: 3px;
+      background: var(--brand);
+    }
+    .stat-card.accent::before { background: var(--accent); }
+    .stat-card.ok::before     { background: var(--ok); }
+    .stat-card.danger::before { background: var(--danger); }
+    .stat-card.purple::before { background: var(--purple); }
+    .stat-label { font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 6px; }
+    .stat-value { font-size: 26px; font-weight: 700; color: var(--text); line-height: 1; }
+    .stat-value.money { font-family: 'JetBrains Mono', monospace; font-size: 20px; }
+    .stat-desc  { font-size: 11px; color: var(--muted); margin-top: 4px; }
+
+    /* ── CARDS ── */
+    .card { background: var(--surface); border-radius: var(--radius-lg); border: 1px solid var(--border); overflow: hidden; margin-bottom: 16px; }
+    .card-header { padding: 14px 18px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+    .card-header-title { font-size: 14px; font-weight: 700; color: var(--text); }
+    .card-header-sub   { font-size: 12px; color: var(--muted); margin-top: 1px; }
+    .card-body { padding: 18px; }
+
+    /* ── TABLE ── */
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    thead th { padding: 10px 14px; text-align: left; font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.4px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+    tbody td { padding: 11px 14px; border-bottom: 1px solid var(--border); color: var(--text); vertical-align: middle; }
+    tbody tr:last-child td { border-bottom: none; }
+    tbody tr:hover { background: var(--bg); }
+
+    /* ── BADGES ── */
+    .badge { display: inline-flex; align-items: center; gap: 4px; padding: 3px 9px; border-radius: 20px; font-size: 11px; font-weight: 700; }
+    .badge-danger  { background: var(--danger-bg); color: var(--danger); }
+    .badge-warn    { background: var(--warn-bg); color: var(--warn); }
+    .badge-ok      { background: var(--ok-bg); color: var(--ok); }
+    .badge-info    { background: var(--info-bg); color: var(--info); }
+    .badge-purple  { background: var(--purple-bg); color: var(--purple); }
+    .badge-accent  { background: var(--accent-lt); color: var(--warn); }
+    .badge-gray    { background: #f3f4f6; color: #6b7280; }
+    .badge-brand   { background: var(--brand-lt); color: var(--brand); }
+
+    /* ── STATUS COLORS ── */
+    .status-solicitado  { background: var(--info-bg);    color: var(--info);    }
+    .status-separado    { background: var(--purple-bg);  color: var(--purple);  }
+    .status-transporte  { background: var(--accent-lt);  color: var(--warn);    }
+    .status-entregue    { background: var(--ok-bg);      color: var(--ok);      }
+    .status-cancelado   { background: var(--danger-bg);  color: var(--danger);  }
+
+    .pag-pendente  { background: var(--danger-bg); color: var(--danger); }
+    .pag-parcial   { background: var(--warn-bg);   color: var(--warn);   }
+    .pag-pago      { background: var(--ok-bg);     color: var(--ok);     }
+
+    /* ── FRETE CODE ── */
+    .frete-code {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px; font-weight: 700;
+      background: var(--brand-lt); color: var(--brand);
+      padding: 3px 8px; border-radius: 6px; letter-spacing: 0.5px;
+    }
+
+    /* ── MODAL ── */
+    .modal-overlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.5);
+      z-index: 1000; display: flex; align-items: center; justify-content: center;
+      padding: 20px; backdrop-filter: blur(2px);
+    }
+    .modal-overlay.hidden { display: none; }
+    .modal {
+      background: var(--surface); border-radius: var(--radius-lg);
+      width: 100%; max-width: 600px; max-height: 90vh; overflow-y: auto;
+      box-shadow: 0 24px 80px rgba(0,0,0,0.2);
+    }
+    .modal-lg { max-width: 780px; }
+    .modal-header { padding: 18px 22px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+    .modal-title  { font-size: 16px; font-weight: 700; color: var(--text); }
+    .modal-close  { background: none; border: none; font-size: 22px; cursor: pointer; color: var(--muted); padding: 2px; line-height: 1; }
+    .modal-body   { padding: 22px; }
+    .modal-footer { padding: 16px 22px; border-top: 1px solid var(--border); display: flex; gap: 10px; justify-content: flex-end; }
+
+    /* ── ROTA VISUAL ── */
+    .rota-box {
+      display: flex; align-items: center; gap: 8px;
+      background: var(--bg); border-radius: var(--radius);
+      padding: 8px 12px; font-size: 13px;
+    }
+    .rota-point {
+      display: flex; align-items: center; gap: 6px; font-weight: 600;
+    }
+    .rota-dot {
+      width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0;
+    }
+    .rota-line { flex: 1; height: 1px; background: var(--border); border-top: 2px dashed var(--border); }
+    .rota-arrow { color: var(--muted); font-size: 16px; }
+
+    /* ── PIX ── */
+    .pix-badge {
+      display: inline-flex; align-items: center; gap: 5px;
+      background: #e8f8f2; color: #00875a;
+      border: 1px solid #b3e6d4;
+      border-radius: 6px; padding: 3px 9px;
+      font-size: 12px; font-weight: 600;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    /* ── LOADING ── */
+    .spinner { width: 20px; height: 20px; border: 2px solid rgba(255,255,255,0.4); border-top-color: #fff; border-radius: 50%; animation: spin 0.7s linear infinite; }
+    .spinner-dark { border-color: rgba(27,58,107,0.2); border-top-color: var(--brand); }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .loading-state { display: flex; align-items: center; justify-content: center; gap: 10px; padding: 48px; color: var(--muted); font-size: 13px; }
+
+    /* ── EMPTY STATE ── */
+    .empty-state { text-align: center; padding: 52px 20px; color: var(--muted); }
+    .empty-icon  { font-size: 44px; margin-bottom: 14px; }
+    .empty-title { font-size: 15px; font-weight: 600; color: var(--text); margin-bottom: 4px; }
+
+    /* ── INFO BOX ── */
+    .info-box { background: var(--brand-lt); border: 1px solid rgba(27,58,107,0.15); border-radius: var(--radius); padding: 12px 14px; font-size: 13px; color: var(--brand); }
+    .warn-box  { background: var(--warn-bg);  border: 1px solid #fde68a; border-radius: var(--radius); padding: 12px 14px; font-size: 13px; color: var(--warn); }
+
+    /* ── GRID HELPERS ── */
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; }
+    .mt-8  { margin-top: 8px; }
+    .mt-12 { margin-top: 12px; }
+    .mt-16 { margin-top: 16px; }
+    .mb-16 { margin-bottom: 16px; }
+    .gap-10 { gap: 10px; }
+    .flex   { display: flex; }
+    .items-center { align-items: center; }
+    .justify-between { justify-content: space-between; }
+    .text-sm   { font-size: 12px; }
+    .text-muted { color: var(--muted); }
+    .font-bold { font-weight: 700; }
+    .hidden { display: none !important; }
+
+    /* ── PENDING USER CARD ── */
+    .pending-card { background: var(--warn-bg); border: 1px solid #fde68a; border-radius: var(--radius); padding: 14px 16px; margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    .pending-name { font-size: 14px; font-weight: 700; color: var(--text); }
+    .pending-details { font-size: 12px; color: var(--muted); margin-top: 2px; }
+
+    /* ── TIMELINE ── */
+    .timeline { padding: 0; }
+    .timeline-item { display: flex; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border); }
+    .timeline-item:last-child { border-bottom: none; }
+    .timeline-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; margin-top: 4px; }
+    .timeline-content { flex: 1; }
+    .timeline-title { font-size: 13px; font-weight: 600; color: var(--text); }
+    .timeline-sub   { font-size: 12px; color: var(--muted); }
+
+    /* ── CHART CONTAINER ── */
+    .chart-container { position: relative; height: 240px; }
+
+    @media (max-width: 640px) {
+      .sidebar { transform: translateX(-100%); transition: transform 0.25s; }
+      .sidebar.open { transform: translateX(0); }
+      .main-content { margin-left: 0; }
+      .grid-2, .grid-3 { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════ AUTH ═══════════════════════════════════ -->
+<div id="auth-screen">
+  <div id="form-login" class="auth-box">
+    <div class="auth-brand">
+      <div class="auth-brand-icon">🚛</div>
+      <div>
+        <div class="auth-brand-name">Lumen Fretes</div>
+        <div class="auth-brand-sub">Sistema de Controle de Frete</div>
+      </div>
+    </div>
+    <div class="auth-title">Bem-vindo de volta</div>
+    <div class="auth-sub">Acesse o painel de controle</div>
+    <div id="login-alert" class="alert alert-danger"></div>
+    <div class="form-group">
+      <label class="form-label">E-mail</label>
+      <input type="email" id="login-email" class="form-input" placeholder="seu@email.com">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Senha</label>
+      <input type="password" id="login-password" class="form-input" placeholder="••••••••">
+    </div>
+    <button class="btn btn-primary btn-primary-full" onclick="doLogin()" id="btn-login">Entrar no Sistema</button>
+    <div class="auth-switch">Não tem acesso? <a onclick="showForm('register')">Solicitar cadastro</a></div>
+  </div>
+
+  <div id="form-register" class="auth-box hidden">
+    <div class="auth-brand">
+      <div class="auth-brand-icon">🚛</div>
+      <div>
+        <div class="auth-brand-name">Lumen Fretes</div>
+        <div class="auth-brand-sub">Solicitar Acesso</div>
+      </div>
+    </div>
+    <div class="auth-title">Solicitar acesso</div>
+    <div class="auth-sub">Aguarde aprovação do administrador</div>
+    <div id="register-alert" class="alert"></div>
+    <div class="form-group">
+      <label class="form-label">Nome completo</label>
+      <input type="text" id="reg-name" class="form-input" placeholder="Seu nome">
+    </div>
+    <div class="form-group">
+      <label class="form-label">E-mail</label>
+      <input type="email" id="reg-email" class="form-input" placeholder="seu@email.com">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Senha</label>
+      <input type="password" id="reg-password" class="form-input" placeholder="Mínimo 6 caracteres">
+    </div>
+    <button class="btn btn-primary btn-primary-full" onclick="doRegister()" id="btn-register">Solicitar Acesso</button>
+    <div class="auth-switch"><a onclick="showForm('login')">← Voltar ao login</a></div>
+  </div>
+
+  <div id="form-pending" class="auth-box hidden">
+    <div style="text-align:center;padding:20px 0;">
+      <div style="font-size:52px;margin-bottom:16px;">⏳</div>
+      <div class="auth-title">Aguardando aprovação</div>
+      <div class="auth-sub" style="margin-bottom:24px;">Sua solicitação está sendo analisada pelo administrador.</div>
+      <button class="btn btn-outline" onclick="auth.signOut()">Sair</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════ APP ═══════════════════════════════════ -->
+<div id="app-screen">
+
+  <div class="topbar">
+    <div class="topbar-brand">
+      <div class="topbar-brand-icon">🚛</div>
+      Lumen Fretes
+    </div>
+    <div class="topbar-center">
+      <div class="topbar-title" id="topbar-title">Painel</div>
+    </div>
+    <div class="topbar-right">
+      <div class="topbar-user" id="topbar-user"></div>
+      <button class="topbar-logout" onclick="auth.signOut()">Sair</button>
+    </div>
+  </div>
+
+  <nav class="sidebar" id="sidebar">
+    <div class="sidebar-section" id="sidebar-admin" style="display:none;">
+      <div class="sidebar-section-title">Administração</div>
+      <button class="sidebar-item" data-page="dashboard" onclick="goPage('dashboard')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+        Painel Geral
+      </button>
+      <button class="sidebar-item" data-page="users" onclick="goPage('users')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        Usuários
+        <span class="sidebar-badge hidden" id="badge-pending">0</span>
+      </button>
+      <button class="sidebar-item" data-page="all-fretes" onclick="goPage('all-fretes')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 3h15v13H1z"/><path d="M16 8h4l3 3v5h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+        Todos os Fretes
+      </button>
+      <button class="sidebar-item" data-page="financeiro" onclick="goPage('financeiro')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+        Financeiro
+      </button>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-section-title">Fretes</div>
+      <button class="sidebar-item" data-page="novo-frete" onclick="goPage('novo-frete')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+        Novo Frete
+      </button>
+      <button class="sidebar-item" data-page="meus-fretes" onclick="goPage('meus-fretes')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+        Meus Fretes
+      </button>
+      <button class="sidebar-item" data-page="freteiros" onclick="goPage('freteiros')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+        Freteiros
+      </button>
+    </div>
+  </nav>
+
+  <main class="main-content">
+
+    <!-- ── DASHBOARD ── -->
+    <div class="page" id="page-dashboard">
+      <div class="page-header">
+        <div class="page-title">Painel Geral</div>
+        <div class="page-sub">Visão consolidada dos fretes</div>
+      </div>
+      <div class="stats-grid">
+        <div class="stat-card"><div class="stat-label">Fretes este mês</div><div class="stat-value" id="s-total">—</div></div>
+        <div class="stat-card accent"><div class="stat-label">Em andamento</div><div class="stat-value" id="s-andamento">—</div></div>
+        <div class="stat-card ok"><div class="stat-label">Entregues</div><div class="stat-value" id="s-entregues">—</div></div>
+        <div class="stat-card danger"><div class="stat-label">Pagamentos pendentes</div><div class="stat-value" id="s-pendentes">—</div></div>
+        <div class="stat-card purple"><div class="stat-label">Total pago este mês</div><div class="stat-value money" id="s-pago">—</div></div>
+        <div class="stat-card"><div class="stat-label">Total a pagar</div><div class="stat-value money" id="s-apagar">—</div></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
+        <div class="card">
+          <div class="card-header"><div class="card-header-title">Gastos por Mês</div></div>
+          <div class="card-body"><div class="chart-container"><canvas id="chart-gastos"></canvas></div></div>
+        </div>
+        <div class="card">
+          <div class="card-header"><div class="card-header-title">Fretes por Status</div></div>
+          <div class="card-body"><div class="chart-container"><canvas id="chart-status"></canvas></div></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <div class="card-header-title">Últimos Fretes</div>
+          <button class="btn btn-secondary btn-sm" onclick="goPage('all-fretes')">Ver todos</button>
+        </div>
+        <div class="table-wrap"><table>
+          <thead><tr><th>Código</th><th>Freteiro</th><th>Rota</th><th>Valor</th><th>Status</th><th>Pagamento</th></tr></thead>
+          <tbody id="dashboard-fretes-tbody"><tr><td colspan="6" style="text-align:center;padding:24px;" class="text-muted">Carregando...</td></tr></tbody>
+        </table></div>
+      </div>
+    </div>
+
+    <!-- ── USERS ── -->
+    <div class="page" id="page-users">
+      <div class="page-header">
+        <div class="page-title">Gerenciar Usuários</div>
+        <div class="page-sub">Aprove ou gerencie o acesso ao sistema</div>
+      </div>
+      <div class="card mb-16">
+        <div class="card-header"><div class="card-header-title">Aguardando Aprovação</div></div>
+        <div class="card-body" id="pending-users-list"><div class="loading-state"><div class="spinner spinner-dark"></div>Carregando...</div></div>
+      </div>
+      <div class="card">
+        <div class="card-header"><div class="card-header-title">Usuários Ativos</div></div>
+        <div class="table-wrap"><table>
+          <thead><tr><th>Nome</th><th>E-mail</th><th>Perfil</th><th>Ações</th></tr></thead>
+          <tbody id="active-users-tbody"></tbody>
+        </table></div>
+      </div>
+    </div>
+
+    <!-- ── ALL FRETES ── -->
+    <div class="page" id="page-all-fretes">
+      <div class="page-header">
+        <div class="page-title">Todos os Fretes</div>
+        <div class="page-sub">Histórico completo de fretes</div>
+      </div>
+      <div class="card mb-16">
+        <div class="card-body" style="padding:14px 18px;">
+          <div style="display:flex;gap:12px;flex-wrap:wrap;">
+            <div style="flex:1;min-width:160px;">
+              <label class="form-label">Freteiro</label>
+              <select class="form-select" id="filter-freteiro" onchange="loadAllFretes()">
+                <option value="">Todos</option>
+              </select>
+            </div>
+            <div style="flex:1;min-width:140px;">
+              <label class="form-label">Status do Frete</label>
+              <select class="form-select" id="filter-status" onchange="loadAllFretes()">
+                <option value="">Todos</option>
+                <option value="solicitado">Solicitado</option>
+                <option value="separado">Separado</option>
+                <option value="transporte">Em Transporte</option>
+                <option value="entregue">Entregue</option>
+                <option value="cancelado">Cancelado</option>
+              </select>
+            </div>
+            <div style="flex:1;min-width:140px;">
+              <label class="form-label">Pagamento</label>
+              <select class="form-select" id="filter-pag" onchange="loadAllFretes()">
+                <option value="">Todos</option>
+                <option value="pendente">Pendente</option>
+                <option value="parcial">Parcial</option>
+                <option value="pago">Pago</option>
+              </select>
+            </div>
+            <div style="flex:1;min-width:130px;">
+              <label class="form-label">Mês</label>
+              <input type="month" class="form-input" id="filter-mes" onchange="loadAllFretes()">
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="table-wrap"><table>
+          <thead><tr><th>Código</th><th>Data</th><th>Freteiro</th><th>Rota</th><th>Motivo</th><th>Valor</th><th>Pago</th><th>Status</th><th>Pagamento</th><th>Ações</th></tr></thead>
+          <tbody id="all-fretes-tbody"><tr><td colspan="10" style="text-align:center;padding:24px;" class="text-muted">Carregando...</td></tr></tbody>
+        </table></div>
+      </div>
+    </div>
+
+    <!-- ── FINANCEIRO ── -->
+    <div class="page" id="page-financeiro">
+      <div class="page-header">
+        <div class="page-title">Controle Financeiro</div>
+        <div class="page-sub">Extrato de pagamentos e pendências</div>
+      </div>
+      <div class="stats-grid">
+        <div class="stat-card ok"><div class="stat-label">Total Pago</div><div class="stat-value money" id="fin-pago">—</div></div>
+        <div class="stat-card danger"><div class="stat-label">Total Pendente</div><div class="stat-value money" id="fin-pendente">—</div></div>
+        <div class="stat-card accent"><div class="stat-label">Total Parcial (restante)</div><div class="stat-value money" id="fin-parcial">—</div></div>
+        <div class="stat-card"><div class="stat-label">Total Geral</div><div class="stat-value money" id="fin-total">—</div></div>
+      </div>
+      <div class="card mb-16">
+        <div class="card-body" style="padding:14px 18px;">
+          <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;">
+            <div>
+              <label class="form-label">Período</label>
+              <input type="month" class="form-input" id="fin-mes" onchange="loadFinanceiro()" style="width:180px;">
+            </div>
+            <div>
+              <label class="form-label">Freteiro</label>
+              <select class="form-select" id="fin-freteiro" onchange="loadFinanceiro()" style="width:200px;">
+                <option value="">Todos</option>
+              </select>
+            </div>
+            <button class="btn btn-secondary" onclick="exportFinanceiroCSV()">Exportar CSV</button>
+            <button class="btn btn-outline" onclick="gerarRelatorioFinanceiroPDF()">Relatório PDF</button>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="table-wrap"><table>
+          <thead><tr><th>Código</th><th>Data</th><th>Freteiro</th><th>Rota</th><th>Valor Total</th><th>Valor Pago</th><th>Restante</th><th>Forma Pgto</th><th>Status</th><th>Ações</th></tr></thead>
+          <tbody id="fin-tbody"><tr><td colspan="10" style="text-align:center;padding:24px;" class="text-muted">Selecione o período...</td></tr></tbody>
+        </table></div>
+      </div>
+    </div>
+
+    <!-- ── NOVO FRETE ── -->
+    <div class="page" id="page-novo-frete">
+      <div class="page-header">
+        <div class="page-title">Novo Frete</div>
+        <div class="page-sub">Registre uma nova solicitação de frete</div>
+      </div>
+      <div class="card mb-16">
+        <div class="card-header"><div class="card-header-title">Informações do Frete</div></div>
+        <div class="card-body">
+          <div class="grid-2 mb-16">
+            <div class="form-group" style="margin:0;">
+              <label class="form-label">Freteiro *</label>
+              <select class="form-select" id="nf-freteiro">
+                <option value="">Selecione o freteiro...</option>
+              </select>
+            </div>
+            <div class="form-group" style="margin:0;">
+              <label class="form-label">Data do Frete *</label>
+              <input type="date" class="form-input" id="nf-data">
+            </div>
+          </div>
+          <div class="grid-2 mb-16">
+            <div class="form-group" style="margin:0;">
+              <label class="form-label">Origem *</label>
+              <input type="text" class="form-input" id="nf-origem" placeholder="Cidade / Endereço de saída">
+            </div>
+            <div class="form-group" style="margin:0;">
+              <label class="form-label">Destino *</label>
+              <input type="text" class="form-input" id="nf-destino" placeholder="Cidade / Endereço de chegada">
+            </div>
+          </div>
+          <div class="form-group mb-16">
+            <label class="form-label">Motivo / Descrição da Carga *</label>
+            <textarea class="form-textarea" id="nf-motivo" placeholder="Descreva o motivo do frete e o tipo de carga..."></textarea>
+          </div>
+          <div class="grid-3 mb-16">
+            <div class="form-group" style="margin:0;">
+              <label class="form-label">Valor Combinado (R$) *</label>
+              <input type="number" class="form-input" id="nf-valor" placeholder="0,00" step="0.01" min="0">
+            </div>
+            <div class="form-group" style="margin:0;">
+              <label class="form-label">Forma de Pagamento</label>
+              <select class="form-select" id="nf-forma-pag">
+                <option value="pix">Pix</option>
+                <option value="dinheiro">Dinheiro</option>
+                <option value="transferencia">Transferência</option>
+              </select>
+            </div>
+            <div class="form-group" style="margin:0;">
+              <label class="form-label">Status do Pagamento</label>
+              <select class="form-select" id="nf-status-pag">
+                <option value="pendente">Pendente</option>
+                <option value="parcial">Parcial</option>
+                <option value="pago">Pago</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-group mb-16" id="nf-valor-pago-group" style="display:none;">
+            <label class="form-label">Valor Já Pago (R$)</label>
+            <input type="number" class="form-input" id="nf-valor-pago" placeholder="0,00" step="0.01" min="0" style="max-width:200px;">
+          </div>
+          <div class="form-group" style="margin:0;">
+            <label class="form-label">Observações</label>
+            <textarea class="form-textarea" id="nf-obs" placeholder="Informações adicionais..." rows="2"></textarea>
+          </div>
+        </div>
+      </div>
+      <div style="display:flex;gap:12px;justify-content:flex-end;">
+        <button class="btn btn-outline" onclick="clearNovoFrete()">Limpar</button>
+        <button class="btn btn-primary" onclick="salvarFrete()" id="btn-salvar-frete">Registrar Frete</button>
+      </div>
+    </div>
+
+    <!-- ── MEUS FRETES ── -->
+    <div class="page" id="page-meus-fretes">
+      <div class="page-header">
+        <div class="page-title">Meus Fretes</div>
+        <div class="page-sub">Fretes que você registrou</div>
+      </div>
+      <div class="card">
+        <div class="table-wrap"><table>
+          <thead><tr><th>Código</th><th>Data</th><th>Freteiro</th><th>Rota</th><th>Valor</th><th>Status</th><th>Pagamento</th><th>Ações</th></tr></thead>
+          <tbody id="meus-fretes-tbody"><tr><td colspan="8" style="text-align:center;padding:24px;" class="text-muted">Carregando...</td></tr></tbody>
+        </table></div>
+      </div>
+    </div>
+
+    <!-- ── FRETEIROS ── -->
+    <div class="page" id="page-freteiros">
+      <div class="page-header">
+        <div class="page-title">Freteiros</div>
+        <div class="page-sub">Cadastro de freteiros parceiros</div>
+      </div>
+      <div style="display:flex;justify-content:flex-end;margin-bottom:16px;">
+        <button class="btn btn-primary" onclick="openModalFreteiro()">+ Novo Freteiro</button>
+      </div>
+      <div class="card">
+        <div class="table-wrap"><table>
+          <thead><tr><th>Nome</th><th>CPF</th><th>Telefone</th><th>Chave Pix</th><th>Total Fretes</th><th>Total Pago</th><th>Status</th><th>Ações</th></tr></thead>
+          <tbody id="freteiros-tbody"><tr><td colspan="8" style="text-align:center;padding:24px;" class="text-muted">Carregando...</td></tr></tbody>
+        </table></div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- ═══════ MODAL: FRETE DETALHE ═══════ -->
+<div class="modal-overlay hidden" id="modal-frete-detail">
+  <div class="modal modal-lg">
+    <div class="modal-header">
+      <div>
+        <div class="modal-title" id="modal-frete-code">Detalhes do Frete</div>
+        <div class="text-sm text-muted mt-8" id="modal-frete-sub"></div>
+      </div>
+      <button class="modal-close" onclick="closeModal('modal-frete-detail')">×</button>
+    </div>
+    <div class="modal-body" id="modal-frete-body"></div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('modal-frete-detail')">Fechar</button>
+      <button class="btn btn-secondary" onclick="gerarPDFFrete()">Gerar PDF</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════ MODAL: ATUALIZAR STATUS ═══════ -->
+<div class="modal-overlay hidden" id="modal-update-status">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">Atualizar Frete</div>
+      <button class="modal-close" onclick="closeModal('modal-update-status')">×</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="us-frete-id">
+      <div class="form-group">
+        <label class="form-label">Status do Frete</label>
+        <select class="form-select" id="us-status">
+          <option value="solicitado">📋 Solicitado</option>
+          <option value="separado">📦 Separado</option>
+          <option value="transporte">🚛 Em Transporte</option>
+          <option value="entregue">✅ Entregue</option>
+          <option value="cancelado">❌ Cancelado</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Status do Pagamento</label>
+        <select class="form-select" id="us-pag-status" onchange="toggleValorPagoModal()">
+          <option value="pendente">Pendente</option>
+          <option value="parcial">Parcial</option>
+          <option value="pago">Pago</option>
+        </select>
+      </div>
+      <div class="form-group" id="us-valor-pago-group" style="display:none;">
+        <label class="form-label">Valor Pago (R$)</label>
+        <input type="number" class="form-input" id="us-valor-pago" placeholder="0,00" step="0.01" min="0">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Forma de Pagamento</label>
+        <select class="form-select" id="us-forma-pag">
+          <option value="pix">Pix</option>
+          <option value="dinheiro">Dinheiro</option>
+          <option value="transferencia">Transferência</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Observação (opcional)</label>
+        <input type="text" class="form-input" id="us-obs" placeholder="Ex: Pago via Pix às 14h">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('modal-update-status')">Cancelar</button>
+      <button class="btn btn-primary" onclick="salvarUpdateStatus()" id="btn-save-status">Salvar Alterações</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════ MODAL: FRETEIRO ═══════ -->
+<div class="modal-overlay hidden" id="modal-freteiro">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="modal-freteiro-title">Novo Freteiro</div>
+      <button class="modal-close" onclick="closeModal('modal-freteiro')">×</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="mf-id">
+      <div class="grid-2 mb-16">
+        <div class="form-group" style="margin:0;">
+          <label class="form-label">Nome Completo *</label>
+          <input type="text" class="form-input" id="mf-nome" placeholder="Nome do freteiro">
+        </div>
+        <div class="form-group" style="margin:0;">
+          <label class="form-label">CPF *</label>
+          <input type="text" class="form-input" id="mf-cpf" placeholder="000.000.000-00" maxlength="14">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Telefone *</label>
+        <input type="text" class="form-input" id="mf-telefone" placeholder="(00) 00000-0000" maxlength="15">
+      </div>
+      <div class="grid-2 mb-16">
+        <div class="form-group" style="margin:0;">
+          <label class="form-label">Tipo da Chave Pix</label>
+          <select class="form-select" id="mf-pix-tipo">
+            <option value="cpf">CPF</option>
+            <option value="telefone">Telefone</option>
+            <option value="email">E-mail</option>
+            <option value="aleatoria">Chave Aleatória</option>
+          </select>
+        </div>
+        <div class="form-group" style="margin:0;">
+          <label class="form-label">Chave Pix</label>
+          <input type="text" class="form-input" id="mf-pix-chave" placeholder="Chave Pix">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Status</label>
+        <select class="form-select" id="mf-status">
+          <option value="ativo">Ativo</option>
+          <option value="inativo">Inativo</option>
+        </select>
+      </div>
+      <div class="form-group" style="margin:0;">
+        <label class="form-label">Observações</label>
+        <textarea class="form-textarea" id="mf-obs" placeholder="Informações adicionais..." rows="2"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('modal-freteiro')">Cancelar</button>
+      <button class="btn btn-primary" onclick="salvarFreteiro()" id="btn-salvar-freteiro">Salvar Freteiro</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════ MODAL: FRETEIRO DETALHE ═══════ -->
+<div class="modal-overlay hidden" id="modal-freteiro-detail">
+  <div class="modal modal-lg">
+    <div class="modal-header">
+      <div class="modal-title" id="modal-fd-title">Perfil do Freteiro</div>
+      <button class="modal-close" onclick="closeModal('modal-freteiro-detail')">×</button>
+    </div>
+    <div class="modal-body" id="modal-fd-body"></div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('modal-freteiro-detail')">Fechar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ─────────────────────────────────────────────
+// ⚙️  CONFIGURAÇÃO
+// ─────────────────────────────────────────────
+const FIREBASE_CONFIG = {
+  apiKey:            "AIzaSyCJrEyqTInN2YzEwO1eOFibOTpj2Tj-LCQ",
+  authDomain:        "automacao-logistica2040.firebaseapp.com",
+  projectId:         "automacao-logistica2040",
+  storageBucket:     "automacao-logistica2040.firebasestorage.app",
+  messagingSenderId: "980133097947",
+  appId:             "1:980133097947:web:4f778878f8e83b97f677fe"
+};
+
+const ADMIN_EMAIL = "daniloamaro@lumenserfeliz.org";
+// Coleção separada do Lumen Estoque para não misturar usuários
+const USERS_COL   = "fretes_users";
+const FRETES_COL  = "fretes";
+const FRETEIROS_COL = "freteiros";
+
+// ─────────────────────────────────────────────
+// 🔥  FIREBASE INIT
+// ─────────────────────────────────────────────
+if (!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
+const auth = firebase.auth();
+const db   = firebase.firestore();
+
+// ─────────────────────────────────────────────
+// 🏠  STATE
+// ─────────────────────────────────────────────
+let currentUser     = null;
+let currentUserData = null;
+let freteDetalhe    = null;
+let freteirosCache  = {};
+let chartGastos     = null;
+let chartStatus     = null;
+
+// ─────────────────────────────────────────────
+// 🔑  AUTH
+// ─────────────────────────────────────────────
+auth.onAuthStateChanged(async (user) => {
+  if (!user) { showAuthScreen('login'); return; }
+  currentUser = user;
+  try {
+    const snap = await db.collection(USERS_COL).doc(user.uid).get();
+    if (!snap.exists) { showAuthScreen('pending'); return; }
+    currentUserData = snap.data();
+    if (currentUserData.status === 'pending')  { showAuthScreen('pending'); return; }
+    if (currentUserData.status === 'rejected') {
+      auth.signOut();
+      showAuthScreen('login');
+      showAlert('login-alert', 'Sua solicitação foi recusada.', 'danger');
+      return;
+    }
+    showApp();
+  } catch(e) { console.error(e); auth.signOut(); }
+});
+
+function showForm(name) {
+  ['login','register','pending'].forEach(f => {
+    document.getElementById(`form-${f}`).classList.toggle('hidden', f !== name);
+  });
+}
+function showAuthScreen(form) {
+  document.getElementById('auth-screen').style.display = 'flex';
+  document.getElementById('app-screen').style.display  = 'none';
+  showForm(form);
+}
+
+async function doLogin() {
+  const email = v('login-email'), password = v('login-password');
+  if (!email || !password) { showAlert('login-alert','Preencha e-mail e senha.','danger'); return; }
+  setBtnLoading('btn-login', true);
+  hideAlert('login-alert');
+  try {
+    await auth.signInWithEmailAndPassword(email, password);
+  } catch(e) {
+    showAlert('login-alert', friendlyError(e.code), 'danger');
+    setBtnLoading('btn-login', false);
+  }
+}
+
+async function doRegister() {
+  const name = v('reg-name'), email = v('reg-email'), password = v('reg-password');
+  if (!name || !email || !password) { showAlert('register-alert','Preencha todos os campos.','danger'); return; }
+  if (password.length < 6) { showAlert('register-alert','Senha com mínimo 6 caracteres.','danger'); return; }
+  setBtnLoading('btn-register', true);
+  try {
+    const cred = await auth.createUserWithEmailAndPassword(email, password);
+    await db.collection(USERS_COL).doc(cred.user.uid).set({
+      name, email,
+      role:   email === ADMIN_EMAIL ? 'admin' : 'user',
+      status: email === ADMIN_EMAIL ? 'approved' : 'pending',
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    showAlert('register-alert','Solicitação enviada! Aguarde aprovação.','success');
+  } catch(e) {
+    showAlert('register-alert', friendlyError(e.code), 'danger');
+  }
+  setBtnLoading('btn-register', false);
+}
+
+function friendlyError(code) {
+  const m = {
+    'auth/user-not-found': 'E-mail não encontrado.',
+    'auth/wrong-password': 'Senha incorreta.',
+    'auth/invalid-email':  'E-mail inválido.',
+    'auth/email-already-in-use': 'E-mail já em uso.',
+    'auth/too-many-requests': 'Muitas tentativas. Tente em alguns minutos.',
+    'auth/invalid-credential': 'E-mail ou senha incorretos.',
+  };
+  return m[code] || 'Erro: ' + code;
+}
+
+// ─────────────────────────────────────────────
+// 🏛️  APP SETUP
+// ─────────────────────────────────────────────
+async function showApp() {
+  document.getElementById('auth-screen').style.display = 'none';
+  document.getElementById('app-screen').style.display  = 'block';
+
+  const isAdmin = currentUserData.role === 'admin';
+  document.getElementById('topbar-user').textContent = currentUserData.name;
+  document.getElementById('sidebar-admin').style.display = isAdmin ? 'block' : 'none';
+
+  // Carrega freteiros no cache
+  await loadFreteirosCache();
+  populateFreteirosSelects();
+
+  // Set data default
+  document.getElementById('nf-data').value = new Date().toISOString().slice(0,10);
+  document.getElementById('filter-mes').value = new Date().toISOString().slice(0,7);
+  document.getElementById('fin-mes').value = new Date().toISOString().slice(0,7);
+
+  if (isAdmin) {
+    goPage('dashboard');
+    loadPendingCount();
+  } else {
+    goPage('novo-frete');
+  }
+}
+
+// ─────────────────────────────────────────────
+// 📄  NAVIGATION
+// ─────────────────────────────────────────────
+function goPage(page) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.sidebar-item').forEach(b => b.classList.remove('active'));
+  const el = document.getElementById(`page-${page}`);
+  if (!el) return;
+  el.classList.add('active');
+  const btn = document.querySelector(`.sidebar-item[data-page="${page}"]`);
+  if (btn) btn.classList.add('active');
+
+  const titles = {
+    'dashboard':'Painel Geral','users':'Usuários','all-fretes':'Todos os Fretes',
+    'financeiro':'Financeiro','novo-frete':'Novo Frete','meus-fretes':'Meus Fretes',
+    'freteiros':'Freteiros'
+  };
+  document.getElementById('topbar-title').textContent = titles[page] || '';
+
+  if (page === 'dashboard')   loadDashboard();
+  if (page === 'users')       loadUsers();
+  if (page === 'all-fretes')  loadAllFretes();
+  if (page === 'financeiro')  loadFinanceiro();
+  if (page === 'meus-fretes') loadMeusFretes();
+  if (page === 'freteiros')   loadFreteiros();
+}
+
+// ─────────────────────────────────────────────
+// 👥  USERS
+// ─────────────────────────────────────────────
+async function loadPendingCount() {
+  const snap = await db.collection(USERS_COL).where('status','==','pending').get();
+  const badge = document.getElementById('badge-pending');
+  snap.size > 0 ? (badge.textContent = snap.size, badge.classList.remove('hidden')) : badge.classList.add('hidden');
+}
+
+async function loadUsers() {
+  const snap = await db.collection(USERS_COL).get();
+  const pending  = snap.docs.filter(d => d.data().status === 'pending');
+  const approved = snap.docs.filter(d => d.data().status !== 'pending');
+
+  const pendEl = document.getElementById('pending-users-list');
+  if (pending.length === 0) {
+    pendEl.innerHTML = '<div class="empty-state"><div class="empty-icon">✅</div><div class="empty-title">Nenhuma solicitação pendente</div></div>';
+  } else {
+    pendEl.innerHTML = pending.map(d => {
+      const u = d.data();
+      return `<div class="pending-card">
+        <div><div class="pending-name">${u.name}</div><div class="pending-details">${u.email}</div></div>
+        <div style="display:flex;gap:8px;">
+          <button class="btn btn-danger btn-sm" onclick="updateUserStatus('${d.id}','rejected')">Recusar</button>
+          <button class="btn btn-ok btn-sm" onclick="updateUserStatus('${d.id}','approved')">✓ Aprovar</button>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  const tbody = document.getElementById('active-users-tbody');
+  tbody.innerHTML = approved.map(d => {
+    const u = d.data();
+    return `<tr>
+      <td><strong>${u.name}</strong></td>
+      <td>${u.email}</td>
+      <td><span class="badge ${u.role==='admin'?'badge-brand':'badge-gray'}">${u.role==='admin'?'Admin':'Usuário'}</span></td>
+      <td>${u.email !== ADMIN_EMAIL ? `<button class="btn btn-danger btn-sm" onclick="updateUserStatus('${d.id}','rejected')">Revogar</button>` : '<span class="text-muted text-sm">Admin geral</span>'}</td>
+    </tr>`;
+  }).join('') || '<tr><td colspan="4" class="text-muted" style="text-align:center;padding:20px;">Nenhum usuário.</td></tr>';
+}
+
+async function updateUserStatus(uid, status) {
+  await db.collection(USERS_COL).doc(uid).update({ status, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
+  loadUsers(); loadPendingCount();
+}
+
+// ─────────────────────────────────────────────
+// 🚛  FRETEIROS
+// ─────────────────────────────────────────────
+async function loadFreteirosCache() {
+  freteirosCache = {};
+  const snap = await db.collection(FRETEIROS_COL).get();
+  snap.docs.forEach(d => { freteirosCache[d.id] = { id: d.id, ...d.data() }; });
+}
+
+function populateFreteirosSelects() {
+  const ativos = Object.values(freteirosCache).filter(f => f.status === 'ativo');
+  ['nf-freteiro','filter-freteiro','fin-freteiro'].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const current = el.value;
+    const isFilter = id.startsWith('filter') || id.startsWith('fin');
+    el.innerHTML = isFilter ? '<option value="">Todos</option>' : '<option value="">Selecione...</option>';
+    ativos.forEach(f => {
+      const o = document.createElement('option');
+      o.value = f.id; o.textContent = f.nome;
+      el.appendChild(o);
+    });
+    if (current) el.value = current;
+  });
+}
+
+async function loadFreteiros() {
+  const tbody = document.getElementById('freteiros-tbody');
+  tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:24px;"><div class="loading-state"><div class="spinner spinner-dark"></div></div></td></tr>';
+
+  await loadFreteirosCache();
+  const freteiros = Object.values(freteirosCache).sort((a,b) => a.nome.localeCompare(b.nome));
+
+  if (freteiros.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="8"><div class="empty-state"><div class="empty-icon">🚛</div><div class="empty-title">Nenhum freteiro cadastrado</div></div></td></tr>';
+    return;
+  }
+
+  // Calcula totais por freteiro
+  const fretesSnap = await db.collection(FRETES_COL).get();
+  const totais = {};
+  fretesSnap.docs.forEach(d => {
+    const f = d.data();
+    if (!totais[f.freteiro_id]) totais[f.freteiro_id] = { count: 0, pago: 0 };
+    totais[f.freteiro_id].count++;
+    totais[f.freteiro_id].pago += parseFloat(f.valor_pago) || 0;
+  });
+
+  tbody.innerHTML = freteiros.map(f => {
+    const t = totais[f.id] || { count: 0, pago: 0 };
+    return `<tr>
+      <td><strong>${f.nome}</strong></td>
+      <td class="text-muted">${f.cpf || '—'}</td>
+      <td>${f.telefone || '—'}</td>
+      <td>
+        ${f.pix_chave ? `<span class="pix-badge">⚡ ${f.pix_tipo?.toUpperCase()||'PIX'}: ${f.pix_chave}</span>` : '<span class="text-muted">—</span>'}
+      </td>
+      <td style="text-align:center;">${t.count}</td>
+      <td style="font-family:'JetBrains Mono';font-size:12px;font-weight:600;color:var(--ok);">R$ ${t.pago.toFixed(2)}</td>
+      <td><span class="badge ${f.status==='ativo'?'badge-ok':'badge-gray'}">${f.status==='ativo'?'Ativo':'Inativo'}</span></td>
+      <td style="display:flex;gap:6px;">
+        <button class="btn btn-secondary btn-xs" onclick="showFreteiro('${f.id}')">Ver</button>
+        <button class="btn btn-outline btn-xs" onclick="editFreteiro('${f.id}')">Editar</button>
+      </td>
+    </tr>`;
+  }).join('');
+
+  populateFreteirosSelects();
+}
+
+function openModalFreteiro() {
+  document.getElementById('mf-id').value = '';
+  document.getElementById('modal-freteiro-title').textContent = 'Novo Freteiro';
+  ['mf-nome','mf-cpf','mf-telefone','mf-pix-chave','mf-obs'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('mf-pix-tipo').value = 'cpf';
+  document.getElementById('mf-status').value   = 'ativo';
+  openModal('modal-freteiro');
+}
+
+function editFreteiro(id) {
+  const f = freteirosCache[id];
+  if (!f) return;
+  document.getElementById('mf-id').value        = id;
+  document.getElementById('modal-freteiro-title').textContent = 'Editar Freteiro';
+  document.getElementById('mf-nome').value      = f.nome || '';
+  document.getElementById('mf-cpf').value       = f.cpf || '';
+  document.getElementById('mf-telefone').value  = f.telefone || '';
+  document.getElementById('mf-pix-tipo').value  = f.pix_tipo || 'cpf';
+  document.getElementById('mf-pix-chave').value = f.pix_chave || '';
+  document.getElementById('mf-status').value    = f.status || 'ativo';
+  document.getElementById('mf-obs').value       = f.obs || '';
+  openModal('modal-freteiro');
+}
+
+async function salvarFreteiro() {
+  const id       = document.getElementById('mf-id').value;
+  const nome     = v('mf-nome');
+  const cpf      = v('mf-cpf');
+  const telefone = v('mf-telefone');
+
+  if (!nome) { showToast('Nome é obrigatório!'); return; }
+  if (!cpf)  { showToast('CPF é obrigatório!'); return; }
+  if (!telefone) { showToast('Telefone é obrigatório!'); return; }
+
+  setBtnLoading('btn-salvar-freteiro', true);
+
+  const data = {
+    nome, cpf, telefone,
+    pix_tipo:  v('mf-pix-tipo'),
+    pix_chave: v('mf-pix-chave'),
+    status:    v('mf-status'),
+    obs:       v('mf-obs'),
+    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+  };
+
+  try {
+    if (id) {
+      await db.collection(FRETEIROS_COL).doc(id).update(data);
+      showToast('✅ Freteiro atualizado!');
+    } else {
+      data.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+      data.createdBy = currentUserData.name;
+      await db.collection(FRETEIROS_COL).add(data);
+      showToast('✅ Freteiro cadastrado!');
+    }
+    closeModal('modal-freteiro');
+    await loadFreteiros();
+  } catch(e) {
+    showToast('Erro: ' + e.message);
+  }
+  setBtnLoading('btn-salvar-freteiro', false);
+}
+
+async function showFreteiro(id) {
+  const f = freteirosCache[id];
+  if (!f) return;
+  document.getElementById('modal-fd-title').textContent = f.nome;
+
+  // Carrega fretes deste freteiro
+  const snap = await db.collection(FRETES_COL).where('freteiro_id','==',id).orderBy('data','desc').get();
+  const fretes = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+  let totalPago = 0, totalValor = 0;
+  fretes.forEach(f => {
+    totalValor += parseFloat(f.valor) || 0;
+    totalPago  += parseFloat(f.valor_pago) || 0;
+  });
+
+  const fretesHTML = fretes.length === 0
+    ? '<div class="empty-state" style="padding:24px;"><div class="empty-icon">📋</div><div class="empty-title">Nenhum frete registrado</div></div>'
+    : fretes.map(fr => `
+      <div class="timeline-item">
+        <div class="timeline-dot" style="background:${statusColor(fr.status)};"></div>
+        <div class="timeline-content">
+          <div class="timeline-title">${fr.code} — ${fr.origem} → ${fr.destino}</div>
+          <div class="timeline-sub">${formatDate(fr.createdAt)} · R$ ${parseFloat(fr.valor).toFixed(2)} · ${statusLabel(fr.status)}</div>
+        </div>
+      </div>`).join('');
+
+  document.getElementById('modal-fd-body').innerHTML = `
+    <div class="grid-2 mb-16">
+      <div class="stat-card ok"><div class="stat-label">Total de Fretes</div><div class="stat-value">${fretes.length}</div></div>
+      <div class="stat-card purple"><div class="stat-label">Total Pago</div><div class="stat-value money">R$ ${totalPago.toFixed(2)}</div></div>
+    </div>
+    <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px;">
+      ${f.cpf ? `<span class="badge badge-gray">CPF: ${f.cpf}</span>` : ''}
+      ${f.telefone ? `<span class="badge badge-gray">📞 ${f.telefone}</span>` : ''}
+      ${f.pix_chave ? `<span class="pix-badge">⚡ ${f.pix_tipo?.toUpperCase()||'PIX'}: ${f.pix_chave}</span>` : ''}
+      <span class="badge ${f.status==='ativo'?'badge-ok':'badge-gray'}">${f.status==='ativo'?'Ativo':'Inativo'}</span>
+    </div>
+    ${f.obs ? `<div class="info-box mb-16">${f.obs}</div>` : ''}
+    <div class="card-header-title" style="margin-bottom:12px;">Histórico de Fretes</div>
+    <div class="timeline">${fretesHTML}</div>`;
+
+  openModal('modal-freteiro-detail');
+}
+
+// ─────────────────────────────────────────────
+// 📦  FRETES
+// ─────────────────────────────────────────────
+document.getElementById('nf-status-pag').addEventListener('change', function() {
+  const show = this.value === 'parcial' || this.value === 'pago';
+  document.getElementById('nf-valor-pago-group').style.display = show ? 'block' : 'none';
+  if (this.value === 'pago') {
+    document.getElementById('nf-valor-pago').value = document.getElementById('nf-valor').value;
+  }
+});
+
+document.getElementById('nf-valor').addEventListener('input', function() {
+  if (document.getElementById('nf-status-pag').value === 'pago') {
+    document.getElementById('nf-valor-pago').value = this.value;
+  }
+});
+
+async function salvarFrete() {
+  const freteiro_id = v('nf-freteiro');
+  const data        = v('nf-data');
+  const origem      = v('nf-origem');
+  const destino     = v('nf-destino');
+  const motivo      = v('nf-motivo');
+  const valor       = parseFloat(document.getElementById('nf-valor').value) || 0;
+
+  if (!freteiro_id) { showToast('Selecione o freteiro!'); return; }
+  if (!data)        { showToast('Informe a data!'); return; }
+  if (!origem)      { showToast('Informe a origem!'); return; }
+  if (!destino)     { showToast('Informe o destino!'); return; }
+  if (!motivo)      { showToast('Informe o motivo!'); return; }
+  if (valor <= 0)   { showToast('Informe o valor!'); return; }
+
+  setBtnLoading('btn-salvar-frete', true);
+
+  const statusPag   = v('nf-status-pag');
+  let valorPago = 0;
+  if (statusPag === 'pago')    valorPago = valor;
+  if (statusPag === 'parcial') valorPago = parseFloat(document.getElementById('nf-valor-pago').value) || 0;
+
+  // Gera código do frete
+  const dateStr = data.replace(/-/g,'');
+  const snap = await db.collection(FRETES_COL).where('dateStr','==',dateStr).get();
+  const seq = String(snap.size + 1).padStart(3,'0');
+  const code = `LF-${dateStr}-${seq}`;
+
+  const freteData = {
+    code, dateStr, data, freteiro_id,
+    freteiro_nome: freteirosCache[freteiro_id]?.nome || '—',
+    origem, destino, motivo,
+    valor, valor_pago: valorPago,
+    status: 'solicitado',
+    status_pag: statusPag,
+    forma_pag: v('nf-forma-pag'),
+    obs: v('nf-obs'),
+    createdBy:   currentUserData.name,
+    createdByUid: currentUser.uid,
+    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+    historico: [{
+      acao: 'Frete criado',
+      status: 'solicitado',
+      status_pag: statusPag,
+      valor_pago: valorPago,
+      por: currentUserData.name,
+      data: new Date().toISOString()
+    }]
+  };
+
+  try {
+    await db.collection(FRETES_COL).add(freteData);
+    clearNovoFrete();
+    showToast(`✅ Frete ${code} registrado!`);
+    if (currentUserData.role === 'admin') { goPage('all-fretes'); }
+    else { goPage('meus-fretes'); }
+  } catch(e) {
+    showToast('Erro: ' + e.message);
+    console.error(e);
+  }
+  setBtnLoading('btn-salvar-frete', false);
+}
+
+function clearNovoFrete() {
+  ['nf-freteiro','nf-origem','nf-destino','nf-motivo','nf-obs'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('nf-valor').value = '';
+  document.getElementById('nf-valor-pago').value = '';
+  document.getElementById('nf-data').value = new Date().toISOString().slice(0,10);
+  document.getElementById('nf-status-pag').value = 'pendente';
+  document.getElementById('nf-forma-pag').value = 'pix';
+  document.getElementById('nf-valor-pago-group').style.display = 'none';
+}
+
+async function loadAllFretes() {
+  const tbody = document.getElementById('all-fretes-tbody');
+  tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;padding:24px;"><div class="loading-state"><div class="spinner spinner-dark"></div></div></td></tr>';
+
+  let query = db.collection(FRETES_COL).orderBy('createdAt','desc');
+  const filterFreteiro = v('filter-freteiro');
+  const filterStatus   = v('filter-status');
+  const filterPag      = v('filter-pag');
+  const filterMes      = v('filter-mes');
+
+  if (filterFreteiro) query = query.where('freteiro_id','==',filterFreteiro);
+
+  let docs = (await query.get()).docs;
+  if (filterStatus) docs = docs.filter(d => d.data().status === filterStatus);
+  if (filterPag)    docs = docs.filter(d => d.data().status_pag === filterPag);
+  if (filterMes)    docs = docs.filter(d => d.data().data?.startsWith(filterMes));
+
+  if (docs.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="10" class="text-muted" style="text-align:center;padding:32px;">Nenhum frete encontrado.</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = docs.map(d => {
+    const f = d.data();
+    const restante = (parseFloat(f.valor)||0) - (parseFloat(f.valor_pago)||0);
+    return `<tr>
+      <td><span class="frete-code">${f.code}</span></td>
+      <td class="text-muted text-sm">${f.data || '—'}</td>
+      <td><strong>${f.freteiro_nome}</strong></td>
+      <td>
+        <div class="rota-box" style="padding:4px 8px;font-size:12px;">
+          <span style="font-weight:600;">${f.origem}</span>
+          <span style="color:var(--muted);margin:0 4px;">→</span>
+          <span style="font-weight:600;">${f.destino}</span>
+        </div>
+      </td>
+      <td style="font-size:12px;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${f.motivo}">${f.motivo}</td>
+      <td style="font-family:'JetBrains Mono';font-size:12px;font-weight:600;">R$ ${parseFloat(f.valor).toFixed(2)}</td>
+      <td style="font-family:'JetBrains Mono';font-size:12px;font-weight:600;color:var(--ok);">R$ ${parseFloat(f.valor_pago||0).toFixed(2)}</td>
+      <td><span class="badge ${statusClass(f.status)}">${statusLabel(f.status)}</span></td>
+      <td><span class="badge ${pagClass(f.status_pag)}">${pagLabel(f.status_pag)}</span></td>
+      <td style="display:flex;gap:5px;">
+        <button class="btn btn-secondary btn-xs" onclick="showFreteDetail('${d.id}')">Ver</button>
+        <button class="btn btn-outline btn-xs" onclick="openUpdateStatus('${d.id}')">Atualizar</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+async function loadMeusFretes() {
+  const tbody = document.getElementById('meus-fretes-tbody');
+  tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:24px;"><div class="loading-state"><div class="spinner spinner-dark"></div></div></td></tr>';
+
+  const snap = await db.collection(FRETES_COL)
+    .where('createdByUid','==',currentUser.uid)
+    .orderBy('createdAt','desc').get();
+
+  if (snap.empty) {
+    tbody.innerHTML = '<tr><td colspan="8"><div class="empty-state"><div class="empty-icon">📋</div><div class="empty-title">Nenhum frete registrado ainda</div></div></td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = snap.docs.map(d => {
+    const f = d.data();
+    return `<tr>
+      <td><span class="frete-code">${f.code}</span></td>
+      <td class="text-muted text-sm">${f.data || '—'}</td>
+      <td><strong>${f.freteiro_nome}</strong></td>
+      <td>
+        <div class="rota-box" style="padding:4px 8px;font-size:12px;">
+          <span style="font-weight:600;">${f.origem}</span>
+          <span style="color:var(--muted);margin:0 4px;">→</span>
+          <span style="font-weight:600;">${f.destino}</span>
+        </div>
+      </td>
+      <td style="font-family:'JetBrains Mono';font-size:12px;font-weight:600;">R$ ${parseFloat(f.valor).toFixed(2)}</td>
+      <td><span class="badge ${statusClass(f.status)}">${statusLabel(f.status)}</span></td>
+      <td><span class="badge ${pagClass(f.status_pag)}">${pagLabel(f.status_pag)}</span></td>
+      <td style="display:flex;gap:5px;">
+        <button class="btn btn-secondary btn-xs" onclick="showFreteDetail('${d.id}')">Ver</button>
+        <button class="btn btn-outline btn-xs" onclick="openUpdateStatus('${d.id}')">Atualizar</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+async function showFreteDetail(docId) {
+  const snap = await db.collection(FRETES_COL).doc(docId).get();
+  const f = snap.data();
+  freteDetalhe = { id: docId, ...f };
+
+  document.getElementById('modal-frete-code').textContent = f.code;
+  document.getElementById('modal-frete-sub').textContent = `${f.data} · ${f.freteiro_nome}`;
+
+  const restante = (parseFloat(f.valor)||0) - (parseFloat(f.valor_pago)||0);
+  const histHTML = (f.historico || []).slice().reverse().map(h => `
+    <div class="timeline-item">
+      <div class="timeline-dot" style="background:${statusColor(h.status)};"></div>
+      <div class="timeline-content">
+        <div class="timeline-title">${h.acao}</div>
+        <div class="timeline-sub">${h.por} · ${new Date(h.data).toLocaleString('pt-BR')}</div>
+      </div>
+    </div>`).join('');
+
+  const fr = freteirosCache[f.freteiro_id];
+  const pixHTML = fr?.pix_chave
+    ? `<span class="pix-badge">⚡ ${fr.pix_tipo?.toUpperCase()||'PIX'}: ${fr.pix_chave}</span>`
+    : '<span class="text-muted text-sm">Chave Pix não cadastrada</span>';
+
+  document.getElementById('modal-frete-body').innerHTML = `
+    <div class="grid-2" style="margin-bottom:16px;">
+      <div class="stat-card ok"><div class="stat-label">Valor Total</div><div class="stat-value money">R$ ${parseFloat(f.valor).toFixed(2)}</div></div>
+      <div class="stat-card ${f.status_pag==='pago'?'ok':f.status_pag==='parcial'?'accent':'danger'}">
+        <div class="stat-label">Valor Pago</div>
+        <div class="stat-value money">R$ ${parseFloat(f.valor_pago||0).toFixed(2)}</div>
+        ${restante > 0 ? `<div class="stat-desc">Restante: R$ ${restante.toFixed(2)}</div>` : ''}
+      </div>
+    </div>
+    <div style="margin-bottom:16px;">
+      <div class="rota-box">
+        <div class="rota-point"><div class="rota-dot" style="background:var(--ok);"></div>${f.origem}</div>
+        <div class="rota-line"></div>
+        <div class="rota-arrow">→</div>
+        <div class="rota-line"></div>
+        <div class="rota-point"><div class="rota-dot" style="background:var(--brand);"></div>${f.destino}</div>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;">
+      <span class="badge ${statusClass(f.status)}">${statusLabel(f.status)}</span>
+      <span class="badge ${pagClass(f.status_pag)}">${pagLabel(f.status_pag)}</span>
+      <span class="badge badge-gray">💳 ${formaPagLabel(f.forma_pag)}</span>
+      <span class="badge badge-gray">👤 ${f.createdBy}</span>
+    </div>
+    <div class="info-box" style="margin-bottom:16px;">
+      <strong>Motivo:</strong> ${f.motivo}
+    </div>
+    ${f.obs ? `<div class="warn-box" style="margin-bottom:16px;"><strong>Obs:</strong> ${f.obs}</div>` : ''}
+    <div style="margin-bottom:16px;">
+      <div class="card-header-title" style="margin-bottom:4px;">Freteiro</div>
+      <div style="display:flex;align-items:center;gap:10px;padding:10px 0;">
+        <div style="flex:1;">
+          <div style="font-weight:700;font-size:14px;">${fr?.nome || f.freteiro_nome}</div>
+          ${fr?.telefone ? `<div class="text-muted text-sm">📞 ${fr.telefone}</div>` : ''}
+        </div>
+        ${pixHTML}
+      </div>
+    </div>
+    <div class="card-header-title" style="margin-bottom:8px;">Histórico</div>
+    <div class="timeline">${histHTML || '<div class="text-muted text-sm">Sem histórico.</div>'}</div>`;
+
+  openModal('modal-frete-detail');
+}
+
+function openUpdateStatus(docId) {
+  document.getElementById('us-frete-id').value = docId;
+  document.getElementById('us-status').value   = 'solicitado';
+  document.getElementById('us-pag-status').value = 'pendente';
+  document.getElementById('us-valor-pago').value = '';
+  document.getElementById('us-obs').value        = '';
+  document.getElementById('us-valor-pago-group').style.display = 'none';
+  // Carrega valores atuais
+  db.collection(FRETES_COL).doc(docId).get().then(snap => {
+    if (!snap.exists) return;
+    const f = snap.data();
+    document.getElementById('us-status').value     = f.status || 'solicitado';
+    document.getElementById('us-pag-status').value = f.status_pag || 'pendente';
+    document.getElementById('us-forma-pag').value  = f.forma_pag || 'pix';
+    document.getElementById('us-valor-pago').value = f.valor_pago || '';
+    toggleValorPagoModal();
+  });
+  openModal('modal-update-status');
+}
+
+function toggleValorPagoModal() {
+  const s = document.getElementById('us-pag-status').value;
+  document.getElementById('us-valor-pago-group').style.display = (s==='parcial'||s==='pago') ? 'block' : 'none';
+}
+
+async function salvarUpdateStatus() {
+  const docId      = document.getElementById('us-frete-id').value;
+  const status     = v('us-status');
+  const statusPag  = v('us-pag-status');
+  const formaPag   = v('us-forma-pag');
+  const obs        = v('us-obs');
+
+  setBtnLoading('btn-save-status', true);
+
+  const snap = await db.collection(FRETES_COL).doc(docId).get();
+  const f = snap.data();
+
+  let valorPago = parseFloat(f.valor_pago) || 0;
+  if (statusPag === 'pago')    valorPago = parseFloat(f.valor) || 0;
+  if (statusPag === 'parcial') valorPago = parseFloat(document.getElementById('us-valor-pago').value) || valorPago;
+  if (statusPag === 'pendente') valorPago = 0;
+
+  const histEntry = {
+    acao:       `Status: ${statusLabel(status)} · Pgto: ${pagLabel(statusPag)}`,
+    status, status_pag: statusPag, valor_pago: valorPago,
+    por:        currentUserData.name,
+    data:       new Date().toISOString(),
+    obs
+  };
+
+  try {
+    await db.collection(FRETES_COL).doc(docId).update({
+      status, status_pag: statusPag, valor_pago: valorPago, forma_pag: formaPag,
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+      historico: firebase.firestore.FieldValue.arrayUnion(histEntry)
+    });
+    showToast('✅ Frete atualizado!');
+    closeModal('modal-update-status');
+    loadAllFretes();
+    loadDashboard();
+  } catch(e) {
+    showToast('Erro: ' + e.message);
+  }
+  setBtnLoading('btn-save-status', false);
+}
+
+// ─────────────────────────────────────────────
+// 📊  DASHBOARD
+// ─────────────────────────────────────────────
+async function loadDashboard() {
+  const now = new Date();
+  const mesAtual = now.toISOString().slice(0,7);
+  const snap = await db.collection(FRETES_COL).orderBy('createdAt','desc').get();
+  const todos = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  const doMes = todos.filter(f => f.data?.startsWith(mesAtual));
+
+  const andamento = todos.filter(f => ['solicitado','separado','transporte'].includes(f.status)).length;
+  const entregues = doMes.filter(f => f.status === 'entregue').length;
+  const pendentes = todos.filter(f => f.status_pag !== 'pago' && f.status !== 'cancelado').length;
+  const totalPago = doMes.reduce((a,f) => a + (parseFloat(f.valor_pago)||0), 0);
+  const totalAPagar = todos
+    .filter(f => f.status_pag !== 'pago' && f.status !== 'cancelado')
+    .reduce((a,f) => a + ((parseFloat(f.valor)||0)-(parseFloat(f.valor_pago)||0)), 0);
+
+  document.getElementById('s-total').textContent     = doMes.length;
+  document.getElementById('s-andamento').textContent = andamento;
+  document.getElementById('s-entregues').textContent = entregues;
+  document.getElementById('s-pendentes').textContent = pendentes;
+  document.getElementById('s-pago').textContent      = `R$ ${totalPago.toFixed(2)}`;
+  document.getElementById('s-apagar').textContent    = `R$ ${totalAPagar.toFixed(2)}`;
+
+  // Últimos 5 fretes
+  const tbody = document.getElementById('dashboard-fretes-tbody');
+  const ultimos = todos.slice(0, 8);
+  if (ultimos.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="6" class="text-muted" style="text-align:center;padding:24px;">Nenhum frete registrado ainda.</td></tr>';
+  } else {
+    tbody.innerHTML = ultimos.map(f => `<tr>
+      <td><span class="frete-code">${f.code}</span></td>
+      <td><strong>${f.freteiro_nome}</strong></td>
+      <td><span style="font-size:12px;">${f.origem} → ${f.destino}</span></td>
+      <td style="font-family:'JetBrains Mono';font-size:12px;font-weight:600;">R$ ${parseFloat(f.valor).toFixed(2)}</td>
+      <td><span class="badge ${statusClass(f.status)}">${statusLabel(f.status)}</span></td>
+      <td><span class="badge ${pagClass(f.status_pag)}">${pagLabel(f.status_pag)}</span></td>
+    </tr>`).join('');
+  }
+
+  // Charts
+  buildCharts(todos);
+}
+
+function buildCharts(fretes) {
+  // Gastos últimos 6 meses
+  const meses = [];
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date(); d.setMonth(d.getMonth() - i);
+    meses.push(d.toISOString().slice(0,7));
+  }
+  const gastosPorMes = meses.map(m => fretes.filter(f => f.data?.startsWith(m)).reduce((a,f) => a + (parseFloat(f.valor_pago)||0), 0));
+
+  const ctx1 = document.getElementById('chart-gastos');
+  if (chartGastos) chartGastos.destroy();
+  chartGastos = new Chart(ctx1, {
+    type: 'bar',
+    data: {
+      labels: meses.map(m => { const [y,mo] = m.split('-'); return `${mo}/${y.slice(2)}`; }),
+      datasets: [{ label: 'Total Pago (R$)', data: gastosPorMes, backgroundColor: '#1B3A6B', borderRadius: 6 }]
+    },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
+  });
+
+  // Status
+  const statusCount = {
+    'Solicitado': fretes.filter(f => f.status==='solicitado').length,
+    'Separado':   fretes.filter(f => f.status==='separado').length,
+    'Transporte': fretes.filter(f => f.status==='transporte').length,
+    'Entregue':   fretes.filter(f => f.status==='entregue').length,
+    'Cancelado':  fretes.filter(f => f.status==='cancelado').length,
+  };
+  const ctx2 = document.getElementById('chart-status');
+  if (chartStatus) chartStatus.destroy();
+  chartStatus = new Chart(ctx2, {
+    type: 'doughnut',
+    data: {
+      labels: Object.keys(statusCount),
+      datasets: [{ data: Object.values(statusCount), backgroundColor: ['#0284C7','#7C3AED','#D97706','#059669','#DC2626'], borderWidth: 0 }]
+    },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right' } } }
+  });
+}
+
+// ─────────────────────────────────────────────
+// 💰  FINANCEIRO
+// ─────────────────────────────────────────────
+async function loadFinanceiro() {
+  const tbody    = document.getElementById('fin-tbody');
+  const mes      = v('fin-mes');
+  const freteiro = v('fin-freteiro');
+
+  tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;padding:24px;"><div class="loading-state"><div class="spinner spinner-dark"></div></div></td></tr>';
+
+  let query = db.collection(FRETES_COL).orderBy('data','desc');
+  if (freteiro) query = query.where('freteiro_id','==',freteiro);
+
+  let docs = (await query.get()).docs;
+  if (mes) docs = docs.filter(d => d.data().data?.startsWith(mes));
+  docs = docs.filter(d => d.data().status !== 'cancelado');
+
+  const fretes = docs.map(d => ({ id: d.id, ...d.data() }));
+
+  let totalPago = 0, totalPendente = 0, totalParcialRestante = 0, totalGeral = 0;
+  fretes.forEach(f => {
+    const val = parseFloat(f.valor)||0;
+    const pago = parseFloat(f.valor_pago)||0;
+    totalGeral += val;
+    totalPago  += pago;
+    if (f.status_pag === 'pendente') totalPendente += val;
+    if (f.status_pag === 'parcial')  totalParcialRestante += (val - pago);
+  });
+
+  document.getElementById('fin-pago').textContent     = `R$ ${totalPago.toFixed(2)}`;
+  document.getElementById('fin-pendente').textContent = `R$ ${totalPendente.toFixed(2)}`;
+  document.getElementById('fin-parcial').textContent  = `R$ ${totalParcialRestante.toFixed(2)}`;
+  document.getElementById('fin-total').textContent    = `R$ ${totalGeral.toFixed(2)}`;
+
+  window._finFretes = fretes;
+
+  if (fretes.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="10" class="text-muted" style="text-align:center;padding:32px;">Nenhum frete encontrado.</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = fretes.map(f => {
+    const val = parseFloat(f.valor)||0;
+    const pago = parseFloat(f.valor_pago)||0;
+    const restante = val - pago;
+    return `<tr>
+      <td><span class="frete-code">${f.code}</span></td>
+      <td class="text-muted text-sm">${f.data||'—'}</td>
+      <td><strong>${f.freteiro_nome}</strong></td>
+      <td style="font-size:12px;">${f.origem} → ${f.destino}</td>
+      <td style="font-family:'JetBrains Mono';font-size:12px;font-weight:600;">R$ ${val.toFixed(2)}</td>
+      <td style="font-family:'JetBrains Mono';font-size:12px;font-weight:600;color:var(--ok);">R$ ${pago.toFixed(2)}</td>
+      <td style="font-family:'JetBrains Mono';font-size:12px;font-weight:600;color:${restante>0?'var(--danger)':'var(--ok)'};">R$ ${restante.toFixed(2)}</td>
+      <td>${formaPagLabel(f.forma_pag)}</td>
+      <td><span class="badge ${pagClass(f.status_pag)}">${pagLabel(f.status_pag)}</span></td>
+      <td style="display:flex;gap:5px;">
+        <button class="btn btn-secondary btn-xs" onclick="showFreteDetail('${f.id}')">Ver</button>
+        <button class="btn btn-outline btn-xs" onclick="openUpdateStatus('${f.id}')">Pagar</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function exportFinanceiroCSV() {
+  const fretes = window._finFretes;
+  if (!fretes?.length) { showToast('Carregue o financeiro primeiro!'); return; }
+  const header = 'Código,Data,Freteiro,Origem,Destino,Valor Total,Valor Pago,Restante,Forma Pgto,Status\n';
+  const rows = fretes.map(f => {
+    const val = parseFloat(f.valor)||0;
+    const pago = parseFloat(f.valor_pago)||0;
+    return `"${f.code}","${f.data}","${f.freteiro_nome}","${f.origem}","${f.destino}",${val.toFixed(2)},${pago.toFixed(2)},${(val-pago).toFixed(2)},"${formaPagLabel(f.forma_pag)}","${pagLabel(f.status_pag)}"`;
+  }).join('\n');
+  const blob = new Blob([header+rows], { type:'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.download = `LF-Financeiro-${new Date().toISOString().slice(0,10)}.csv`;
+  a.click(); URL.revokeObjectURL(url);
+}
+
+function gerarRelatorioFinanceiroPDF() {
+  const fretes = window._finFretes;
+  if (!fretes?.length) { showToast('Carregue o financeiro primeiro!'); return; }
+
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+  const blue = [27,58,107], gray = [107,114,128];
+  const dateStr = new Date().toLocaleDateString('pt-BR');
+
+  doc.setFillColor(...blue);
+  doc.rect(0,0,210,30,'F');
+  doc.setTextColor(255,255,255);
+  doc.setFontSize(14); doc.setFont('helvetica','bold');
+  doc.text('Lumen Fretes — Relatório Financeiro', 14, 13);
+  doc.setFontSize(9); doc.setFont('helvetica','normal');
+  doc.text(`Gerado em: ${dateStr}`, 14, 23);
+
+  let y = 42;
+  doc.setTextColor(0,0,0);
+  doc.setFontSize(8); doc.setFont('helvetica','bold');
+  doc.setFillColor(230,235,245);
+  doc.rect(10,y-5,190,9,'F');
+  doc.setTextColor(...gray);
+  ['CÓDIGO','DATA','FRETEIRO','ORIGEM → DESTINO','VALOR','PAGO','RESTANTE','STATUS'].forEach((h,i) => {
+    const xs = [12,32,50,80,122,140,158,174];
+    doc.text(h, xs[i], y);
+  });
+  y += 7;
+
+  fretes.forEach((f, idx) => {
+    if (y > 270) { doc.addPage(); y = 20; }
+    if (idx%2===0) { doc.setFillColor(248,250,252); doc.rect(10,y-4,190,8,'F'); }
+    const val = parseFloat(f.valor)||0;
+    const pago = parseFloat(f.valor_pago)||0;
+    const restante = val - pago;
+    doc.setTextColor(0,0,0); doc.setFont('helvetica','normal'); doc.setFontSize(7.5);
+    doc.text(f.code, 12, y);
+    doc.text(f.data||'', 32, y);
+    doc.text(f.freteiro_nome?.slice(0,14)||'', 50, y);
+    doc.text(`${f.origem?.slice(0,10)} → ${f.destino?.slice(0,8)}`, 80, y);
+    doc.setFont('helvetica','bold');
+    doc.text(`R$${val.toFixed(2)}`, 122, y);
+    doc.setTextColor(5,150,105);
+    doc.text(`R$${pago.toFixed(2)}`, 140, y);
+    doc.setTextColor(restante>0?220:5, restante>0?38:150, restante>0?38:105);
+    doc.text(`R$${restante.toFixed(2)}`, 158, y);
+    doc.setTextColor(0,0,0); doc.setFont('helvetica','normal');
+    doc.text(pagLabel(f.status_pag), 174, y);
+    y += 8;
+  });
+
+  doc.setTextColor(...gray); doc.setFontSize(7);
+  doc.text('Sistema Lumen Fretes — lumenserfeliz.org', 14, 290);
+  doc.save(`LF-Relatorio-${new Date().toISOString().slice(0,10)}.pdf`);
+}
+
+function gerarPDFFrete() {
+  if (!freteDetalhe) return;
+  const f = freteDetalhe;
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+  const blue = [27,58,107], gray = [107,114,128];
+
+  doc.setFillColor(...blue);
+  doc.rect(0,0,210,34,'F');
+  doc.setTextColor(255,255,255);
+  doc.setFontSize(15); doc.setFont('helvetica','bold');
+  doc.text('Lumen Fretes — Comprovante de Frete', 14, 14);
+  doc.setFontSize(9); doc.setFont('helvetica','normal');
+  doc.text(`Código: ${f.code}   |   Data: ${f.data}   |   Freteiro: ${f.freteiro_nome}`, 14, 24);
+
+  let y = 46;
+  const addField = (label, val) => {
+    if (y > 265) { doc.addPage(); y = 20; }
+    doc.setTextColor(...gray); doc.setFontSize(8); doc.setFont('helvetica','bold');
+    doc.text(label, 14, y);
+    doc.setTextColor(0,0,0); doc.setFont('helvetica','normal');
+    doc.text(String(val), 70, y);
+    y += 8;
+  };
+
+  addField('Origem:', f.origem);
+  addField('Destino:', f.destino);
+  addField('Motivo:', f.motivo?.slice(0,60)||'—');
+  addField('Valor Combinado:', `R$ ${parseFloat(f.valor).toFixed(2)}`);
+  addField('Valor Pago:', `R$ ${parseFloat(f.valor_pago||0).toFixed(2)}`);
+  addField('Restante:', `R$ ${(parseFloat(f.valor)-parseFloat(f.valor_pago||0)).toFixed(2)}`);
+  addField('Forma de Pagamento:', formaPagLabel(f.forma_pag));
+  addField('Status do Frete:', statusLabel(f.status));
+  addField('Status do Pagamento:', pagLabel(f.status_pag));
+  addField('Registrado por:', f.createdBy);
+
+  const fr = freteirosCache[f.freteiro_id];
+  if (fr?.pix_chave) { addField('Chave Pix:', `${fr.pix_tipo?.toUpperCase()}: ${fr.pix_chave}`); }
+
+  doc.setTextColor(...gray); doc.setFontSize(7);
+  doc.text('Sistema Lumen Fretes — lumenserfeliz.org', 14, 290);
+  doc.save(`LF-Comprovante-${f.code}.pdf`);
+}
+
+// ─────────────────────────────────────────────
+// 🛠️  UTILITIES
+// ─────────────────────────────────────────────
+function statusLabel(s) {
+  const m = { solicitado:'📋 Solicitado', separado:'📦 Separado', transporte:'🚛 Em Transporte', entregue:'✅ Entregue', cancelado:'❌ Cancelado' };
+  return m[s] || s;
+}
+function statusClass(s) {
+  const m = { solicitado:'status-solicitado', separado:'status-separado', transporte:'status-transporte', entregue:'status-entregue', cancelado:'status-cancelado' };
+  return m[s] || 'badge-gray';
+}
+function statusColor(s) {
+  const m = { solicitado:'#0284C7', separado:'#7C3AED', transporte:'#D97706', entregue:'#059669', cancelado:'#DC2626' };
+  return m[s] || '#6B7280';
+}
+function pagLabel(s) {
+  const m = { pendente:'⏳ Pendente', parcial:'🔶 Parcial', pago:'✅ Pago' };
+  return m[s] || s;
+}
+function pagClass(s) {
+  const m = { pendente:'pag-pendente', parcial:'pag-parcial', pago:'pag-pago' };
+  return m[s] || 'badge-gray';
+}
+function formaPagLabel(s) {
+  const m = { pix:'⚡ Pix', dinheiro:'💵 Dinheiro', transferencia:'🏦 Transferência' };
+  return m[s] || s;
+}
+function formatDate(ts) {
+  if (!ts) return '—';
+  const d = ts.toDate ? ts.toDate() : new Date(ts);
+  return d.toLocaleDateString('pt-BR', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' });
+}
+function v(id) { return document.getElementById(id)?.value?.trim() || ''; }
+function showAlert(id, msg, type) {
+  const el = document.getElementById(id);
+  el.textContent = msg; el.className = `alert alert-${type} visible`;
+}
+function hideAlert(id) { document.getElementById(id)?.classList.remove('visible'); }
+function setBtnLoading(id, loading) {
+  const btn = document.getElementById(id);
+  if (!btn) return;
+  if (loading) { btn.disabled=true; btn.dataset.orig=btn.innerHTML; btn.innerHTML='<div class="spinner"></div> Aguarde...'; }
+  else { btn.disabled=false; btn.innerHTML=btn.dataset.orig||btn.innerHTML; }
+}
+function openModal(id)  { document.getElementById(id).classList.remove('hidden'); }
+function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
+function showToast(msg) {
+  const t = document.createElement('div');
+  t.textContent = msg;
+  Object.assign(t.style, { position:'fixed', bottom:'24px', right:'24px', background:'#111827', color:'#fff', padding:'12px 20px', borderRadius:'10px', fontSize:'13px', fontWeight:'600', fontFamily:"'Sora',sans-serif", zIndex:'9999', boxShadow:'0 4px 20px rgba(0,0,0,0.25)', maxWidth:'320px' });
+  document.body.appendChild(t);
+  setTimeout(() => { t.style.opacity='0'; t.style.transition='opacity 0.3s'; setTimeout(() => t.remove(), 400); }, 3200);
+}
+
+document.querySelectorAll('.modal-overlay').forEach(o => {
+  o.addEventListener('click', e => { if (e.target === o) o.classList.add('hidden'); });
+});
+document.getElementById('login-password').addEventListener('keydown', e => {
+  if (e.key === 'Enter') doLogin();
+});
+</script>
+</body>
+</html>
 
