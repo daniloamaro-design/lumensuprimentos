@@ -1,0 +1,182 @@
+// ═══════════════════════════════════════════════════════════════════
+//  LUMEN ESTOQUE — REGRAS DE SEGURANÇA DO FIRESTORE
+//  Arquivo: firestore.rules
+//
+//  COMO APLICAR:
+//  1. Acesse: https://console.firebase.google.com
+//  2. Clique no seu projeto
+//  3. Vá em Firestore Database → Regras (aba "Rules")
+//  4. Apague o conteúdo atual e cole TODO o conteúdo abaixo
+//  5. Clique em "Publicar"
+// ═══════════════════════════════════════════════════════════════════
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── FUNÇÃO AUXILIAR: verifica se o usuário está logado
+    function estaLogado() {
+      return request.auth != null;
+    }
+
+    // ── FUNÇÃO AUXILIAR: busca o perfil do usuário
+    function perfilUsuario() {
+      return get(/databases/$(database)/documents/usuarios_perfis/$(request.auth.uid)).data.perfil;
+    }
+
+    // ── FUNÇÃO AUXILIAR: verifica se é admin
+    function ehAdmin() {
+      return estaLogado() && perfilUsuario() == 'admin';
+    }
+
+    // ── FUNÇÃO AUXILIAR: verifica se é comprador ou admin
+    function ehCompradorOuAdmin() {
+      return estaLogado() && perfilUsuario() in ['admin', 'comprador'];
+    }
+
+    // ── FUNÇÃO AUXILIAR: verifica se pode ver (qualquer logado)
+    function podeVer() {
+      return estaLogado();
+    }
+
+    // ── FUNÇÃO AUXILIAR: verifica se pode escrever (não é viewer)
+    function podeEscrever() {
+      return estaLogado() && perfilUsuario() in ['admin', 'comprador', 'gestor', 'solicitante'];
+    }
+
+    // ──────────────────────────────────────────────
+    // USUÁRIOS — cada um lê/edita apenas o próprio
+    // ──────────────────────────────────────────────
+    match /users/{userId} {
+      allow read: if estaLogado() && (request.auth.uid == userId || ehAdmin());
+      allow write: if estaLogado() && (request.auth.uid == userId || ehAdmin());
+    }
+
+    // ──────────────────────────────────────────────
+    // PERFIS DE USUÁRIO — só admin altera
+    // ──────────────────────────────────────────────
+    match /usuarios_perfis/{userId} {
+      allow read: if estaLogado();
+      allow write: if ehAdmin();
+    }
+
+    // ──────────────────────────────────────────────
+    // AUDIT LOG — qualquer logado cria, só admin lê
+    // ──────────────────────────────────────────────
+    match /audit_log/{logId} {
+      allow create: if estaLogado();
+      allow read:   if ehAdmin();
+      allow update, delete: if false; // NUNCA permite alterar ou apagar logs
+    }
+
+    // ──────────────────────────────────────────────
+    // PEDIDOS (orders) — solicitante cria os próprios
+    // ──────────────────────────────────────────────
+    match /orders/{orderId} {
+      allow read:   if podeVer();
+      allow create: if podeEscrever();
+      allow update: if podeEscrever();
+      allow delete: if ehAdmin();
+    }
+
+    // ──────────────────────────────────────────────
+    // MOVIMENTAÇÕES DE ESTOQUE
+    // ──────────────────────────────────────────────
+    match /movements/{movId} {
+      allow read:   if podeVer();
+      allow create: if podeEscrever();
+      allow update: if ehCompradorOuAdmin();
+      allow delete: if ehAdmin();
+    }
+
+    // ──────────────────────────────────────────────
+    // FINANCEIRO — apenas comprador e admin
+    // ──────────────────────────────────────────────
+    match /compras_financeiro/{docId} {
+      allow read:   if ehCompradorOuAdmin();
+      allow write:  if ehCompradorOuAdmin();
+    }
+
+    // ──────────────────────────────────────────────
+    // FORNECEDORES
+    // ──────────────────────────────────────────────
+    match /suppliers/{supId} {
+      allow read:   if podeVer();
+      allow write:  if ehCompradorOuAdmin();
+    }
+
+    // ──────────────────────────────────────────────
+    // COTAÇÕES
+    // ──────────────────────────────────────────────
+    match /quotations/{quotId} {
+      allow read:   if podeVer();
+      allow create: if podeEscrever();
+      allow update: if ehCompradorOuAdmin();
+      allow delete: if ehCompradorOuAdmin();
+    }
+
+    // ──────────────────────────────────────────────
+    // CONFIGURAÇÕES (casas, categorias, preços)
+    // ──────────────────────────────────────────────
+    match /houses/{houseId} {
+      allow read:   if podeVer();
+      allow write:  if ehCompradorOuAdmin();
+    }
+
+    match /casas_config/{docId} {
+      allow read:   if podeVer();
+      allow write:  if ehAdmin();
+    }
+
+    match /casas_blocos/{docId} {
+      allow read:   if podeVer();
+      allow write:  if ehCompradorOuAdmin();
+    }
+
+    match /casas_tipo_compra/{docId} {
+      allow read:   if podeVer();
+      allow write:  if ehCompradorOuAdmin();
+    }
+
+    match /categorias_config/{docId} {
+      allow read:   if podeVer();
+      allow write:  if ehAdmin();
+    }
+
+    match /produtos_config/{docId} {
+      allow read:   if podeVer();
+      allow write:  if ehCompradorOuAdmin();
+    }
+
+    match /produtos_removidos/{docId} {
+      allow read:   if podeVer();
+      allow write:  if ehCompradorOuAdmin();
+    }
+
+    match /prices/{docId} {
+      allow read:   if podeVer();
+      allow write:  if ehCompradorOuAdmin();
+    }
+
+    match /percapitas/{docId} {
+      allow read:   if podeVer();
+      allow write:  if ehCompradorOuAdmin();
+    }
+
+    // ──────────────────────────────────────────────
+    // TRANSFERÊNCIAS
+    // ──────────────────────────────────────────────
+    match /transferencias/{docId} {
+      allow read:   if podeVer();
+      allow write:  if podeEscrever();
+    }
+
+    // ──────────────────────────────────────────────
+    // DEMAIS COLEÇÕES — acesso logado padrão
+    // ──────────────────────────────────────────────
+    match /{document=**} {
+      allow read:   if podeVer();
+      allow write:  if podeEscrever();
+    }
+  }
+}
