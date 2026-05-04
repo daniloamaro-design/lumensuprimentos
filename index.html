@@ -6217,6 +6217,27 @@ async function sendOrderEmail(orderData, recipient) {
     console.warn('Erro ao enviar e-mail:', e);
     showToast(`⚠️ E-mail não enviado: ${e.message}`);
   }
+}async function sendAlertEmail(subject, body) {
+  try {
+    await emailjs.send(
+      window.EMAILJS_SERVICE_ID,
+      window.EMAILJS_TEMPLATE_ID,
+      {
+        to_email:     window.ADMIN_EMAIL,
+        orderCode:    subject,
+        house:        '—',
+        requester:    'Sistema Automático',
+        date:         new Date().toLocaleDateString('pt-BR'),
+        categories:   '—',
+        summary:      body,
+        observations: 'Verifique o sistema com urgência.',
+        people:       '—',
+        pdfBase64:    ''
+      }
+    );
+  } catch(e) {
+    console.warn('Erro ao enviar alerta:', e);
+  }
 }
 // ─────────────────────────────────────────────
 // 📄  PDF BASE64 (para anexar no email)
