@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tutorial — Lumen Estoque: Melhorias</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', system-ui, sans-serif; background: #F2FAFB; color: #1A2B2C; font-size: 14px; line-height: 1.6; }
+
+  .cover { background: linear-gradient(135deg, #1D7A82 0%, #2B9FA8 60%, #3BB5BF 100%); color: #fff; padding: 60px 48px; min-height: 200px; }
+  .cover h1 { font-size: 32px; font-weight: 800; margin-bottom: 8px; letter-spacing: -0.5px; }
+  .cover p { font-size: 16px; opacity: 0.85; }
+  .cover .badge { display: inline-block; background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3); border-radius: 20px; padding: 4px 14px; font-size: 12px; font-weight: 700; margin-top: 16px; }
+
+  .container { max-width: 860px; margin: 0 auto; padding: 40px 32px 80px; }
+
+  .toc { background: #fff; border-radius: 16px; border: 1px solid #e0eef0; padding: 24px 28px; margin-bottom: 40px; }
+  .toc h2 { font-size: 14px; font-weight: 700; color: #2B9FA8; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 16px; }
+  .toc-item { display: flex; align-items: center; gap: 12px; padding: 8px 0; border-bottom: 1px solid #f0f0f0; font-size: 14px; }
+  .toc-item:last-child { border-bottom: none; }
+  .toc-num { width: 26px; height: 26px; background: #2B9FA8; color: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; flex-shrink: 0; }
+  .toc-num.red { background: #C0392B; }
+  .toc-num.green { background: #1A7A44; }
+  .toc-num.purple { background: #7B3FE4; }
+
+  h2.section { font-size: 22px; font-weight: 800; color: #1A2B2C; margin: 40px 0 16px; padding-bottom: 10px; border-bottom: 2px solid #2B9FA8; display: flex; align-items: center; gap: 10px; }
+  h3 { font-size: 16px; font-weight: 700; color: #1D7A82; margin: 24px 0 10px; }
+
+  .step-card { background: #fff; border-radius: 14px; border: 1px solid #e0eef0; padding: 20px 24px; margin-bottom: 16px; position: relative; }
+  .step-card:before { content: attr(data-step); position: absolute; top: -12px; left: 20px; background: #2B9FA8; color: #fff; font-size: 11px; font-weight: 800; padding: 2px 12px; border-radius: 20px; letter-spacing: 0.5px; }
+  .step-card.danger:before { background: #C0392B; }
+  .step-card.warn:before { background: #D4890A; }
+  .step-card.green:before { background: #1A7A44; }
+  .step-card.purple:before { background: #7B3FE4; }
+
+  .step-title { font-size: 15px; font-weight: 700; color: #1A2B2C; margin-bottom: 8px; margin-top: 6px; }
+  .step-desc { font-size: 13px; color: #5F7D80; line-height: 1.6; }
+
+  code { background: #E6F6F7; color: #1D7A82; padding: 2px 7px; border-radius: 5px; font-family: 'Courier New', monospace; font-size: 12px; font-weight: 600; }
+  pre { background: #0F2224; color: #A8F0F4; padding: 16px 20px; border-radius: 10px; font-size: 12px; font-family: 'Courier New', monospace; overflow-x: auto; margin: 12px 0; line-height: 1.7; }
+  pre .comment { color: #6A9498; }
+  pre .key { color: #E8C832; }
+  pre .val { color: #7DD3FC; }
+
+  .alert-box { border-radius: 10px; padding: 12px 16px; margin: 12px 0; font-size: 13px; display: flex; gap: 10px; align-items: flex-start; }
+  .alert-box.warn { background: #FEF5E4; border: 1px solid #F9D5A0; color: #A0640A; }
+  .alert-box.ok { background: #E8F8EE; border: 1px solid #B7E3C8; color: #1A7A44; }
+  .alert-box.info { background: #E6F6F7; border: 1px solid #9DD8DC; color: #1D7A82; }
+  .alert-box.danger { background: #FDEDEC; border: 1px solid #F5C6C4; color: #C0392B; }
+  .alert-icon { font-size: 16px; flex-shrink: 0; }
+
+  table.config { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 13px; }
+  table.config th { background: #E6F6F7; color: #1D7A82; padding: 8px 12px; text-align: left; font-weight: 700; }
+  table.config td { padding: 8px 12px; border-bottom: 1px solid #f0f0f0; }
+  table.config tr:last-child td { border-bottom: none; }
+
+  .pill { display: inline-block; font-size: 11px; font-weight: 700; padding: 2px 10px; border-radius: 20px; }
+  .pill.red { background: #FDEDEC; color: #C0392B; }
+  .pill.green { background: #E8F8EE; color: #1A7A44; }
+  .pill.blue { background: #E6F6F7; color: #1D7A82; }
+  .pill.purple { background: #F0ECFE; color: #7B3FE4; }
+  .pill.yellow { background: #FEF5E4; color: #A0640A; }
+
+  .checklist { list-style: none; margin: 10px 0; }
+  .checklist li { display: flex; align-items: flex-start; gap: 8px; padding: 5px 0; font-size: 13px; }
+  .checklist li:before { content: '☐'; color: #2B9FA8; font-size: 14px; flex-shrink: 0; margin-top: 1px; }
+  .checklist li.done:before { content: '✅'; }
+
+  .nav-files { display: flex; gap: 10px; flex-wrap: wrap; margin: 12px 0; }
+  .file-chip { background: #0F2224; color: #A8F0F4; border-radius: 8px; padding: 6px 14px; font-family: monospace; font-size: 12px; font-weight: 700; display: flex; align-items: center; gap: 6px; }
+  .file-chip .ext { color: #E8C832; }
+
+  .divider { height: 1px; background: #e0eef0; margin: 32px 0; }
+  .footer { background: #1D7A82; color: #fff; padding: 24px 32px; text-align: center; font-size: 13px; opacity: 0.9; margin-top: 60px; }
+</style>
+</head>
+<body>
+
+<div class="cover">
+  <h1>🚀 Lumen Estoque — Guia de Melhorias</h1>
+  <p>Tutorial passo a passo para implementar RBAC, Audit Log e BI no seu sistema</p>
+  <div class="badge">Versão para iniciante · Feito para você trabalhar sozinho</div>
+</div>
+
+<div class="container">
+
+  <!-- ÍNDICE -->
+  <div class="toc">
+    <h2>📋 O que você vai fazer</h2>
+    <div class="toc-item">
+      <div class="toc-num">1</div>
+      <div>Fazer upload dos 3 novos arquivos no seu projeto</div>
+    </div>
+    <div class="toc-item">
+      <div class="toc-num">2</div>
+      <div>Adicionar 4 linhas de código no seu <code>index.html</code></div>
+    </div>
+    <div class="toc-item">
+      <div class="toc-num red">3</div>
+      <div>Configurar as Regras de Segurança no Firebase Console</div>
+    </div>
+    <div class="toc-item">
+      <div class="toc-num green">4</div>
+      <div>Criar os perfis dos usuários no Firestore</div>
+    </div>
+    <div class="toc-item">
+      <div class="toc-num purple">5</div>
+      <div>Adicionar as novas páginas (Audit Log + BI) no HTML</div>
+    </div>
+    <div class="toc-item">
+      <div class="toc-num">6</div>
+      <div>Ativar o RBAC e o registro de ações no código existente</div>
+    </div>
+    <div class="toc-item">
+      <div class="toc-num green">7</div>
+      <div>Testar tudo e verificar que está funcionando</div>
+    </div>
+  </div>
+
+  <!-- ARQUIVOS ENTREGUES -->
+  <h2 class="section">📁 Arquivos que você recebeu</h2>
+
+  <div class="alert-box info">
+    <span class="alert-icon">ℹ️</span>
+    <div>Você deve ter recebido <strong>4 arquivos</strong>. Todos ficam na mesma pasta do <code>index.html</code>.</div>
+  </div>
+
+  <div class="nav-files">
+    <div class="file-chip">📄 index<span class="ext">.html</span> — SEU ARQUIVO ORIGINAL</div>
+    <div class="file-chip">🔐 lumen-rbac<span class="ext">.js</span> — NOVO</div>
+    <div class="file-chip">📊 lumen-bi<span class="ext">.js</span> — NOVO</div>
+    <div class="file-chip">🛡️ firestore<span class="ext">.rules</span> — NOVO</div>
+    <div class="file-chip">📖 tutorial<span class="ext">.html</span> — ESTE ARQUIVO</div>
+  </div>
+
+  <!-- ETAPA 1 -->
+  <h2 class="section">1️⃣ Upload dos arquivos</h2>
+
+  <div class="step-card" data-step="PASSO 1">
+    <div class="step-title">Coloque os arquivos na mesma pasta</div>
+    <div class="step-desc">Os arquivos <code>lumen-rbac.js</code> e <code>lumen-bi.js</code> precisam estar na <strong>mesma pasta</strong> que o seu <code>index.html</code>. Se você usa o Firebase Hosting, suba os 3 arquivos juntos.</div>
+  </div>
+
+  <div class="step-card warn" data-step="SE VOCÊ USA FIREBASE HOSTING">
+    <div class="step-title">Faça o deploy dos novos arquivos</div>
+    <div class="step-desc">Se você usa Firebase Hosting (URL do tipo <code>seu-projeto.web.app</code>), execute no terminal:<br><br>
+    <code>firebase deploy --only hosting</code><br><br>
+    Se ainda não usa Firebase Hosting, basta copiar os 3 arquivos para onde está o <code>index.html</code> no seu servidor.</div>
+  </div>
+
+  <!-- ETAPA 2 -->
+  <h2 class="section">2️⃣ Editar o index.html (4 linhas)</h2>
+
+  <div class="alert-box warn">
+    <span class="alert-icon">⚠️</span>
+    <div>Faça um <strong>backup</strong> do seu <code>index.html</code> antes de editar. Renomeie uma cópia para <code>index-backup.html</code>.</div>
+  </div>
+
+  <div class="step-card" data-step="PASSO 2A — Adicionar os scripts">
+    <div class="step-title">Adicione as 2 linhas antes do <code>&lt;/body&gt;</code></div>
+    <div class="step-desc">Abra o <code>index.html</code> em qualquer editor de texto. Procure a linha que diz <code>&lt;/body&gt;</code> (está quase no final do arquivo, linha ~12741). <strong>Cole as linhas abaixo logo antes dela:</strong></div>
+    <pre>&lt;script src="lumen-rbac.js"&gt;&lt;/script&gt;
+&lt;script src="lumen-bi.js"&gt;&lt;/script&gt;</pre>
+  </div>
+
+  <div class="step-card" data-step="PASSO 2B — Ativar o RBAC após o login">
+    <div class="step-title">Adicione a chamada ao RBAC no onAuthStateChanged</div>
+    <div class="step-desc">No seu <code>index.html</code>, procure por <code>onAuthStateChanged</code>. Você vai encontrar algo parecido com isso:</div>
+    <pre><span class="comment">// código que já existe no seu arquivo</span>
+firebase.auth().onAuthStateChanged(async (user) => {
+  if (user) {
+    <span class="comment">// ... carregamento de dados do usuário ...</span>
+    currentUserData = snap.data();
+    <span class="comment">// ... mais código ...</span>
+  }
+});</pre>
+    <div class="step-desc" style="margin-top:10px;">Logo depois de <code>currentUserData = snap.data();</code>, adicione <strong>esta linha</strong>:</div>
+    <pre><span class="key">await</span> inicializarRBAC(user.uid); <span class="comment">// ← ADICIONE ESTA LINHA</span></pre>
+  </div>
+
+  <div class="step-card" data-step="PASSO 2C — Registrar login no audit log">
+    <div class="step-title">Adicione o registro de login</div>
+    <div class="step-desc">Na mesma função, logo após a linha que você acabou de adicionar, cole:</div>
+    <pre>registrarAuditoria('login', `Login realizado com sucesso`);</pre>
+  </div>
+
+  <div class="step-card" data-step="PASSO 2D — Registrar logout">
+    <div class="step-title">Registre o logout também</div>
+    <div class="step-desc">Procure a função <code>doLogout()</code> no seu arquivo. Antes do <code>firebase.auth().signOut()</code>, adicione:</div>
+    <pre>await registrarAuditoria('logout', 'Logout realizado');
+await firebase.auth().signOut();</pre>
+  </div>
+
+  <!-- ETAPA 3 -->
+  <h2 class="section">3️⃣ Regras de Segurança do Firestore</h2>
+
+  <div class="alert-box danger">
+    <span class="alert-icon">🔴</span>
+    <div><strong>Esta etapa é importante!</strong> Sem as regras corretas, qualquer pessoa poderia acessar ou deletar dados do seu banco. Leva apenas 3 minutos.</div>
+  </div>
+
+  <div class="step-card danger" data-step="PASSO 3A — Abrir o Firebase Console">
+    <div class="step-title">Acesse o Firebase Console</div>
+    <div class="step-desc">
+      1. Abra o navegador e acesse: <code>https://console.firebase.google.com</code><br>
+      2. Clique no seu projeto (ex: "lumen-estoque" ou o nome do seu projeto)<br>
+      3. No menu lateral esquerdo, clique em <strong>Firestore Database</strong><br>
+      4. Clique na aba <strong>Regras</strong> (está na barra superior, ao lado de "Dados")
+    </div>
+  </div>
+
+  <div class="step-card danger" data-step="PASSO 3B — Aplicar as regras">
+    <div class="step-title">Cole as regras do arquivo <code>firestore.rules</code></div>
+    <div class="step-desc">
+      1. Abra o arquivo <code>firestore.rules</code> que você recebeu em qualquer editor de texto<br>
+      2. Selecione <strong>todo o conteúdo</strong> (Ctrl+A) e copie (Ctrl+C)<br>
+      3. De volta no Firebase Console, <strong>apague todo o conteúdo</strong> que está na caixa de Regras<br>
+      4. Cole o conteúdo que você copiou (Ctrl+V)<br>
+      5. Clique no botão azul <strong>"Publicar"</strong><br>
+      6. Aguarde a mensagem de confirmação
+    </div>
+    <div class="alert-box ok" style="margin-top:12px;">
+      <span class="alert-icon">✅</span>
+      <div>Pronto! O Firestore agora vai verificar o perfil de cada usuário antes de permitir qualquer acesso.</div>
+    </div>
+  </div>
+
+  <!-- ETAPA 4 -->
+  <h2 class="section">4️⃣ Criar perfis dos usuários no Firestore</h2>
+
+  <div class="step-card green" data-step="PASSO 4A — Entender os perfis">
+    <div class="step-title">Perfis disponíveis</div>
+    <div class="step-desc">O sistema tem 5 perfis. Escolha um para cada usuário:</div>
+    <table class="config" style="margin-top:10px;">
+      <tr><th>Perfil</th><th>O que pode fazer</th></tr>
+      <tr><td><span class="pill purple">admin</span></td><td>Acesso total, gerencia usuários, vê audit log</td></tr>
+      <tr><td><span class="pill blue">comprador</span></td><td>Cria pedidos, aprova, edita financeiro, fornecedores</td></tr>
+      <tr><td><span class="pill green">gestor</span></td><td>Visualiza e aprova, sem editar dados-mestre</td></tr>
+      <tr><td><span class="pill yellow">solicitante</span></td><td>Só cria e acompanha os próprios pedidos</td></tr>
+      <tr><td><span class="pill">viewer</span></td><td>Só visualiza, sem criar nem editar</td></tr>
+    </table>
+  </div>
+
+  <div class="step-card green" data-step="PASSO 4B — Descobrir o UID do usuário">
+    <div class="step-title">Encontre o UID de cada usuário</div>
+    <div class="step-desc">
+      1. No Firebase Console, vá em <strong>Authentication</strong> (menu lateral)<br>
+      2. Clique na aba <strong>Users</strong><br>
+      3. Você vai ver uma lista de e-mails. Para cada usuário, copie o valor da coluna <strong>User UID</strong> (é uma sequência longa de letras e números, ex: <code>xK3mR9pQwZ...</code>)
+    </div>
+  </div>
+
+  <div class="step-card green" data-step="PASSO 4C — Criar o documento no Firestore">
+    <div class="step-title">Crie um documento de perfil para cada usuário</div>
+    <div class="step-desc">
+      1. No Firebase Console, vá em <strong>Firestore Database</strong><br>
+      2. Clique em <strong>+ Iniciar coleção</strong><br>
+      3. No campo "ID da coleção", digite: <code>usuarios_perfis</code> e clique em Avançar<br>
+      4. No campo "ID do documento", cole o <strong>UID do usuário</strong> que você copiou<br>
+      5. Adicione o campo:
+    </div>
+    <pre><span class="key">Campo:</span>  <span class="val">perfil</span>
+<span class="key">Tipo:</span>   string
+<span class="key">Valor:</span>  <span class="val">admin</span>   <span class="comment">(ou comprador, gestor, solicitante, viewer)</span></pre>
+    <div class="step-desc">6. Clique em <strong>Salvar</strong><br>
+      7. Repita para cada usuário, clicando em <strong>+ Adicionar documento</strong> dentro da coleção <code>usuarios_perfis</code></div>
+  </div>
+
+  <!-- ETAPA 5 -->
+  <h2 class="section">5️⃣ Adicionar páginas no index.html</h2>
+
+  <div class="step-card purple" data-step="PASSO 5A — Item de menu: Audit Log">
+    <div class="step-title">Adicione o item no menu lateral (sidebar)</div>
+    <div class="step-desc">Procure no <code>index.html</code> o trecho com o último item do menu (algo como "Gerenciar Categorias" ou "Configurações"). Logo depois dele, cole:</div>
+    <pre>&lt;button class="sidebar-item" data-page="audit-log"
+  onclick="goPageMobile('audit-log')"&gt;
+  &lt;svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"&gt;
+    &lt;path d="M9 12h6m-6 4h6m2 5H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5.586
+      a1 1 0 0 1 .707.293l5.414 5.414A1 1 0 0 1 19 9.414V19a2 2 0 0 1-2 2z"/&gt;
+  &lt;/svg&gt;
+  Log de Auditoria
+&lt;/button&gt;
+
+&lt;button class="sidebar-item" data-page="bi"
+  onclick="goPageMobile('bi')"&gt;
+  &lt;svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"&gt;
+    &lt;line x1="18" y1="20" x2="18" y2="10"/&gt;
+    &lt;line x1="12" y1="20" x2="12" y2="4"/&gt;
+    &lt;line x1="6"  y1="20" x2="6"  y2="14"/&gt;
+  &lt;/svg&gt;
+  Relatórios BI
+&lt;/button&gt;</pre>
+  </div>
+
+  <div class="step-card purple" data-step="PASSO 5B — Páginas no conteúdo principal">
+    <div class="step-title">Adicione o HTML das páginas</div>
+    <div class="step-desc">Procure o trecho <code>&lt;!-- PAGE: MANAGE CATS --&gt;</code> (ou a última página do sistema). Logo depois do fechamento dela, cole:</div>
+    <pre><span class="comment">&lt;!-- PAGE: AUDIT LOG --&gt;</span>
+&lt;div class="page" id="page-audit-log"&gt;
+  &lt;div class="page-header"&gt;
+    &lt;div class="page-title"&gt;🔍 Log de Auditoria&lt;/div&gt;
+    &lt;div class="page-sub"&gt;Registro imutável de todas as ações do sistema&lt;/div&gt;
+  &lt;/div&gt;
+  &lt;div class="card"&gt;
+    &lt;div class="card-header"&gt;
+      &lt;div class="card-header-title"&gt;Histórico de ações&lt;/div&gt;
+      &lt;button class="btn btn-secondary btn-sm" onclick="exportarAuditLogExcel()"&gt;
+        Exportar Excel
+      &lt;/button&gt;
+    &lt;/div&gt;
+    &lt;div class="table-wrap"&gt;
+      &lt;table&gt;
+        &lt;thead&gt;&lt;tr&gt;
+          &lt;th&gt;Data/Hora&lt;/th&gt;
+          &lt;th&gt;Usuário&lt;/th&gt;
+          &lt;th&gt;Perfil&lt;/th&gt;
+          &lt;th&gt;Ação&lt;/th&gt;
+          &lt;th&gt;Descrição&lt;/th&gt;
+          &lt;th&gt;Dispositivo&lt;/th&gt;
+        &lt;/tr&gt;&lt;/thead&gt;
+        &lt;tbody id="audit-tbody"&gt;
+          &lt;tr&gt;&lt;td colspan="6" style="text-align:center;padding:32px;
+            color:var(--text-muted);"&gt;
+            Carregando log...
+          &lt;/td&gt;&lt;/tr&gt;
+        &lt;/tbody&gt;
+      &lt;/table&gt;
+    &lt;/div&gt;
+  &lt;/div&gt;
+&lt;/div&gt;
+
+<span class="comment">&lt;!-- PAGE: BI RELATÓRIOS --&gt;</span>
+&lt;div class="page" id="page-bi"&gt;
+  &lt;div class="page-header"&gt;
+    &lt;div class="page-title"&gt;📊 Relatórios BI&lt;/div&gt;
+    &lt;div class="page-sub"&gt;Análises gerenciais e curva ABC&lt;/div&gt;
+  &lt;/div&gt;
+
+  &lt;div class="card" style="margin-bottom:18px;"&gt;
+    &lt;div class="card-header"&gt;
+      &lt;div class="card-header-title"&gt;📦 Curva ABC — Produtos por Valor Consumido&lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class="card-body" id="bi-abc-body"&gt;
+      &lt;div class="loading-state"&gt;Carregando...&lt;/div&gt;
+    &lt;/div&gt;
+  &lt;/div&gt;
+
+  &lt;div class="card" style="margin-bottom:18px;"&gt;
+    &lt;div class="card-header"&gt;
+      &lt;div class="card-header-title"&gt;🏠 Gasto Estimado por Casa&lt;/div&gt;
+      &lt;button class="btn btn-secondary btn-sm" onclick="exportarRelatorioBI()"&gt;
+        Exportar Excel
+      &lt;/button&gt;
+    &lt;/div&gt;
+    &lt;div class="card-body" id="bi-gasto-casa-body"&gt;
+      &lt;div class="loading-state"&gt;Carregando...&lt;/div&gt;
+    &lt;/div&gt;
+  &lt;/div&gt;
+
+  &lt;div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:18px;"&gt;
+    &lt;div class="card"&gt;
+      &lt;div class="card-header"&gt;
+        &lt;div class="card-header-title"&gt;💰 Budget vs Realizado (mensal)&lt;/div&gt;
+      &lt;/div&gt;
+      &lt;div class="card-body" id="bi-budget-body"&gt;
+        &lt;div class="loading-state"&gt;Carregando...&lt;/div&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class="card"&gt;
+      &lt;div class="card-header"&gt;
+        &lt;div class="card-header-title"&gt;🏆 Top Produtos Consumidos&lt;/div&gt;
+      &lt;/div&gt;
+      &lt;div class="card-body" id="bi-top-produtos-body"&gt;
+        &lt;div class="loading-state"&gt;Carregando...&lt;/div&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+  &lt;/div&gt;
+
+  &lt;div class="card"&gt;
+    &lt;div class="card-header"&gt;
+      &lt;div class="card-header-title"&gt;🏭 Performance de Fornecedores&lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class="card-body" id="bi-fornecedores-body"&gt;
+      &lt;div class="loading-state"&gt;Carregando...&lt;/div&gt;
+    &lt;/div&gt;
+  &lt;/div&gt;
+&lt;/div&gt;</pre>
+  </div>
+
+  <!-- ETAPA 6 -->
+  <h2 class="section">6️⃣ Registrar ações no código existente</h2>
+
+  <div class="step-card" data-step="PASSO 6 — Adicionar registrarAuditoria nas funções">
+    <div class="step-title">Adicione o registro em cada ação importante</div>
+    <div class="step-desc">Em cada função abaixo, adicione a linha correspondente logo após a ação ser salva com sucesso no Firestore:</div>
+    <table class="config">
+      <tr><th>Função no index.html</th><th>Linha a adicionar (após sucesso)</th></tr>
+      <tr>
+        <td><code>submitOrder()</code> ou ao criar pedido</td>
+        <td><code>registrarAuditoria('criar_pedido', `Pedido ${code} criado para ${house}`);</code></td>
+      </tr>
+      <tr>
+        <td>Ao aprovar/mudar status do pedido</td>
+        <td><code>registrarAuditoria('aprovar_pedido', `Status: ${novoStatus} - Pedido ${code}`);</code></td>
+      </tr>
+      <tr>
+        <td><code>saveMovement()</code> ou similar</td>
+        <td><code>registrarAuditoria('movimentacao_estoque', `${tipo} de ${produto} em ${casa}`);</code></td>
+      </tr>
+      <tr>
+        <td><code>deleteProduct()</code></td>
+        <td><code>registrarAuditoria('excluir_produto', `Produto "${nome}" removido`);</code></td>
+      </tr>
+      <tr>
+        <td><code>saveCat()</code> (salvar categoria)</td>
+        <td><code>registrarAuditoria('salvar_categoria', `Categoria "${nome}" salva`);</code></td>
+      </tr>
+    </table>
+  </div>
+
+  <!-- ETAPA 7 -->
+  <h2 class="section">7️⃣ Atualizar a função goPage()</h2>
+
+  <div class="step-card" data-step="PASSO 7 — Carregar as novas páginas">
+    <div class="step-title">Adicione os casos para as novas páginas</div>
+    <div class="step-desc">Procure a função <code>goPage(page)</code> no <code>index.html</code>. Dentro dela, há uma série de <code>if (page === '...')</code> ou um <code>switch</code>. Adicione estes casos:</div>
+    <pre><span class="comment">// Dentro da função goPage(page), adicione:</span>
+if (page === 'audit-log') {
+  initAuditLogPage();
+}
+if (page === 'bi') {
+  initBI();
+}</pre>
+  </div>
+
+  <!-- VERIFICAÇÃO FINAL -->
+  <h2 class="section">✅ Checklist final — verifique tudo</h2>
+
+  <div class="step-card green" data-step="VERIFICAÇÃO">
+    <div class="step-title">Antes de publicar, confirme cada item:</div>
+    <ul class="checklist">
+      <li>Os arquivos <code>lumen-rbac.js</code> e <code>lumen-bi.js</code> estão na mesma pasta do <code>index.html</code></li>
+      <li>As 2 tags <code>&lt;script src="..."&gt;</code> foram adicionadas antes do <code>&lt;/body&gt;</code></li>
+      <li><code>await inicializarRBAC(user.uid)</code> foi adicionado após o login</li>
+      <li>As Regras do Firestore foram publicadas no Firebase Console</li>
+      <li>Pelo menos 1 usuário tem perfil <code>admin</code> em <code>usuarios_perfis</code></li>
+      <li>As páginas de Audit Log e BI foram adicionadas no HTML</li>
+      <li>Os itens de menu foram adicionados na sidebar</li>
+      <li>Os casos <code>audit-log</code> e <code>bi</code> foram adicionados na função <code>goPage()</code></li>
+    </ul>
+  </div>
+
+  <div class="alert-box ok">
+    <span class="alert-icon">🎉</span>
+    <div><strong>Tudo pronto!</strong> Após publicar, faça login como <strong>admin</strong> e você verá o badge de perfil na topbar, os novos itens no menu lateral, e poderá acessar o Log de Auditoria e os Relatórios BI.</div>
+  </div>
+
+  <div class="alert-box warn">
+    <span class="alert-icon">⚠️</span>
+    <div><strong>Problema?</strong> Abra o navegador, aperte F12, vá na aba "Console". Qualquer erro aparece em vermelho lá. Os erros mais comuns são: arquivo .js não encontrado (verifique o nome e localização), ou usuário sem documento em <code>usuarios_perfis</code> (crie o documento conforme o Passo 4).</div>
+  </div>
+
+</div>
+
+<div class="footer">
+  Lumen Estoque · Guia de Melhorias · Gerado com Claude (Anthropic)
+</div>
+
+</body>
+</html>
