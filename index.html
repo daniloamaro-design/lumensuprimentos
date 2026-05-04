@@ -6218,30 +6218,6 @@ async function sendOrderEmail(orderData, recipient) {
     showToast(`⚠️ E-mail não enviado: ${e.message}`);
   }
 }
-
-async function sendAlertEmail(subject, body) {
-  try {
-    await fetch('/api/send-email', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        to:           ADMIN_EMAIL,
-        orderCode:    subject,
-        house:        '—',
-        requester:    'Sistema Automático',
-        date:         new Date().toLocaleDateString('pt-BR'),
-        categories:   '—',
-        summary:      body,
-        observations: 'Verifique o sistema com urgência.',
-        people:       '—',
-        pdfBase64:    '',
-      }),
-    });
-  } catch(e) {
-    console.warn('Erro ao enviar alerta:', e);
-  }
-}
-
 // ─────────────────────────────────────────────
 // 📄  PDF BASE64 (para anexar no email)
 // ─────────────────────────────────────────────
