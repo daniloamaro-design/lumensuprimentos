@@ -12169,12 +12169,6 @@ Gere um alerta executivo de 4-5 linhas destacando:
 Use emojis. Seja direto.`;
 
     try {
-      const resp = await fetch('/api/claude', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model: 'claude-sonnet-4-20250514', max_tokens: 400, messages: [{ role: 'user', content: prompt }] })
-      });
-      try {
   const aiText = await window.callGemini(prompt);
   return { padroes, aiText };
 } catch(e) { return { padroes, aiText: '' }; }
