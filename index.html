@@ -3505,6 +3505,9 @@ document.querySelector('.main-content').insertAdjacentHTML('beforeend', `
             <div class="attach-name" id="attach-nf-filename"></div>
           </div>
           <input type="file" id="attach-nf-file" style="display:none;" accept=".pdf,.jpg,.jpeg,.png" onchange="onAttachFileChange('nf')">
+          <div id="attach-ai-status" style="display:none;margin-top:8px;padding:10px 12px;background:var(--lumen-lt);border-radius:8px;font-size:12px;color:var(--lumen);font-weight:600;">
+            🤖 Lendo NF com IA...
+          </div>
         </div>
         <div>
           <label class="form-label">Arquivo Boleto (PDF/imagem)</label>
@@ -5958,16 +5961,138 @@ function openAttachModal() {
   openModal('modal-attach');
 }
 
-function onAttachFileChange(type) {
+async function onAttachFileChange(type) {
   const file = document.getElementById(`attach-${type}-file`).files[0];
   const area = document.getElementById(`attach-${type}-area`);
   const nameEl = document.getElementById(`attach-${type}-filename`);
   if (file) {
     area.classList.add('has-file');
     nameEl.textContent = file.name;
+    // Se for NF, lê automaticamente com IA
+    if (type === 'nf') {
+      await lerNFcomIA(file);
+    }
   } else {
     area.classList.remove('has-file');
     nameEl.textContent = '';
+  }
+}
+
+async function lerNFcomIA(file) {
+  const statusEl = document.getElementById('attach-ai-status');
+  statusEl.style.display = '';
+  statusEl.textContent = '🤖 Lendo NF com IA, aguarde...';
+
+  try {
+    // Converte arquivo para base64
+    const base64 = await new Promise((res, rej) => {
+      const reader = new FileReader();
+      reader.onload = e => res(e.target.result.split(',')[1]);
+      reader.onerror = rej;
+      reader.readAsDataURL(file);
+    });
+
+    const isImage = file.type.startsWith('image/');
+    const isPDF   = file.type === 'application/pdf';
+
+    let prompt, body;
+
+    if (isImage) {
+      prompt = `Analise esta nota fiscal e extraia APENAS os seguintes dados em JSON puro (sem markdown):
+{"nf_numero": "número da NF", "valor": 0.00, "vencimento": "YYYY-MM-DD ou vazio", "fornecedor": "nome do fornecedor/empresa emissora", "data_emissao": "YYYY-MM-DD ou vazio"}
+Se algum campo não existir, use string vazia ou 0. Retorne SOMENTE o JSON.`;
+
+      body = {
+        contents: [{
+          parts: [
+            { inline_data: { mime_type: file.type, data: base64 } },
+            { text: prompt }
+          ]
+        }],
+        generationConfig: { temperature: 0.1, maxOutputTokens: 300 }
+      };
+    } else {
+      // PDF — envia como documento
+      prompt = `Analise esta nota fiscal em PDF e extraia APENAS os seguintes dados em JSON puro (sem markdown):
+{"nf_numero": "número da NF", "valor": 0.00, "vencimento": "YYYY-MM-DD ou vazio", "fornecedor": "nome do fornecedor/empresa emissora", "data_emissao": "YYYY-MM-DD ou vazio"}
+Se algum campo não existir, use string vazia ou 0. Retorne SOMENTE o JSON.`;
+
+      body = {
+        contents: [{
+          parts: [
+            { inline_data: { mime_type: 'application/pdf', data: base64 } },
+            { text: prompt }
+          ]
+        }],
+        generationConfig: { temperature: 0.1, maxOutputTokens: 300 }
+      };
+    }
+
+    const resp = await fetch(window.GEMINI_URL_VISION, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+
+    if (!resp.ok) throw new Error(`Gemini erro ${resp.status}`);
+    const data = await resp.json();
+    const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+
+    // Parseia o JSON retornado
+    const clean = text.replace(/```json|```/g, '').trim();
+    const parsed = JSON.parse(clean);
+
+    // Preenche os campos automaticamente
+    if (parsed.nf_numero) document.getElementById('attach-nf-num').value = parsed.nf_numero;
+    if (parsed.valor && parsed.valor > 0) document.getElementById('attach-nf-valor').value = parsed.valor;
+    if (parsed.vencimento) document.getElementById('attach-boleto-venc').value = parsed.vencimento;
+
+    // Tenta encontrar o fornecedor no select
+    if (parsed.fornecedor) {
+      const sel = document.getElementById('attach-supplier');
+      let found = false;
+      for (let opt of sel.options) {
+        if (opt.text.toLowerCase().includes(parsed.fornecedor.toLowerCase().slice(0, 6))) {
+          sel.value = opt.value;
+          found = true;
+          break;
+        }
+      }
+      if (!found) {
+        document.getElementById('attach-obs').value = `Fornecedor detectado: ${parsed.fornecedor}`;
+      }
+    }
+
+    // Salva automaticamente nos gastos financeiros
+    if (parsed.valor > 0) {
+      try {
+        await db.collection('compras_financeiro').add({
+          fornecedor:      parsed.fornecedor || 'NF importada',
+          classificacao:   'NF Importada',
+          destinatario:    detailOrderData?.house || '',
+          valor:           parseFloat(parsed.valor) || 0,
+          dataCompraStr:   parsed.data_emissao || new Date().toLocaleDateString('pt-BR'),
+          vencimentoStr:   parsed.vencimento   || '',
+          mes:             new Date().toLocaleString('pt-BR',{month:'long'}).toUpperCase(),
+          ano:             new Date().getFullYear(),
+          pago:            '',
+          nfNumero:        parsed.nf_numero || '',
+          pedidoRef:       detailOrderData?.code || '',
+          importadoViaIA:  true,
+          createdAt:       firebase.firestore.FieldValue.serverTimestamp()
+        });
+      } catch(e) { console.warn('Não foi possível salvar nos gastos:', e); }
+    }
+
+    statusEl.style.background = 'var(--ok-bg)';
+    statusEl.style.color = 'var(--ok)';
+    statusEl.textContent = `✅ NF lida com sucesso! Dados preenchidos automaticamente.`;
+
+  } catch(e) {
+    console.warn('Erro ao ler NF com IA:', e);
+    statusEl.style.background = 'var(--warn-bg)';
+    statusEl.style.color = 'var(--warn)';
+    statusEl.textContent = `⚠️ Não foi possível ler automaticamente. Preencha os campos manualmente.`;
   }
 }
 
