@@ -11986,22 +11986,11 @@ ${resumo}
 
 Seja objetivo e prático. Use emojis para destacar pontos importantes.`;
 
-  try {
-    const resp = await fetch('/api/claude', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 1000,
-        messages: [{ role: 'user', content: prompt }]
-      })
-    });
-    const data = await resp.json();
-    const text = data.content?.find(b => b.type === 'text')?.text || 'Sem resposta da IA.';
-    aiText.textContent = text;
-  } catch(e) {
-    aiText.textContent = '⚠️ IA indisponível no momento. Os dados da tabela e cards acima foram calculados localmente com base no histórico real.';
-  }
+ try {
+  const text = await window.callGemini(prompt);
+  aiText.textContent = text;
+} catch(e) {
+  aiText.textContent = '⚠️ IA indisponível no momento. Os dados da tabela ainda estão disponíveis.';
 }
 
 function exportPrevisaoCSV() {
@@ -12114,14 +12103,8 @@ ${JSON.stringify(fornResumo, null, 2)}
 
 Seja direto e prático. Use emojis. Máximo 350 palavras.`;
 
-    const resp = await fetch('/api/claude', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model: 'claude-sonnet-4-20250514', max_tokens: 800, messages: [{ role: 'user', content: prompt }] })
-    });
-    const data = await resp.json();
-    resultEl.textContent = data.content?.find(b => b.type === 'text')?.text || 'Sem dados suficientes para análise.';
-
+    const text = await window.callGemini(prompt);
+resultEl.textContent = text;
   } catch(e) {
     resultEl.textContent = '⚠️ Erro: ' + e.message;
   }
@@ -12191,13 +12174,10 @@ Use emojis. Seja direto.`;
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ model: 'claude-sonnet-4-20250514', max_tokens: 400, messages: [{ role: 'user', content: prompt }] })
       });
-      const data = await resp.json();
-      const aiText = data.content?.find(b => b.type === 'text')?.text || '';
-      return { padroes, aiText };
-    } catch(e) { return { padroes, aiText: '' }; }
-
-  } catch(e) { return null; }
-}
+      try {
+  const aiText = await window.callGemini(prompt);
+  return { padroes, aiText };
+} catch(e) { return { padroes, aiText: '' }; }
 
 // ─────────────────────────────────────────────
 // 🏷️  GERENCIAR CATEGORIAS (admin)
