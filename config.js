@@ -45,7 +45,7 @@ window.EMAILJS_PUBLIC_KEY  = "UHnFUf7wjvrxJa2d2";
 //   • Previsão de demanda com IA  (CORRIGIDO)
 //   • Análise de fornecedores     (CORRIGIDO)
 //   • Padrão crítico recorrente   (CORRIGIDO)
-window.GEMINI_API_KEY = "AIzaSyA0aNhueUqE5qVEDLqyeGa5FaGb02cAjGs";
+window.GEMINI_API_KEY = "AIzaSyDSa0thjcebdd-4HCpL8zUPBT8Ikh02SHE";
 window.GEMINI_URL_VISION = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${window.GEMINI_API_KEY}`;
 window.GEMINI_URL_TEXT   = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${window.GEMINI_API_KEY}`;
 
