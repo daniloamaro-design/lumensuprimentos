@@ -6193,11 +6193,11 @@ async function sendOrderEmail(orderData, recipient) {
   }
 
   try {
-    const resp = await fetch('/api/send-email', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        to:           recipient,
+    await emailjs.send(
+      window.EMAILJS_SERVICE_ID,
+      window.EMAILJS_TEMPLATE_ID,
+      {
+        to_email:     recipient,
         orderCode:    orderData.code,
         house:        orderData.house,
         requester:    orderData.requesterName,
@@ -6207,12 +6207,9 @@ async function sendOrderEmail(orderData, recipient) {
         observations: orderData.observations || 'Nenhuma',
         people:       String(orderData.people || '—'),
         pdfBase64:    pdfBase64,
-      }),
-    });
-
-    const result = await resp.json();
-    if (!resp.ok) throw new Error(result.error || `HTTP ${resp.status}`);
-    showToast('✅ E-mail com PDF enviado com sucesso!');
+      }
+    );
+    showToast('✅ E-mail enviado com sucesso!');
   } catch(e) {
     console.warn('Erro ao enviar e-mail:', e);
     showToast(`⚠️ E-mail não enviado: ${e.message}`);
@@ -6339,11 +6336,11 @@ function makePDFBase64(house, items, meta) {
 
 async function notifyAdminNewUser(name, email) {
   try {
-    await fetch('/api/send-email', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        to:           ADMIN_EMAIL,
+    await emailjs.send(
+      window.EMAILJS_SERVICE_ID,
+      window.EMAILJS_TEMPLATE_ID,
+      {
+        to_email:     window.ADMIN_EMAIL,
         orderCode:    'NOVO USUÁRIO',
         house:        '—',
         requester:    name,
@@ -6352,9 +6349,9 @@ async function notifyAdminNewUser(name, email) {
         summary:      `  • Nome: ${name}\n  • E-mail: ${email}`,
         observations: 'Acesse o sistema para aprovar ou recusar e atribuir a casa.',
         people:       '—',
-        pdfBase64:    '', // sem PDF para notificação de usuário
-      }),
-    });
+        pdfBase64:    '',
+      }
+    );
   } catch(e) {
     console.warn('Notif admin err:', e);
   }
