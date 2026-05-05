@@ -11987,11 +11987,11 @@ ${resumo}
 Seja objetivo e prático. Use emojis para destacar pontos importantes.`;
 
  try {
-  const text = await window.callGemini(prompt);
-  aiText.textContent = text;
-} catch(e) {
-  aiText.textContent = '⚠️ IA indisponível no momento. Os dados da tabela ainda estão disponíveis.';
-}
+    const text = await window.callGemini(prompt);
+    aiText.textContent = text;
+  } catch(e) {
+    aiText.textContent = '⚠️ IA indisponível no momento. Os dados da tabela ainda estão disponíveis.';
+  }
 }
 
 function exportPrevisaoCSV() {
