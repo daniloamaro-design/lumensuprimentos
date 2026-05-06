@@ -6252,10 +6252,18 @@ async function deleteQuotation(qId) {
 // Attach NF/Boleto
 function openAttachModal() {
   populateSupplierSelect('attach-supplier');
-  document.getElementById('attach-nf-num').value   = detailOrderData?.nfNumero || '';
-  document.getElementById('attach-nf-valor').value = detailOrderData?.nfValor  || '';
-  document.getElementById('attach-boleto-venc').value = detailOrderData?.boletoVencimento || '';
-  document.getElementById('attach-obs').value = detailOrderData?.attachObs || '';
+  document.getElementById('attach-nf-num').value        = detailOrderData?.nfNumero || '';
+  document.getElementById('attach-nf-valor').value      = detailOrderData?.nfValor  || '';
+  document.getElementById('attach-boleto-venc').value   = detailOrderData?.boletoVencimento || '';
+  document.getElementById('attach-obs').value           = detailOrderData?.attachObs || '';
+  // Restaura fornecedor salvo
+  const fornId = detailOrderData?.fornecedorId || '';
+  if (fornId) {
+    setTimeout(() => {
+      const sel = document.getElementById('attach-supplier');
+      if (sel) sel.value = fornId;
+    }, 200);
+  }
   openModal('modal-attach');
 }
 
@@ -6279,13 +6287,16 @@ async function saveAttachment() {
   const nfValor    = document.getElementById('attach-nf-valor').value;
   const boletoVenc = document.getElementById('attach-boleto-venc').value;
   const attachObs  = document.getElementById('attach-obs').value;
-  const supSel     = document.getElementById('attach-supplier');
-  const fornecedorNome = supSel.options[supSel.selectedIndex]?.text || '';
+  const supSel         = document.getElementById('attach-supplier');
+  const fornecedorId   = supSel.value || '';
+  const fornecedorNome = fornecedorId
+    ? (supSel.options[supSel.selectedIndex]?.text || '')
+    : (detailOrderData?.fornecedorNome || '');
 
   const update = {
     nfNumero, nfValor: parseFloat(nfValor)||0,
     boletoVencimento: boletoVenc,
-    fornecedorNome, attachObs,
+    fornecedorId, fornecedorNome, attachObs,
     status: 'aguardando_nf',
     updatedAt: firebase.firestore.FieldValue.serverTimestamp()
   };
