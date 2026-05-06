@@ -2143,6 +2143,9 @@ document.querySelector('.main-content').insertAdjacentHTML('beforeend', `
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
         Exportar Relatório PDF
       </button>
+      <button class="export-btn" onclick="recalcularLimitesFornecedores()" style="background:var(--warn-bg);color:var(--warn);border-color:var(--warn);">
+        🔄 Recalcular Limites
+      </button>
     </div>
   </div>
 
@@ -13342,6 +13345,54 @@ async function deleteMovement(id) {
     loadMovHistory();
   } catch(e) {
     showToast('❌ Erro ao excluir: ' + e.message);
+  }
+}
+
+// ─────────────────────────────────────────────
+// 🔄 RECALCULAR LIMITES DOS FORNECEDORES
+// ─────────────────────────────────────────────
+async function recalcularLimitesFornecedores() {
+  if (!confirm('Isso vai recalcular o "Limite Utilizado" de todos os fornecedores com base nos lançamentos financeiros não pagos.\n\nDeseja continuar?')) return;
+  showToast('⏳ Recalculando limites, aguarde...');
+  try {
+    const snap = await db.collection('compras_financeiro').where('pago', '!=', 'Sim').get();
+    const totaisPorId   = {};
+    const totaisPorNome = {};
+    snap.docs.forEach(doc => {
+      const d = doc.data();
+      const val = parseFloat(d.valor) || 0;
+      if (!val) return;
+      if (d.fornecedorId) {
+        totaisPorId[d.fornecedorId] = (totaisPorId[d.fornecedorId] || 0) + val;
+      } else if (d.fornecedor) {
+        const key = d.fornecedor.trim().toLowerCase();
+        totaisPorNome[key] = (totaisPorNome[key] || 0) + val;
+      }
+    });
+    const supSnap = await db.collection('suppliers').get();
+    const batch = db.batch();
+    let count = 0;
+    supSnap.docs.forEach(doc => {
+      const s = doc.data();
+      let total = totaisPorId[doc.id] || 0;
+      if (!total && s.nome) {
+        const key = s.nome.trim().toLowerCase();
+        total = totaisPorNome[key] || 0;
+        if (!total) {
+          for (const [k, v] of Object.entries(totaisPorNome)) {
+            if (k.includes(key.slice(0,6)) || key.includes(k.slice(0,6))) total += v;
+          }
+        }
+      }
+      batch.update(doc.ref, { utilizado: total });
+      count++;
+    });
+    await batch.commit();
+    await loadSuppliers();
+    showToast(`✅ Limites recalculados! ${count} fornecedores atualizados.`);
+  } catch(e) {
+    console.error(e);
+    showToast('❌ Erro: ' + e.message);
   }
 }
 
