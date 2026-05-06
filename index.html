@@ -10885,23 +10885,55 @@ async function opcSalvarDecisao(cotId, valor) {
     const novoStatus = valor === true ? 'aprovado' : valor === false ? 'recusado' : 'pendente';
     await db.collection('quotations').doc(cotId).update({ status: novoStatus });
 
-    // Se aprovado, muda o pedido para "Pedido Liberado" diretamente
+    // Se aprovado, muda o pedido para "Pedido Liberado" e preenche dados financeiros automaticamente
     if (valor === true) {
-      // Descobre qual pedido essa cotação pertence
       const cotSnap = await db.collection('quotations').doc(cotId).get();
-      const orderId = cotSnap.data()?.orderId;
+      const cotData = cotSnap.data() || {};
+      const orderId = cotData.orderId;
+
       if (orderId) {
         const orderSnap = await db.collection('orders').doc(orderId).get();
-        // Só muda se o pedido ainda estiver em andamento
         if (orderSnap.exists && orderSnap.data().status === 'andamento') {
+
+          // Busca prazo do fornecedor para calcular vencimento
+          let boletoVencimento = '';
+          try {
+            const fornId = cotData.fornecedorId;
+            if (fornId) {
+              // Tenta pegar do cache primeiro
+              let sup = (window.suppliersCache || []).find(s => s.id === fornId);
+              if (!sup) {
+                const supSnap = await db.collection('suppliers').doc(fornId).get();
+                if (supSnap.exists) sup = { id: fornId, ...supSnap.data() };
+              }
+              if (sup) {
+                const prazo = sup.prazo || 'a_vista';
+                const prazoNum = prazo === 'a_vista' ? 0
+                  : /^\d+$/.test(prazo) ? parseInt(prazo)
+                  : parseInt(prazo) || 0;
+                if (prazoNum > 0) {
+                  const venc = new Date();
+                  venc.setDate(venc.getDate() + prazoNum);
+                  boletoVencimento = venc.toISOString().slice(0, 10);
+                }
+              }
+            }
+          } catch(e) { console.warn('Erro ao calcular prazo:', e); }
+
           await db.collection('orders').doc(orderId).update({
             status: 'pedido_liberado',
             liberadoEm: firebase.firestore.FieldValue.serverTimestamp(),
             cotacaoAprovadaId: cotId,
-            cotacaoFornecedor: cotSnap.data().fornecedorNome || '',
-            cotacaoValor: cotSnap.data().valor || 0,
+            cotacaoFornecedor: cotData.fornecedorNome || '',
+            cotacaoValor: cotData.valor || 0,
+            // Preenche automaticamente os dados financeiros
+            fornecedorId:    cotData.fornecedorId   || '',
+            fornecedorNome:  cotData.fornecedorNome || '',
+            nfValor:         parseFloat(cotData.valor) || 0,
+            boletoVencimento: boletoVencimento,
+            attachObs: `Aprovado automaticamente via orçamento em ${new Date().toLocaleDateString('pt-BR')}`,
           });
-          showToast('✅ Cotação aprovada! Pedido liberado.');
+          showToast('✅ Cotação aprovada! Pedido liberado e dados financeiros salvos.');
         }
       }
     }
