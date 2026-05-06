@@ -1,55 +1,34 @@
 // ═══════════════════════════════════════════════════════════════════
 //  LUMEN ESTOQUE — CONFIGURAÇÕES CENTRAIS
-//  Arquivo: config.js
-//  ⚠️  Substitua os valores entre [ ] pelos seus dados reais.
-//  ⚠️  NUNCA compartilhe este arquivo publicamente.
 // ═══════════════════════════════════════════════════════════════════
 
-// ─────────────────────────────────────────────
-// 🔥  FIREBASE
-// ─────────────────────────────────────────────
 window.FIREBASE_CONFIG = {
-  apiKey:            "[SUA_FIREBASE_API_KEY]",
+  apiKey:            "AIzaSyCJrEyqTInN2YzEwO1eOFibOTpj2Tj-LCQ",
   authDomain:        "automacao-logistica2040.firebaseapp.com",
   projectId:         "automacao-logistica2040",
   storageBucket:     "automacao-logistica2040.firebasestorage.app",
   messagingSenderId: "980133097947",
-  appId:             "[SEU_APP_ID]"
+  appId:             "1:980133097947:web:4f778878f8e83b97f677fe"
 };
 
-// ─────────────────────────────────────────────
-// 📧  EMAILJS
-// ─────────────────────────────────────────────
-window.EMAILJS_SERVICE_ID  = "[SEU_EMAILJS_SERVICE_ID]";
-window.EMAILJS_TEMPLATE_ID = "[SEU_EMAILJS_TEMPLATE_ID]";
-window.EMAILJS_PUBLIC_KEY  = "[SUA_EMAILJS_PUBLIC_KEY]";
+window.EMAILJS_SERVICE_ID  = "service_3j9tbrr";
+window.EMAILJS_TEMPLATE_ID = "template_p1hszi8";
+window.EMAILJS_PUBLIC_KEY  = "UHnFUf7wjvrxJa2d2";
 
-// ─────────────────────────────────────────────
-// 🤖  GEMINI (Google AI)
-// ─────────────────────────────────────────────
-window.GEMINI_API_KEY    = "[SUA_NOVA_GEMINI_API_KEY]";
+window.GEMINI_API_KEY    = "AIzaSyDGk9eUon-x5Jbl2xCbna_2hxwamk1aHF8";
 window.GEMINI_URL_VISION = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${window.GEMINI_API_KEY}`;
 window.GEMINI_URL_TEXT   = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${window.GEMINI_API_KEY}`;
 
-// ─────────────────────────────────────────────
-// 👑  ADMIN — carregado do Firestore (seguro)
-// ─────────────────────────────────────────────
 window.ADMIN_EMAIL_FALLBACK = "daniloamaro@lumenserfeliz.org";
 window.ADMIN_EMAIL = null;
 
-// ─────────────────────────────────────────────
-// 🔧  HELPER — chama Gemini com texto simples
-// ─────────────────────────────────────────────
 window.callGemini = async function(prompt, maxTokens = 1000) {
   const resp = await fetch(window.GEMINI_URL_TEXT, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       contents: [{ parts: [{ text: prompt }] }],
-      generationConfig: {
-        temperature: 0.3,
-        maxOutputTokens: maxTokens
-      }
+      generationConfig: { temperature: 0.3, maxOutputTokens: maxTokens }
     })
   });
   if (!resp.ok) {
@@ -60,9 +39,10 @@ window.callGemini = async function(prompt, maxTokens = 1000) {
   return data.candidates?.[0]?.content?.parts?.[0]?.text || '';
 };
 
-// ─────────────────────────────────────────────
-// 🚀  INICIALIZAÇÃO
-// ─────────────────────────────────────────────
+window.v = function(id) {
+  return document.getElementById(id)?.value?.trim() || '';
+};
+
 console.log('[Config] Configurações carregadas. Projeto:', window.FIREBASE_CONFIG.projectId);
 firebase.initializeApp(window.FIREBASE_CONFIG);
 window.auth    = firebase.auth();
