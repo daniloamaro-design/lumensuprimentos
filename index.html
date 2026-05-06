@@ -1107,6 +1107,10 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
         Verificar Estoque Crítico
       </button>
+      <button class="sidebar-item" onclick="openAjusteModal()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+        Solicitar Ajuste
+      </button>
 
       <button class="sidebar-item" data-page="transferencias" onclick="goPageMobile('transferencias')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
@@ -1483,9 +1487,22 @@
     <!-- PAGE: MOVEMENT (entrada/saída) -->
     <div class="page" id="page-movement">
       <div class="page-header">
-        <div class="page-title">Registrar Entrada / Saída</div>
-        <div class="page-sub">Registre movimentações de estoque com ou sem foto</div>
+        <div class="page-title">Entrada / Saída</div>
+        <div class="page-sub">Registre e acompanhe movimentações de estoque</div>
       </div>
+      <!-- Abas -->
+      <div style="display:flex;gap:4px;margin-bottom:20px;border-bottom:2px solid var(--border);padding-bottom:0;">
+        <button id="mov-tab-btn-registro" onclick="movSetTab('registro',this)"
+          style="padding:10px 18px;border:none;background:none;font-size:13px;font-weight:700;color:var(--lumen);border-bottom:2px solid var(--lumen);cursor:pointer;margin-bottom:-2px;">
+          📥 Registrar
+        </button>
+        <button id="mov-tab-btn-historico" onclick="movSetTab('historico',this)"
+          style="padding:10px 18px;border:none;background:none;font-size:13px;font-weight:600;color:var(--text-muted);cursor:pointer;margin-bottom:-2px;">
+          📋 Histórico
+        </button>
+      </div>
+      <!-- Conteúdo Registrar -->
+      <div id="mov-tab-registro">
       <div class="card" style="margin-bottom:16px;">
         <div class="card-header"><div class="card-header-title">Informações da Movimentação</div></div>
         <div class="card-body">
@@ -1560,6 +1577,76 @@
         <button class="btn btn-primary" onclick="submitMovement()" id="btn-submit-mov">Registrar Movimentação</button>
       </div>
     </div>
+      </div><!-- fim mov-tab-registro -->
+
+      <!-- Aba Histórico -->
+      <div id="mov-tab-historico" style="display:none;">
+        <!-- Filtros -->
+        <div class="card" style="margin-bottom:16px;">
+          <div class="card-body" style="padding:14px 18px;">
+            <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;">
+              <div>
+                <label class="form-label">Casa</label>
+                <select class="form-select" id="hist-filtro-casa" onchange="loadMovHistory()" style="width:180px;">
+                  <option value="">Todas</option>
+                </select>
+              </div>
+              <div>
+                <label class="form-label">Tipo</label>
+                <select class="form-select" id="hist-filtro-tipo" onchange="loadMovHistory()" style="width:140px;">
+                  <option value="">Todos</option>
+                  <option value="entrada">📥 Entrada</option>
+                  <option value="saida">📤 Saída</option>
+                </select>
+              </div>
+              <div>
+                <label class="form-label">De</label>
+                <input type="date" class="form-input" id="hist-filtro-de" onchange="loadMovHistory()" style="width:150px;">
+              </div>
+              <div>
+                <label class="form-label">Até</label>
+                <input type="date" class="form-input" id="hist-filtro-ate" onchange="loadMovHistory()" style="width:150px;">
+              </div>
+              <div>
+                <label class="form-label">Usuário</label>
+                <input type="text" class="form-input" id="hist-filtro-user" placeholder="Nome..." oninput="loadMovHistory()" style="width:160px;">
+              </div>
+              <button class="btn btn-outline btn-sm" onclick="loadMovHistory()">🔍 Buscar</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tabela histórico -->
+        <div class="card">
+          <div class="card-header">
+            <div class="card-header-title">📋 Histórico de Movimentações</div>
+            <div class="card-header-sub" id="hist-count">—</div>
+          </div>
+          <div class="card-body" style="padding:0;">
+            <div class="table-wrap">
+              <table class="fin-table">
+                <thead>
+                  <tr>
+                    <th>Data / Hora</th>
+                    <th>Tipo</th>
+                    <th>Casa</th>
+                    <th>Categoria</th>
+                    <th>Produto</th>
+                    <th style="text-align:right;">Qtd</th>
+                    <th>Observação</th>
+                    <th>Usuário</th>
+                    <th style="text-align:center;">Ação</th>
+                  </tr>
+                </thead>
+                <tbody id="hist-tbody">
+                  <tr><td colspan="9" style="text-align:center;padding:32px;color:var(--text-muted);">Use os filtros acima para buscar movimentações</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div><!-- fim mov-tab-historico -->
+    </div><!-- fim page-movement -->
 
     <!-- PAGE: STOCK VIEW -->
     <div class="page" id="page-stock-view">
@@ -13129,6 +13216,124 @@ async function loadIrmaosIndicadores() {
   } catch(e) {
     console.error('loadIrmaosIndicadores error:', e);
     showToast('Erro ao carregar indicadores: ' + e.message);
+  }
+}
+
+// ─────────────────────────────────────────────
+// 📋 HISTÓRICO DE MOVIMENTAÇÕES
+// ─────────────────────────────────────────────
+
+function movSetTab(tab, btn) {
+  ['registro','historico'].forEach(t => {
+    document.getElementById('mov-tab-' + t).style.display = t === tab ? '' : 'none';
+    const b = document.getElementById('mov-tab-btn-' + t);
+    if (b) {
+      b.style.color       = t === tab ? 'var(--lumen)' : 'var(--text-muted)';
+      b.style.fontWeight  = t === tab ? '700' : '600';
+      b.style.borderBottom= t === tab ? '2px solid var(--lumen)' : 'none';
+    }
+  });
+  if (tab === 'historico') {
+    // Popula select de casas
+    const sel = document.getElementById('hist-filtro-casa');
+    if (sel && sel.options.length <= 1) {
+      CASAS.forEach(c => {
+        const opt = document.createElement('option');
+        opt.value = c.name; opt.textContent = c.name;
+        sel.appendChild(opt);
+      });
+    }
+    // Define datas padrão (últimos 30 dias)
+    const hoje = new Date();
+    const trinta = new Date(hoje); trinta.setDate(hoje.getDate() - 30);
+    const de  = document.getElementById('hist-filtro-de');
+    const ate = document.getElementById('hist-filtro-ate');
+    if (de && !de.value)  de.value  = trinta.toISOString().slice(0,10);
+    if (ate && !ate.value) ate.value = hoje.toISOString().slice(0,10);
+    loadMovHistory();
+  }
+}
+
+async function loadMovHistory() {
+  const tbody   = document.getElementById('hist-tbody');
+  const countEl = document.getElementById('hist-count');
+  tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:32px;"><div class="spinner spinner-dark"></div></td></tr>';
+
+  try {
+    const casa    = document.getElementById('hist-filtro-casa')?.value || '';
+    const tipo    = document.getElementById('hist-filtro-tipo')?.value || '';
+    const de      = document.getElementById('hist-filtro-de')?.value   || '';
+    const ate     = document.getElementById('hist-filtro-ate')?.value  || '';
+    const usuario = (document.getElementById('hist-filtro-user')?.value || '').toLowerCase();
+
+    let query = db.collection('movements').orderBy('createdAt', 'desc').limit(200);
+    if (de)   query = query.where('dateStr', '>=', de);
+    if (ate)  query = query.where('dateStr', '<=', ate);
+    if (casa) query = query.where('house', '==', casa);
+
+    const snap = await query.get();
+    let docs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+    // Filtros locais
+    if (tipo)    docs = docs.filter(d => d.type === tipo);
+    if (usuario) docs = docs.filter(d => (d.registeredBy || '').toLowerCase().includes(usuario));
+
+    countEl.textContent = docs.length + ' registros';
+
+    if (docs.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:32px;color:var(--text-muted);">Nenhuma movimentação encontrada</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = docs.map(d => {
+      const dt = d.createdAt?.toDate ? d.createdAt.toDate() : (d.dateStr ? new Date(d.dateStr) : null);
+      const dataHora = dt ? dt.toLocaleString('pt-BR') : (d.dateStr || '—');
+      const tipo2 = d.type === 'entrada'
+        ? '<span style="color:var(--ok);font-weight:700;">📥 Entrada</span>'
+        : '<span style="color:var(--danger);font-weight:700;">📤 Saída</span>';
+
+      // Monta lista de itens
+      const itens = d.items || [];
+      const itensHtml = itens.length > 0
+        ? itens.map(it => `${it.prodName || it.productId}: ${it.qty} ${it.unit || ''}`).join('<br>')
+        : (d.prodName ? `${d.prodName}: ${d.qty}` : '—');
+
+      const catLabel = d.catKey ? (window.CATEGORIAS?.[d.catKey]?.nome || d.catKey) : (d.category || '—');
+
+      const canDelete = currentUserData?.role === 'admin' || currentUserData?.role === 'compras' || currentUserData?.role === 'estoque';
+
+      return `<tr>
+        <td style="font-size:12px;white-space:nowrap;">${dataHora}</td>
+        <td>${tipo2}</td>
+        <td style="font-size:12px;">${d.house || '—'}</td>
+        <td style="font-size:12px;">${catLabel}</td>
+        <td style="font-size:12px;">${itensHtml}</td>
+        <td style="text-align:right;font-weight:700;">${itens.reduce((s,i) => s + (parseFloat(i.qty)||0), 0) || d.qty || '—'}</td>
+        <td style="font-size:12px;color:var(--text-muted);max-width:180px;">${d.obs || '—'}</td>
+        <td style="font-size:12px;color:var(--text-muted);">${d.registeredBy || '—'}</td>
+        <td style="text-align:center;">
+          ${canDelete ? `<button onclick="deleteMovement('${d.id}')"
+            style="background:var(--danger-bg);color:var(--danger);border:1px solid var(--danger);border-radius:6px;padding:3px 10px;font-size:11px;font-weight:700;cursor:pointer;">
+            🗑️ Excluir
+          </button>` : '—'}
+        </td>
+      </tr>`;
+    }).join('');
+
+  } catch(e) {
+    console.error('loadMovHistory error:', e);
+    tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;padding:32px;color:var(--danger);">Erro: ${e.message}</td></tr>`;
+  }
+}
+
+async function deleteMovement(id) {
+  if (!confirm('Tem certeza que deseja excluir esta movimentação?\n\nAtenção: isso afetará o saldo do estoque!')) return;
+  try {
+    await db.collection('movements').doc(id).delete();
+    showToast('✅ Movimentação excluída!');
+    loadMovHistory();
+  } catch(e) {
+    showToast('❌ Erro ao excluir: ' + e.message);
   }
 }
 
