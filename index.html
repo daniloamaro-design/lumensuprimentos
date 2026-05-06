@@ -1576,7 +1576,7 @@
         <button class="btn btn-outline" onclick="clearMovement()">Limpar</button>
         <button class="btn btn-primary" onclick="submitMovement()" id="btn-submit-mov">Registrar Movimentação</button>
       </div>
-    </div>
+      </div>
       </div><!-- fim mov-tab-registro -->
 
       <!-- Aba Histórico -->
@@ -13266,15 +13266,16 @@ async function loadMovHistory() {
     const ate     = document.getElementById('hist-filtro-ate')?.value  || '';
     const usuario = (document.getElementById('hist-filtro-user')?.value || '').toLowerCase();
 
-    let query = db.collection('movements').orderBy('createdAt', 'desc').limit(200);
-    if (de)   query = query.where('dateStr', '>=', de);
-    if (ate)  query = query.where('dateStr', '<=', ate);
-    if (casa) query = query.where('house', '==', casa);
+    // Busca simples sem índice composto — filtra localmente
+    let query = db.collection('movements').orderBy('createdAt', 'desc').limit(500);
+    if (casa) query = db.collection('movements').where('house', '==', casa).orderBy('createdAt', 'desc').limit(500);
 
     const snap = await query.get();
     let docs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
 
-    // Filtros locais
+    // Filtros locais (sem índice composto)
+    if (de)      docs = docs.filter(d => (d.dateStr || '') >= de);
+    if (ate)     docs = docs.filter(d => (d.dateStr || '') <= ate);
     if (tipo)    docs = docs.filter(d => d.type === tipo);
     if (usuario) docs = docs.filter(d => (d.registeredBy || '').toLowerCase().includes(usuario));
 
