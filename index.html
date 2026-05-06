@@ -10933,7 +10933,32 @@ async function opcSalvarDecisao(cotId, valor) {
             boletoVencimento: boletoVencimento,
             attachObs: `Aprovado automaticamente via orçamento em ${new Date().toLocaleDateString('pt-BR')}`,
           });
-          showToast('✅ Cotação aprovada! Pedido liberado e dados financeiros salvos.');
+
+          // Adiciona lançamento no financeiro automaticamente
+          const valor = parseFloat(cotData.valor) || 0;
+          if (valor > 0 && cotData.fornecedorId) {
+            try {
+              await db.collection('compras_financeiro').add({
+                fornecedor:    cotData.fornecedorNome || '',
+                fornecedorId:  cotData.fornecedorId  || '',
+                classificacao: 'Pedido',
+                destinatario:  orderSnap.data().house || '',
+                valor:         valor,
+                vencimentoStr: boletoVencimento || '',
+                mes:           new Date().toLocaleString('pt-BR',{month:'long'}).toUpperCase(),
+                ano:           new Date().getFullYear(),
+                pago:          '',
+                pedidoRef:     orderSnap.data().code || orderId,
+                createdAt:     firebase.firestore.FieldValue.serverTimestamp(),
+              });
+              // Consome o limite do fornecedor
+              await db.collection('suppliers').doc(cotData.fornecedorId).update({
+                utilizado: firebase.firestore.FieldValue.increment(valor)
+              });
+            } catch(e) { console.warn('Erro ao lançar no financeiro:', e); }
+          }
+
+          showToast('✅ Cotação aprovada! Pedido liberado e lançado no financeiro.');
         }
       }
     }
@@ -12043,20 +12068,42 @@ async function pagMarcarSelecionados(pagar) {
 
   try {
     const batch = db.batch();
+    // Agrupa valores por fornecedor para atualizar limite
+    const fornValores = {};
     pagSelecionados.forEach(id => {
       batch.update(db.collection('compras_financeiro').doc(id), {
         pago:    novoStatus,
         pagoEm:  pagar ? firebase.firestore.FieldValue.serverTimestamp() : null,
       });
-      // Atualiza local
       const reg = finDados.find(d => d.id === id);
-      if (reg) { reg.pago = novoStatus; count++; }
+      if (reg) {
+        reg.pago = novoStatus;
+        count++;
+        // Acumula valor por fornecedor (só se tinha fornecedor associado)
+        if (reg.fornecedorId) {
+          const val = parseFloat(reg.valor) || 0;
+          fornValores[reg.fornecedorId] = (fornValores[reg.fornecedorId] || 0) + val;
+        }
+      }
     });
     await batch.commit();
+
+    // Atualiza limite utilizado dos fornecedores
+    for (const [fornId, val] of Object.entries(fornValores)) {
+      // Se pagou: libera o limite (decrementa utilizado)
+      // Se despagou: consome o limite (incrementa utilizado)
+      const delta = pagar ? -val : val;
+      try {
+        await db.collection('suppliers').doc(fornId).update({
+          utilizado: firebase.firestore.FieldValue.increment(delta)
+        });
+      } catch(e) { console.warn('Erro ao atualizar limite do fornecedor:', e); }
+    }
+
     pagSelecionados.clear();
     pagAtualizarResumo();
     pagFiltrar();
-    finAplicarFiltros(); // atualiza painel também
+    finAplicarFiltros();
     showToast(`✅ ${count} lançamento(s) ${label}!`);
     // Atualiza badge da aba
     const badge = document.getElementById('fin-badge-pendentes');
@@ -12088,7 +12135,23 @@ async function finTogglePago(id, pagar) {
       pago:   novoStatus,
       pagoEm: pagar ? firebase.firestore.FieldValue.serverTimestamp() : null,
     });
-    showToast(pagar ? '✅ Marcado como pago!' : '↩️ Marcado como pendente!');
+
+    // Atualiza limite utilizado do fornecedor
+    if (reg.fornecedorId) {
+      const val   = parseFloat(reg.valor) || 0;
+      // Pagar = libera limite (decrementa); Despagar = consome limite (incrementa)
+      const delta = pagar ? -val : val;
+      try {
+        await db.collection('suppliers').doc(reg.fornecedorId).update({
+          utilizado: firebase.firestore.FieldValue.increment(delta)
+        });
+        // Atualiza cache local também
+        const sup = (window.suppliersCache || []).find(s => s.id === reg.fornecedorId);
+        if (sup) sup.utilizado = (parseFloat(sup.utilizado) || 0) + delta;
+      } catch(e) { console.warn('Erro ao atualizar limite fornecedor:', e); }
+    }
+
+    showToast(pagar ? '✅ Marcado como pago! Limite do fornecedor atualizado.' : '↩️ Marcado como pendente!');
     // Atualiza badge
     const badge = document.getElementById('fin-badge-pendentes');
     if (badge) {
