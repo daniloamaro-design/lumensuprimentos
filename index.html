@@ -1107,26 +1107,27 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
         Verificar Estoque Crítico
       </button>
+
+      <button class="sidebar-item" data-page="transferencias" onclick="goPageMobile('transferencias')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
+        Transferências
+      </button>
+    </div>
+
+    <!-- SIDEBAR: INDICADORES -->
+    <div class="sidebar-section">
+      <div class="sidebar-section-title">Indicadores</div>
       <button class="sidebar-item" data-page="indicadores" onclick="goPageMobile('indicadores')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
         Indicadores
-      </button>
-      <button class="sidebar-item" data-page="previsao" onclick="goPageMobile('previsao')">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a10 10 0 1 0 10 10"/><path d="M12 6v6l4 2"/><circle cx="18" cy="6" r="3" fill="var(--lumen)" stroke="none"/><path d="M16 6h4M18 4v4" stroke="#fff" stroke-width="1.5"/></svg>
-        Previsão IA
-        <span class="sidebar-badge" style="background:var(--lumen);color:#fff;font-size:9px;padding:1px 5px;border-radius:8px;margin-left:4px;">IA</span>
       </button>
       <button class="sidebar-item" data-page="comparativo" onclick="goPageMobile('comparativo')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/><path d="M7 8l3 3 2-2 3 3"/></svg>
         Comparativo Quinzenal
       </button>
-      <button class="sidebar-item" data-page="calc-real" onclick="goPageMobile('calc-real')">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M7 16l4-4 4 4 4-8" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        Calculado × Real
-      </button>
-      <button class="sidebar-item" data-page="transferencias" onclick="goPageMobile('transferencias')">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
-        Transferências
+      <button class="sidebar-item" data-page="irmaos" onclick="goPageMobile('irmaos')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        Ind. dos Irmãos
       </button>
     </div>
 
@@ -1194,9 +1195,6 @@
       </button>
     </div>
 
-      <button class="sidebar-item" data-page="irmaos" onclick="goPageMobile('irmaos')" id="sidebar-irmaos-btn">
-        <span>👥 Ind. dos Irmãos</span>
-      </button>
     <!-- SIDEBAR: ESTOQUE (visível para estoque, compras, admin) -->
     <div class="sidebar-section" id="sidebar-estoque" style="display:none;">
       <div class="sidebar-section-title">Estoque</div>
