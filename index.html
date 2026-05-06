@@ -1194,6 +1194,9 @@
       </button>
     </div>
 
+      <button class="sidebar-item" data-page="irmaos" onclick="goPageMobile('irmaos')" style="display:none;" id="sidebar-irmaos-btn">
+        <span>👥 Ind. dos Irmãos</span>
+      </button>
     <!-- SIDEBAR: ESTOQUE (visível para estoque, compras, admin) -->
     <div class="sidebar-section" id="sidebar-estoque" style="display:none;">
       <div class="sidebar-section-title">Estoque</div>
@@ -2059,9 +2062,6 @@ document.querySelector('.main-content').insertAdjacentHTML('beforeend', `
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
         Exportar Relatório PDF
       </button>
-      <button class="export-btn" onclick="recalcularLimitesFornecedores()" style="background:var(--warn-bg);color:var(--warn);border-color:var(--warn);">
-        🔄 Recalcular Limites
-      </button>
     </div>
   </div>
 
@@ -2343,6 +2343,73 @@ document.querySelector('.main-content').insertAdjacentHTML('beforeend', `
         </thead>
         <tbody id="prev-tbody"></tbody>
       </table>
+    </div>
+  </div>
+</div>
+
+<!-- PAGE: INDICADORES DOS IRMÃOS -->
+<div class="page" id="page-irmaos">
+  <div class="page-header">
+    <div class="page-title">Indicadores dos Irmãos</div>
+    <div class="page-sub">Evolução do número de acolhidos e coordenadores por casa ao longo do tempo</div>
+  </div>
+
+  <div class="card" style="margin-bottom:16px;">
+    <div class="card-body" style="padding:14px 18px;">
+      <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;">
+        <div>
+          <label class="form-label">Casa</label>
+          <select class="form-select" id="irm-casa" style="width:200px;" onchange="loadIrmaosIndicadores()">
+            <option value="">Todas as casas</option>
+          </select>
+        </div>
+        <div>
+          <label class="form-label">Tipo</label>
+          <select class="form-select" id="irm-tipo" style="width:160px;" onchange="loadIrmaosIndicadores()">
+            <option value="todos">Todos</option>
+            <option value="acolhidos">Acolhidos</option>
+            <option value="coordenadores">Coordenadores</option>
+          </select>
+        </div>
+        <button class="btn btn-primary btn-sm" onclick="loadIrmaosIndicadores()">🔄 Atualizar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Cards resumo -->
+  <div class="stats-grid" style="margin-bottom:20px;" id="irm-cards">
+    <div class="stat-card"><div class="stat-label">Total de Irmãos</div><div class="stat-value" id="irm-total">—</div></div>
+    <div class="stat-card"><div class="stat-label">Acolhidos</div><div class="stat-value ok" id="irm-acolhidos">—</div></div>
+    <div class="stat-card"><div class="stat-label">Coordenadores</div><div class="stat-value" id="irm-coord">—</div></div>
+    <div class="stat-card"><div class="stat-label">Variação (último registro)</div><div class="stat-value" id="irm-variacao">—</div></div>
+  </div>
+
+  <!-- Gráfico evolução -->
+  <div class="card" style="margin-bottom:16px;">
+    <div class="card-header"><div class="card-header-title">📈 Evolução ao longo do tempo</div></div>
+    <div class="card-body"><div style="position:relative;height:300px;"><canvas id="chart-irmaos"></canvas></div></div>
+  </div>
+
+  <!-- Tabela por casa -->
+  <div class="card">
+    <div class="card-header"><div class="card-header-title">🏠 Situação atual por casa</div></div>
+    <div class="card-body" style="padding:0;">
+      <div class="table-wrap">
+        <table class="fin-table">
+          <thead><tr>
+            <th>Casa</th>
+            <th style="text-align:center;">Acolhidos</th>
+            <th style="text-align:center;">Coordenadores</th>
+            <th style="text-align:center;">Extra</th>
+            <th style="text-align:center;">Total</th>
+            <th>Último Registro</th>
+            <th>Registrado por</th>
+          </tr></thead>
+          <tbody id="irm-tbody">
+            <tr><td colspan="7" style="text-align:center;padding:32px;color:var(--text-muted);">Carregando...</td></tr>
+          </tbody>
+        </table>
+      </div>
     </div>
   </div>
 </div>
@@ -2667,6 +2734,7 @@ document.querySelector('.main-content').insertAdjacentHTML('beforeend', `
   </div>
 
   <!-- Cards de totais -->
+  <!-- Painel de totais -->
   <div class="orca-summary-panel" id="opc-totais" style="display:none;">
     <div class="orca-sum-card">
       <div class="orca-sum-label">💰 Total Geral</div>
@@ -2674,20 +2742,37 @@ document.querySelector('.main-content').insertAdjacentHTML('beforeend', `
       <div class="orca-sum-sub" id="opc-n-pedidos">0 pedidos</div>
     </div>
     <div class="orca-sum-card">
-      <div class="orca-sum-label">✅ Autorizado</div>
+      <div class="orca-sum-label">✅ Coord. Aprovou</div>
       <div class="orca-sum-value" id="opc-total-aut" style="color:var(--ok);">R$ 0,00</div>
-      <div class="orca-sum-sub" id="opc-n-aut">0 itens</div>
+      <div class="orca-sum-sub" id="opc-n-aut">0 cotações</div>
     </div>
     <div class="orca-sum-card">
-      <div class="orca-sum-label">❌ Não Autorizado</div>
+      <div class="orca-sum-label">✅ Gerente Aprovou</div>
+      <div class="orca-sum-value" id="opc-total-ger" style="color:#22c55e;">R$ 0,00</div>
+      <div class="orca-sum-sub" id="opc-n-ger">0 cotações</div>
+    </div>
+    <div class="orca-sum-card">
+      <div class="orca-sum-label">❌ Recusado</div>
       <div class="orca-sum-value" id="opc-total-naut" style="color:var(--danger);">R$ 0,00</div>
-      <div class="orca-sum-sub" id="opc-n-naut">0 itens</div>
+      <div class="orca-sum-sub" id="opc-n-naut">0 cotações</div>
     </div>
     <div class="orca-sum-card">
       <div class="orca-sum-label">⏳ Sem Decisão</div>
       <div class="orca-sum-value" id="opc-total-pend" style="color:var(--warn);">R$ 0,00</div>
-      <div class="orca-sum-sub" id="opc-n-pend">0 itens</div>
+      <div class="orca-sum-sub" id="opc-n-pend">0 cotações</div>
     </div>
+  </div>
+
+  <!-- Totais por fornecedor -->
+  <div id="opc-totais-forn" style="display:none;margin-bottom:16px;">
+    <div style="font-size:12px;font-weight:700;color:var(--text-muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:0.5px;">💼 Total por Fornecedor</div>
+    <div id="opc-forn-chips" style="display:flex;gap:8px;flex-wrap:wrap;"></div>
+  </div>
+
+  <!-- Totais por categoria + comparativo quinzena -->
+  <div id="opc-totais-cat" style="display:none;margin-bottom:16px;">
+    <div style="font-size:12px;font-weight:700;color:var(--text-muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:0.5px;">📦 Total por Categoria <span style="font-weight:400;font-size:11px;">(vs quinzena anterior)</span></div>
+    <div id="opc-cat-chips" style="display:flex;gap:8px;flex-wrap:wrap;"></div>
   </div>
 
   <!-- Filtros de agrupamento + botão recarregar -->
@@ -4361,6 +4446,7 @@ function goPage(page) {
   if (page === 'manage-cities')    { loadManageCities(); }
   if (page === 'manage-products')  { initManageProducts(); }
   if (page === 'indicadores')      { initIndicadores(); }
+  if (page === 'irmaos')          { loadIrmaosIndicadores(); }
   if (page === 'transferencias')   { initTransferencias(); }
   if (page === 'fornecedores')     { loadSuppliers(); }
   if (page === 'ind-fornecedores')  { initIndFornecedores(); }
@@ -9625,83 +9711,6 @@ function toggleDonation() {
 let supplierEditId = null;
 let suppliersCache = [];
 
-// ─────────────────────────────────────────────
-// 🔄 RECALCULAR LIMITES DOS FORNECEDORES
-// Varre todos os lançamentos NÃO PAGOS e soma por fornecedor
-// ─────────────────────────────────────────────
-async function recalcularLimitesFornecedores() {
-  if (!confirm('Isso vai recalcular o "Limite Utilizado" de todos os fornecedores com base nos lançamentos financeiros não pagos.\n\nDeseja continuar?')) return;
-
-  showToast('⏳ Recalculando limites, aguarde...');
-
-  try {
-    // 1. Busca todos os lançamentos não pagos
-    const snap = await db.collection('compras_financeiro')
-      .where('pago', '!=', 'Sim')
-      .get();
-
-    // 2. Agrupa valores por fornecedorId
-    const totaisPorId   = {}; // { fornecedorId: total }
-    const totaisPorNome = {}; // { nomeLower: total } para lançamentos sem ID
-
-    snap.docs.forEach(doc => {
-      const d   = doc.data();
-      const val = parseFloat(d.valor) || 0;
-      if (!val) return;
-
-      if (d.fornecedorId) {
-        totaisPorId[d.fornecedorId] = (totaisPorId[d.fornecedorId] || 0) + val;
-      } else if (d.fornecedor) {
-        const key = d.fornecedor.trim().toLowerCase();
-        totaisPorNome[key] = (totaisPorNome[key] || 0) + val;
-      }
-    });
-
-    // 3. Busca todos os fornecedores
-    const supSnap = await db.collection('suppliers').get();
-    let atualizados = 0;
-
-    const batch = db.batch();
-    supSnap.docs.forEach(doc => {
-      const s    = doc.data();
-      let total  = totaisPorId[doc.id] || 0;
-
-      // Tenta também pelo nome (para lançamentos históricos sem ID)
-      if (!total && s.nome) {
-        const nomeKey = s.nome.trim().toLowerCase();
-        total = totaisPorNome[nomeKey] || 0;
-        // Também tenta por partes do nome
-        if (!total) {
-          for (const [k, v] of Object.entries(totaisPorNome)) {
-            if (k.includes(nomeKey.slice(0,6)) || nomeKey.includes(k.slice(0,6))) {
-              total += v;
-            }
-          }
-        }
-      }
-
-      batch.update(doc.ref, { utilizado: total });
-      atualizados++;
-    });
-
-    await batch.commit();
-
-    // Atualiza cache local
-    suppliersCache = suppliersCache.map(s => ({
-      ...s,
-      utilizado: totaisPorId[s.id] || 0
-    }));
-
-    // Recarrega tela de fornecedores
-    await loadSuppliers();
-
-    showToast(`✅ Limites recalculados! ${atualizados} fornecedores atualizados.`);
-  } catch(e) {
-    console.error('Erro ao recalcular limites:', e);
-    showToast('❌ Erro ao recalcular: ' + e.message);
-  }
-}
-
 async function loadSuppliers() {
   const wrap = document.getElementById('supplier-list-wrap');
   if (!wrap) return;
@@ -10927,6 +10936,31 @@ async function initOrcPendentes() {
 
     document.getElementById('opc-totais').style.display = '';
     document.getElementById('opc-filtros').style.display = '';
+
+    // Carrega dados da quinzena anterior para comparativo
+    try {
+      const hoje = new Date();
+      const quinzenaAtras = new Date(hoje);
+      quinzenaAtras.setDate(hoje.getDate() - 15);
+      const quinzStrStart = quinzenaAtras.toISOString();
+      const quinzStrEnd   = hoje.toISOString();
+
+      // Busca pedidos aprovados nos últimos 15-30 dias
+      const quinzSnap = await db.collection('orders')
+        .where('status', '==', 'pedido_liberado')
+        .where('liberadoEm', '>=', new firebase.firestore.Timestamp.fromDate(new Date(hoje.getTime() - 30*24*60*60*1000)))
+        .where('liberadoEm', '<', new firebase.firestore.Timestamp.fromDate(quinzenaAtras))
+        .get().catch(() => ({ docs: [] }));
+
+      window.opcQuinzenaAnterior = {};
+      quinzSnap.docs.forEach(d => {
+        const data = d.data();
+        const cats = (data.categories || []).map(c => (window.CATEGORIAS?.[c]?.nome || c)).join(' + ') || 'Sem categoria';
+        const val  = parseFloat(data.cotacaoValor || data.nfValor || 0);
+        window.opcQuinzenaAnterior[cats] = (window.opcQuinzenaAnterior[cats] || 0) + val;
+      });
+    } catch(e) { window.opcQuinzenaAnterior = {}; }
+
     opcRenderizar();
 
   } catch(e) {
@@ -10960,34 +10994,123 @@ function opcEstilizarLinhaCotacao(rowEl, estado) {
 }
 
 async function opcSalvarDecisao(cotId, valor) {
-  // Salva no Firestore a decisão (aprovado / recusado / pendente)
+  // Coordenador faz análise — salva statusCoordenador
+  // Pedido SÓ avança quando o Gerente aprovar
   try {
     const novoStatus = valor === true ? 'aprovado' : valor === false ? 'recusado' : 'pendente';
-    await db.collection('quotations').doc(cotId).update({ status: novoStatus });
+    await db.collection('quotations').doc(cotId).update({
+      status: novoStatus, // legado
+      statusCoordenador: novoStatus,
+      coordenadorNome: currentUserData?.name || '',
+      coordenadorEm: firebase.firestore.FieldValue.serverTimestamp(),
+      // Reseta aprovação do gerente se coordenador mudar decisão
+      statusGerente: novoStatus === 'pendente' ? 'pendente' : (novoStatus === 'recusado' ? 'recusado' : 'aguardando'),
+    });
 
-    // Se aprovado, muda o pedido para "Pedido Liberado" diretamente
+    opcRenderizar();
+    showToast(valor === true ? '✅ Coordenador aprovou! Aguardando gerente.' : valor === false ? '❌ Coordenador recusou.' : '↩️ Decisão removida.');
+  } catch(e) {
+    console.error('Erro ao salvar decisão:', e);
+    showToast('Erro ao salvar decisão. Verifique o console.');
+  }
+}
+
+// Gerente aprova ou recusa — libera o pedido
+async function opcGerenteDecisao(cotId, valor) {
+  try {
+    const novoStatus = valor === true ? 'aprovado' : 'recusado';
+
+    // Busca cotação atual
+    const cotSnap = await db.collection('quotations').doc(cotId).get();
+    const cotData = cotSnap.data() || {};
+
+    // Só pode aprovar se coordenador também aprovou
+    if (valor === true && cotData.statusCoordenador !== 'aprovado') {
+      showToast('⚠️ O coordenador ainda não aprovou esta cotação!');
+      return;
+    }
+
+    await db.collection('quotations').doc(cotId).update({
+      statusGerente: novoStatus,
+      gerenteNome: currentUserData?.name || '',
+      gerenteEm: firebase.firestore.FieldValue.serverTimestamp(),
+      status: novoStatus, // atualiza status final
+    });
+
+    // Se gerente aprovou, libera o pedido e salva dados financeiros
     if (valor === true) {
-      // Descobre qual pedido essa cotação pertence
-      const cotSnap = await db.collection('quotations').doc(cotId).get();
-      const orderId = cotSnap.data()?.orderId;
+      const orderId = cotData.orderId;
       if (orderId) {
         const orderSnap = await db.collection('orders').doc(orderId).get();
-        // Só muda se o pedido ainda estiver em andamento
         if (orderSnap.exists && orderSnap.data().status === 'andamento') {
+
+          // Calcula vencimento pelo prazo do fornecedor
+          let boletoVencimento = '';
+          try {
+            const fornId = cotData.fornecedorId;
+            if (fornId) {
+              let sup = (window.suppliersCache || []).find(s => s.id === fornId);
+              if (!sup) {
+                const supSnap = await db.collection('suppliers').doc(fornId).get();
+                if (supSnap.exists) sup = { id: fornId, ...supSnap.data() };
+              }
+              if (sup) {
+                const prazoNum = sup.prazo === 'a_vista' ? 0 : parseInt(sup.prazo) || 0;
+                if (prazoNum > 0) {
+                  const venc = new Date();
+                  venc.setDate(venc.getDate() + prazoNum);
+                  boletoVencimento = venc.toISOString().slice(0, 10);
+                }
+              }
+            }
+          } catch(e) { console.warn('Erro prazo:', e); }
+
           await db.collection('orders').doc(orderId).update({
             status: 'pedido_liberado',
             liberadoEm: firebase.firestore.FieldValue.serverTimestamp(),
             cotacaoAprovadaId: cotId,
-            cotacaoFornecedor: cotSnap.data().fornecedorNome || '',
-            cotacaoValor: cotSnap.data().valor || 0,
+            cotacaoFornecedor: cotData.fornecedorNome || '',
+            cotacaoValor: cotData.valor || 0,
+            fornecedorId: cotData.fornecedorId || '',
+            fornecedorNome: cotData.fornecedorNome || '',
+            nfValor: parseFloat(cotData.valor) || 0,
+            boletoVencimento,
           });
-          showToast('✅ Cotação aprovada! Pedido liberado.');
+
+          // Lança no financeiro e consome limite do fornecedor
+          const valor2 = parseFloat(cotData.valor) || 0;
+          if (valor2 > 0 && cotData.fornecedorId) {
+            try {
+              await db.collection('compras_financeiro').add({
+                fornecedor: cotData.fornecedorNome || '',
+                fornecedorId: cotData.fornecedorId || '',
+                classificacao: 'Pedido',
+                destinatario: orderSnap.data().house || '',
+                valor: valor2,
+                vencimentoStr: boletoVencimento || '',
+                mes: new Date().toLocaleString('pt-BR',{month:'long'}).toUpperCase(),
+                ano: new Date().getFullYear(),
+                pago: '',
+                pedidoRef: orderSnap.data().code || orderId,
+                createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+              });
+              await db.collection('suppliers').doc(cotData.fornecedorId).update({
+                utilizado: firebase.firestore.FieldValue.increment(valor2)
+              });
+            } catch(e) { console.warn('Erro financeiro:', e); }
+          }
+
+          showToast('✅ Gerente aprovou! Pedido liberado e lançado no financeiro.');
         }
       }
+    } else {
+      showToast('❌ Gerente recusou a cotação.');
     }
+
+    opcRenderizar();
   } catch(e) {
-    console.error('Erro ao salvar decisão:', e);
-    showToast('Erro ao salvar decisão. Verifique o console.');
+    console.error('Erro na decisão do gerente:', e);
+    showToast('Erro ao salvar decisão do gerente.');
   }
 }
 
@@ -11014,16 +11137,37 @@ function opcAutorizarGrupoCotacoes(cotIds, valor) {
 }
 
 function opcAtualizarTotais() {
-  let totalGeral = 0, totalAut = 0, totalNaut = 0, totalPend = 0;
-  let nAut = 0, nNaut = 0, nPend = 0;
+  let totalGeral = 0, totalAut = 0, totalNaut = 0, totalPend = 0, totalGer = 0;
+  let nAut = 0, nNaut = 0, nPend = 0, nGer = 0;
+  const porForn = {}; // { nome: total }
+  const porCat  = {}; // { catNome: { total, autorizado } }
 
-  Object.values(opcCotacoes).forEach(cots => {
+  Object.entries(opcCotacoes).forEach(([orderId, cots]) => {
+    const pedido = opcPedidos.find(p => p.id === orderId);
+    const cats   = pedido?.categories || [];
+
     cots.forEach(q => {
-      const val = parseFloat(q.valor) || 0;
+      const val  = parseFloat(q.valor) || 0;
+      const forn = q.fornecedorNome || 'Sem fornecedor';
       totalGeral += val;
+
       if      (opcAutorizados[q.id] === true)  { totalAut  += val; nAut++;  }
       else if (opcAutorizados[q.id] === false)  { totalNaut += val; nNaut++; }
       else                                      { totalPend += val; nPend++; }
+
+      // Gerente
+      if (q.statusGerente === 'aprovado') { totalGer += val; nGer++; }
+
+      // Por fornecedor
+      porForn[forn] = (porForn[forn] || 0) + val;
+
+      // Por categoria
+      const catLabel = cats.length > 0
+        ? cats.map(c => (window.CATEGORIAS?.[c]?.nome || c)).join(' + ')
+        : 'Sem categoria';
+      if (!porCat[catLabel]) porCat[catLabel] = { total: 0, autorizado: 0 };
+      porCat[catLabel].total      += val;
+      if (opcAutorizados[q.id] === true) porCat[catLabel].autorizado += val;
     });
   });
 
@@ -11031,10 +11175,48 @@ function opcAtualizarTotais() {
   document.getElementById('opc-total-aut').textContent   = FMT_OPC(totalAut);
   document.getElementById('opc-total-naut').textContent  = FMT_OPC(totalNaut);
   document.getElementById('opc-total-pend').textContent  = FMT_OPC(totalPend);
+  document.getElementById('opc-total-ger').textContent   = FMT_OPC(totalGer);
   document.getElementById('opc-n-pedidos').textContent   = opcPedidos.length + ' pedido(s)';
-  document.getElementById('opc-n-aut').textContent  = nAut + ' cotação(ões)';
-  document.getElementById('opc-n-naut').textContent = nNaut + ' cotação(ões)';
-  document.getElementById('opc-n-pend').textContent = nPend + ' cotação(ões)';
+  document.getElementById('opc-n-aut').textContent  = nAut + ' cotações';
+  document.getElementById('opc-n-naut').textContent = nNaut + ' cotações';
+  document.getElementById('opc-n-pend').textContent = nPend + ' cotações';
+  document.getElementById('opc-n-ger').textContent  = nGer + ' cotações';
+
+  // Chips por fornecedor
+  const fornWrap = document.getElementById('opc-forn-chips');
+  if (fornWrap) {
+    const sorted = Object.entries(porForn).sort(([,a],[,b]) => b - a);
+    fornWrap.innerHTML = sorted.map(([nome, val]) =>
+      `<span style="display:inline-flex;align-items:center;gap:6px;background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:5px 14px;font-size:12px;font-weight:700;">
+        <span style="color:var(--text-muted);">${nome}</span>
+        <span style="color:var(--lumen);">${FMT_OPC(val)}</span>
+      </span>`
+    ).join('');
+    document.getElementById('opc-totais-forn').style.display = sorted.length ? '' : 'none';
+  }
+
+  // Chips por categoria com comparativo quinzena
+  const catWrap = document.getElementById('opc-cat-chips');
+  if (catWrap) {
+    const catEntries = Object.entries(porCat).sort(([,a],[,b]) => b.total - a.total);
+    catWrap.innerHTML = catEntries.map(([nome, dados]) => {
+      const quinzenaAnterior = window.opcQuinzenaAnterior?.[nome] || 0;
+      let compHtml = '';
+      if (quinzenaAnterior > 0) {
+        const diff = dados.total - quinzenaAnterior;
+        const pct  = ((diff / quinzenaAnterior) * 100).toFixed(1);
+        const cor  = diff > 0 ? 'var(--danger)' : 'var(--ok)';
+        const seta = diff > 0 ? '↑' : '↓';
+        compHtml = `<span style="color:${cor};font-size:11px;">${seta}${Math.abs(pct)}% vs ant.</span>`;
+      }
+      return `<span style="display:inline-flex;align-items:center;gap:6px;background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:5px 14px;font-size:12px;font-weight:700;">
+        <span style="color:var(--text-muted);">${nome}</span>
+        <span style="color:var(--lumen);">${FMT_OPC(dados.total)}</span>
+        ${compHtml}
+      </span>`;
+    }).join('');
+    document.getElementById('opc-totais-cat').style.display = catEntries.length ? '' : 'none';
+  }
 }
 
 function opcRenderizar() {
@@ -11176,14 +11358,22 @@ function opcRenderizar() {
             <td style="font-size:12px;color:var(--text-muted);max-width:160px;">${q.obs || '—'}</td>
             <td style="text-align:center;">${statusBadge}</td>
             <td style="text-align:center;white-space:nowrap;padding:6px 8px;">
-              <button class="opc-btn-sim" onclick="opcToggleESalvar('${q.id}', true)"
-                style="background:${estado===true?'var(--ok)':'var(--ok-bg)'};color:${estado===true?'#fff':'var(--ok)'};border:1px solid var(--ok);border-radius:6px;padding:4px 10px;font-size:12px;font-weight:700;cursor:pointer;margin-right:4px;">
-                ✅ Sim
-              </button>
-              <button class="opc-btn-nao" onclick="opcToggleESalvar('${q.id}', false)"
-                style="background:${estado===false?'var(--danger)':'var(--danger-bg)'};color:${estado===false?'#fff':'var(--danger)'};border:1px solid var(--danger);border-radius:6px;padding:4px 10px;font-size:12px;font-weight:700;cursor:pointer;">
-                ❌ Não
-              </button>
+              <!-- COORD -->
+              <div style="font-size:10px;text-align:center;color:var(--text-muted);font-weight:700;margin-bottom:3px;">COORD.</div>
+              <div style="display:flex;gap:3px;margin-bottom:6px;">
+                <button onclick="opcToggleESalvar('${q.id}', true)"
+                  style="padding:3px 9px;border-radius:5px;font-size:11px;font-weight:700;cursor:pointer;border:1px solid ${q.statusCoordenador==='aprovado'?'var(--ok)':'var(--border)'};background:${q.statusCoordenador==='aprovado'?'var(--ok)':'var(--ok-bg)'};color:${q.statusCoordenador==='aprovado'?'#fff':'var(--ok)'};">✅</button>
+                <button onclick="opcToggleESalvar('${q.id}', false)"
+                  style="padding:3px 9px;border-radius:5px;font-size:11px;font-weight:700;cursor:pointer;border:1px solid ${q.statusCoordenador==='recusado'?'var(--danger)':'var(--border)'};background:${q.statusCoordenador==='recusado'?'var(--danger)':'var(--danger-bg)'};color:${q.statusCoordenador==='recusado'?'#fff':'var(--danger)'};">❌</button>
+              </div>
+              <!-- GERENTE -->
+              <div style="font-size:10px;text-align:center;color:var(--text-muted);font-weight:700;margin-bottom:3px;">GERENTE</div>
+              <div style="display:flex;gap:3px;">
+                <button onclick="opcGerenteDecisao('${q.id}', true)"
+                  style="padding:3px 9px;border-radius:5px;font-size:11px;font-weight:700;cursor:pointer;border:1px solid ${q.statusGerente==='aprovado'?'#22c55e':'var(--border)'};background:${q.statusGerente==='aprovado'?'#22c55e':'#f0fdf4'};color:${q.statusGerente==='aprovado'?'#fff':'#22c55e'};">✅</button>
+                <button onclick="opcGerenteDecisao('${q.id}', false)"
+                  style="padding:3px 9px;border-radius:5px;font-size:11px;font-weight:700;cursor:pointer;border:1px solid ${q.statusGerente==='recusado'?'var(--danger)':'var(--border)'};background:${q.statusGerente==='recusado'?'var(--danger)':'var(--danger-bg)'};color:${q.statusGerente==='recusado'?'#fff':'var(--danger)'};">❌</button>
+              </div>
             </td>
           </tr>`;
         });
@@ -11247,14 +11437,22 @@ function opcRenderizar() {
           <td style="font-size:12px;color:var(--text-muted);max-width:180px;">${q.obs || '—'}</td>
           <td style="text-align:center;">${statusBadge}</td>
           <td style="text-align:center;white-space:nowrap;padding:6px 8px;">
-            <button class="opc-btn-sim" onclick="opcToggleESalvar('${q.id}', true)"
-              style="background:${estado===true?'var(--ok)':'var(--ok-bg)'};color:${estado===true?'#fff':'var(--ok)'};border:1px solid var(--ok);border-radius:6px;padding:4px 10px;font-size:12px;font-weight:700;cursor:pointer;margin-right:4px;">
-              ✅ Sim
-            </button>
-            <button class="opc-btn-nao" onclick="opcToggleESalvar('${q.id}', false)"
-              style="background:${estado===false?'var(--danger)':'var(--danger-bg)'};color:${estado===false?'#fff':'var(--danger)'};border:1px solid var(--danger);border-radius:6px;padding:4px 10px;font-size:12px;font-weight:700;cursor:pointer;">
-              ❌ Não
-            </button>
+              <!-- COORD -->
+              <div style="font-size:10px;text-align:center;color:var(--text-muted);font-weight:700;margin-bottom:3px;">COORD.</div>
+              <div style="display:flex;gap:3px;margin-bottom:6px;">
+                <button onclick="opcToggleESalvar('${q.id}', true)"
+                  style="padding:3px 9px;border-radius:5px;font-size:11px;font-weight:700;cursor:pointer;border:1px solid ${q.statusCoordenador==='aprovado'?'var(--ok)':'var(--border)'};background:${q.statusCoordenador==='aprovado'?'var(--ok)':'var(--ok-bg)'};color:${q.statusCoordenador==='aprovado'?'#fff':'var(--ok)'};">✅</button>
+                <button onclick="opcToggleESalvar('${q.id}', false)"
+                  style="padding:3px 9px;border-radius:5px;font-size:11px;font-weight:700;cursor:pointer;border:1px solid ${q.statusCoordenador==='recusado'?'var(--danger)':'var(--border)'};background:${q.statusCoordenador==='recusado'?'var(--danger)':'var(--danger-bg)'};color:${q.statusCoordenador==='recusado'?'#fff':'var(--danger)'};">❌</button>
+              </div>
+              <!-- GERENTE -->
+              <div style="font-size:10px;text-align:center;color:var(--text-muted);font-weight:700;margin-bottom:3px;">GERENTE</div>
+              <div style="display:flex;gap:3px;">
+                <button onclick="opcGerenteDecisao('${q.id}', true)"
+                  style="padding:3px 9px;border-radius:5px;font-size:11px;font-weight:700;cursor:pointer;border:1px solid ${q.statusGerente==='aprovado'?'#22c55e':'var(--border)'};background:${q.statusGerente==='aprovado'?'#22c55e':'#f0fdf4'};color:${q.statusGerente==='aprovado'?'#fff':'#22c55e'};">✅</button>
+                <button onclick="opcGerenteDecisao('${q.id}', false)"
+                  style="padding:3px 9px;border-radius:5px;font-size:11px;font-weight:700;cursor:pointer;border:1px solid ${q.statusGerente==='recusado'?'var(--danger)':'var(--border)'};background:${q.statusGerente==='recusado'?'var(--danger)':'var(--danger-bg)'};color:${q.statusGerente==='recusado'?'#fff':'var(--danger)'};">❌</button>
+              </div>
           </td>
         </tr>`;
       });
@@ -12800,6 +12998,140 @@ function resetColors() {
   root.style.removeProperty('--accent');
   root.style.removeProperty('--accent-dk');
   ['lumen-color-main','lumen-color-dark','lumen-color-light','lumen-color-accent','lumen-color-accent-dk'].forEach(k => localStorage.removeItem(k));
+}
+
+// ─────────────────────────────────────────────
+// 👥 INDICADORES DOS IRMÃOS
+// ─────────────────────────────────────────────
+let chartIrmaos = null;
+
+async function loadIrmaosIndicadores() {
+  const casaSel = document.getElementById('irm-casa')?.value || '';
+  const tipoSel = document.getElementById('irm-tipo')?.value || 'todos';
+
+  // Popula select de casas
+  const casaSelect = document.getElementById('irm-casa');
+  if (casaSelect && casaSelect.options.length <= 1) {
+    CASAS.forEach(c => {
+      const opt = document.createElement('option');
+      opt.value = c.name; opt.textContent = c.name;
+      casaSelect.appendChild(opt);
+    });
+  }
+
+  try {
+    let query = db.collection('houses');
+    const snap = await query.get();
+
+    let totalAcolhidos = 0, totalCoord = 0, totalExtra = 0;
+    const rows = [];
+    const timelineData = {}; // { casaName: [{ date, acolhidos, coordenadores, total }] }
+
+    snap.docs.forEach(doc => {
+      const d = doc.data();
+      if (casaSel && d.name !== casaSel) return;
+
+      const acolhidos    = d.acolhidos    || 0;
+      const coordenadores = d.coordenadores || 0;
+      const extra        = d.extra        || 0;
+      const total        = d.currentPeople || (acolhidos + coordenadores + extra);
+      const history      = d.peopleHistory || [];
+      const updatedAt    = d.updatedAt?.toDate ? d.updatedAt.toDate().toLocaleDateString('pt-BR') : '—';
+      const updatedBy    = history.length > 0 ? (history[history.length-1].updatedBy || '—') : '—';
+
+      totalAcolhidos    += acolhidos;
+      totalCoord        += coordenadores;
+      totalExtra        += extra;
+
+      rows.push({ name: d.name || doc.id, acolhidos, coordenadores, extra, total, updatedAt, updatedBy, history });
+
+      // Timeline
+      if (history.length > 0) {
+        timelineData[d.name || doc.id] = history.map(h => ({
+          date:         h.date ? new Date(h.date).toLocaleDateString('pt-BR') : '—',
+          acolhidos:    h.acolhidos    || 0,
+          coordenadores: h.coordenadores || 0,
+          total:         h.count || 0,
+        }));
+      }
+    });
+
+    // Atualiza cards
+    const totalGeral = totalAcolhidos + totalCoord + totalExtra;
+    document.getElementById('irm-total').textContent     = totalGeral;
+    document.getElementById('irm-acolhidos').textContent = totalAcolhidos;
+    document.getElementById('irm-coord').textContent     = totalCoord;
+
+    // Variação — pega último vs penúltimo registro
+    let variacaoHtml = '—';
+    if (rows.length > 0) {
+      const allHistory = rows.flatMap(r => r.history || [])
+        .sort((a,b) => new Date(b.date) - new Date(a.date));
+      if (allHistory.length >= 2) {
+        const ultimo     = allHistory[0].count || 0;
+        const penultimo  = allHistory[1].count || 0;
+        const diff       = ultimo - penultimo;
+        const cor        = diff > 0 ? 'var(--ok)' : diff < 0 ? 'var(--danger)' : 'var(--text-muted)';
+        const seta       = diff > 0 ? '↑' : diff < 0 ? '↓' : '=';
+        variacaoHtml     = `<span style="color:${cor};">${seta}${Math.abs(diff)}</span>`;
+      }
+    }
+    document.getElementById('irm-variacao').innerHTML = variacaoHtml;
+
+    // Tabela
+    const tbody = document.getElementById('irm-tbody');
+    if (rows.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:32px;color:var(--text-muted);">Nenhum dado encontrado</td></tr>';
+    } else {
+      tbody.innerHTML = rows.sort((a,b) => b.total - a.total).map(r => `
+        <tr>
+          <td style="font-weight:600;">${r.name}</td>
+          <td style="text-align:center;color:var(--ok);font-weight:700;">${r.acolhidos}</td>
+          <td style="text-align:center;font-weight:700;">${r.coordenadores}</td>
+          <td style="text-align:center;color:var(--text-muted);">${r.extra}</td>
+          <td style="text-align:center;font-weight:700;font-size:15px;color:var(--lumen);">${r.total}</td>
+          <td style="font-size:12px;color:var(--text-muted);">${r.updatedAt}</td>
+          <td style="font-size:12px;color:var(--text-muted);">${r.updatedBy}</td>
+        </tr>`).join('');
+    }
+
+    // Gráfico de evolução
+    const casasComHistory = Object.entries(timelineData).slice(0, 6);
+    if (casasComHistory.length > 0) {
+      const labels = [...new Set(casasComHistory.flatMap(([,h]) => h.map(e => e.date)))].slice(-12);
+      const datasets = casasComHistory.map(([casa, history], i) => {
+        const cores = ['#3b82f6','#10b981','#f59e0b','#ef4444','#8b5cf6','#06b6d4'];
+        return {
+          label: casa,
+          data: labels.map(l => {
+            const entry = history.find(e => e.date === l);
+            return tipoSel === 'acolhidos' ? (entry?.acolhidos || null)
+              : tipoSel === 'coordenadores' ? (entry?.coordenadores || null)
+              : (entry?.total || null);
+          }),
+          borderColor: cores[i % cores.length],
+          backgroundColor: cores[i % cores.length] + '22',
+          tension: 0.3, fill: false, spanGaps: true,
+        };
+      });
+
+      const ctx = document.getElementById('chart-irmaos').getContext('2d');
+      if (chartIrmaos) chartIrmaos.destroy();
+      chartIrmaos = new Chart(ctx, {
+        type: 'line',
+        data: { labels, datasets },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: { legend: { position: 'bottom' } },
+          scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } }
+        }
+      });
+    }
+
+  } catch(e) {
+    console.error('loadIrmaosIndicadores error:', e);
+    showToast('Erro ao carregar indicadores: ' + e.message);
+  }
 }
 
 // Apply saved custom colors on load
