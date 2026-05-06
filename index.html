@@ -979,7 +979,7 @@
       <div style="font-size:48px;margin-bottom:16px;">⏳</div>
       <div class="auth-title">Solicitação enviada!</div>
       <div class="auth-sub" style="margin-bottom:24px;">Seu cadastro está aguardando aprovação do administrador. Você receberá acesso assim que for aprovado.</div>
-      <button class="btn btn-outline" onclick="doLogout()">Sair</button>
+      <button class="btn btn-outline" onclick="auth.signOut()">Sair</button>
     </div>
   </div>
 
@@ -1027,7 +1027,7 @@
         </svg>
       </button>
       <div class="topbar-user" id="topbar-user"></div>
-      <button class="topbar-logout" onclick="doLogout()">Sair</button>
+      <button class="topbar-logout" onclick="auth.signOut()">Sair</button>
     </div>
   </div>
 
@@ -3505,9 +3505,6 @@ document.querySelector('.main-content').insertAdjacentHTML('beforeend', `
             <div class="attach-name" id="attach-nf-filename"></div>
           </div>
           <input type="file" id="attach-nf-file" style="display:none;" accept=".pdf,.jpg,.jpeg,.png" onchange="onAttachFileChange('nf')">
-          <div id="attach-ai-status" style="display:none;margin-top:8px;padding:10px 12px;background:var(--lumen-lt);border-radius:8px;font-size:12px;color:var(--lumen);font-weight:600;">
-            🤖 Lendo NF com IA...
-          </div>
         </div>
         <div>
           <label class="form-label">Arquivo Boleto (PDF/imagem)</label>
@@ -3722,17 +3719,35 @@ document.querySelector('.main-content').insertAdjacentHTML('beforeend', `
     </div>
   </div>
 </div>
-<!-- ══ MÓDULOS LUMEN (novos arquivos) ══ -->
-<script src="config.js"></script>
-<script src="lumen-auth.js"></script>
-<script src="lumen-ia.js"></script>
-<script src="lumen-rbac.js"></script>
-<script src="lumen-bi.js"></script>
-<!-- ══ FIM MÓDULOS ══ -->
+
 <!-- ════════════════════════════════════════════════════════════
      SCRIPTS
      ════════════════════════════════════════════════════════════ -->
 <script>
+// ─────────────────────────────────────────────
+// ⚙️  CONFIGURAÇÃO — PREENCHA ANTES DE USAR
+// ─────────────────────────────────────────────
+const FIREBASE_CONFIG = {
+  apiKey:            "AIzaSyCJrEyqTInN2YzEwO1eOFibOTpj2Tj-LCQ",
+  authDomain:        "automacao-logistica2040.firebaseapp.com",
+  projectId:         "automacao-logistica2040",
+  storageBucket:     "automacao-logistica2040.firebasestorage.app",
+  messagingSenderId: "980133097947",
+  appId:             "1:980133097947:web:4f778878f8e83b97f677fe"
+};
+
+// Email via EmailJS
+const EMAILJS_SERVICE_ID  = "service_3j9tbrr";
+const EMAILJS_TEMPLATE_ID = "template_p1hszi8";
+const EMAILJS_PUBLIC_KEY  = "UHnFUf7wjvrxJa2d2";
+
+// Gemini AI — para leitura automática dos formulários físicos
+const GEMINI_API_KEY = "CHAVE_REMOVIDA_DO_HISTORICO";
+const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+
+// E-mail do administrador geral
+const ADMIN_EMAIL = "daniloamaro@lumenserfeliz.org";
+
 // ─────────────────────────────────────────────
 // 📦  DADOS DO SISTEMA (dinâmicos — carregados do Firebase)
 // ─────────────────────────────────────────────
@@ -3979,6 +3994,18 @@ const CATEGORIAS = {
     produtos: []
   }
 };
+
+// ─────────────────────────────────────────────
+// 🔥  FIREBASE INIT
+// ─────────────────────────────────────────────
+firebase.initializeApp(FIREBASE_CONFIG);
+const auth = firebase.auth();
+const db   = firebase.firestore();
+
+// EmailJS init
+emailjs.init(EMAILJS_PUBLIC_KEY);
+
+
 // ─────────────────────────────────────────────
 // 🏠  STATE
 // ─────────────────────────────────────────────
@@ -4045,6 +4072,107 @@ let currentHouseStockData = {}; // Estoque atual da casa
 let currentHousePrices = {};   // Preços da cidade da casa
 let housePercapitas = {}; // Per capitas por casa (carregado do Firebase)
 let detailOrderData = null; // for PDF from modal
+
+// ─────────────────────────────────────────────
+// 🔑  AUTH LISTENERS
+// ─────────────────────────────────────────────
+auth.onAuthStateChanged(async (user) => {
+  if (!user) {
+    showAuthScreen('login');
+    return;
+  }
+  currentUser = user;
+  try {
+    const snap = await db.collection('users').doc(user.uid).get();
+    if (!snap.exists) { showAuthScreen('pending'); return; }
+    currentUserData = snap.data();
+
+    if (currentUserData.status === 'pending') { showAuthScreen('pending'); return; }
+    if (currentUserData.status === 'rejected') {
+      auth.signOut();
+      showAuthScreen('login');
+      showAlert('login-alert', 'Sua solicitação de acesso foi recusada.', 'danger');
+      return;
+    }
+
+    // Approved → show app
+    showApp();
+  } catch (e) {
+    console.error(e);
+    auth.signOut();
+  }
+});
+
+// ─────────────────────────────────────────────
+// 🔐  AUTH FUNCTIONS
+// ─────────────────────────────────────────────
+function showForm(name) {
+  ['login','register','pending'].forEach(f => {
+    document.getElementById(`form-${f}`).classList.toggle('hidden', f !== name);
+  });
+}
+
+function showAuthScreen(form) {
+  document.getElementById('auth-screen').style.display = 'flex';
+  document.getElementById('app-screen').style.display  = 'none';
+  showForm(form);
+}
+
+async function doLogin() {
+  const email    = v('login-email');
+  const password = v('login-password');
+  if (!email || !password) { showAlert('login-alert','Preencha e-mail e senha.','danger'); return; }
+  setBtnLoading('btn-login', true);
+  hideAlert('login-alert');
+  try {
+    await auth.signInWithEmailAndPassword(email, password);
+  } catch (e) {
+    showAlert('login-alert', friendlyAuthError(e.code), 'danger');
+    setBtnLoading('btn-login', false);
+  }
+}
+
+async function doRegister() {
+  const name     = v('reg-name');
+  const email    = v('reg-email');
+  const password = v('reg-password');
+  if (!name || !email || !password) {
+    showAlert('register-alert','Preencha todos os campos.','danger'); return;
+  }
+  if (password.length < 6) {
+    showAlert('register-alert','A senha deve ter ao menos 6 caracteres.','danger'); return;
+  }
+  setBtnLoading('btn-register', true);
+  hideAlert('register-alert');
+  try {
+    const cred = await auth.createUserWithEmailAndPassword(email, password);
+    await db.collection('users').doc(cred.user.uid).set({
+      name, email,
+      house: '',
+      role: email === ADMIN_EMAIL ? 'admin' : 'usuario',
+      status: email === ADMIN_EMAIL ? 'approved' : 'pending',
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    notifyAdminNewUser(name, email);
+    showAlert('register-alert','Solicitação enviada! Aguarde a aprovação do administrador.','success');
+  } catch (e) {
+    showAlert('register-alert', friendlyAuthError(e.code), 'danger');
+  }
+  setBtnLoading('btn-register', false);
+}
+
+function friendlyAuthError(code) {
+  const msgs = {
+    'auth/user-not-found':    'E-mail não encontrado.',
+    'auth/wrong-password':    'Senha incorreta.',
+    'auth/invalid-email':     'E-mail inválido.',
+    'auth/email-already-in-use': 'Este e-mail já está em uso.',
+    'auth/too-many-requests': 'Muitas tentativas. Tente novamente em alguns minutos.',
+    'auth/invalid-credential': 'E-mail ou senha incorretos.',
+  };
+  return msgs[code] || 'Erro: ' + code;
+}
+
 // ─────────────────────────────────────────────
 // 🏛️  APP SETUP
 // ─────────────────────────────────────────────
@@ -5961,138 +6089,16 @@ function openAttachModal() {
   openModal('modal-attach');
 }
 
-async function onAttachFileChange(type) {
+function onAttachFileChange(type) {
   const file = document.getElementById(`attach-${type}-file`).files[0];
   const area = document.getElementById(`attach-${type}-area`);
   const nameEl = document.getElementById(`attach-${type}-filename`);
   if (file) {
     area.classList.add('has-file');
     nameEl.textContent = file.name;
-    // Se for NF, lê automaticamente com IA
-    if (type === 'nf') {
-      await lerNFcomIA(file);
-    }
   } else {
     area.classList.remove('has-file');
     nameEl.textContent = '';
-  }
-}
-
-async function lerNFcomIA(file) {
-  const statusEl = document.getElementById('attach-ai-status');
-  statusEl.style.display = '';
-  statusEl.textContent = '🤖 Lendo NF com IA, aguarde...';
-
-  try {
-    // Converte arquivo para base64
-    const base64 = await new Promise((res, rej) => {
-      const reader = new FileReader();
-      reader.onload = e => res(e.target.result.split(',')[1]);
-      reader.onerror = rej;
-      reader.readAsDataURL(file);
-    });
-
-    const isImage = file.type.startsWith('image/');
-    const isPDF   = file.type === 'application/pdf';
-
-    let prompt, body;
-
-    if (isImage) {
-      prompt = `Analise esta nota fiscal e extraia APENAS os seguintes dados em JSON puro (sem markdown):
-{"nf_numero": "número da NF", "valor": 0.00, "vencimento": "YYYY-MM-DD ou vazio", "fornecedor": "nome do fornecedor/empresa emissora", "data_emissao": "YYYY-MM-DD ou vazio"}
-Se algum campo não existir, use string vazia ou 0. Retorne SOMENTE o JSON.`;
-
-      body = {
-        contents: [{
-          parts: [
-            { inline_data: { mime_type: file.type, data: base64 } },
-            { text: prompt }
-          ]
-        }],
-        generationConfig: { temperature: 0.1, maxOutputTokens: 300 }
-      };
-    } else {
-      // PDF — envia como documento
-      prompt = `Analise esta nota fiscal em PDF e extraia APENAS os seguintes dados em JSON puro (sem markdown):
-{"nf_numero": "número da NF", "valor": 0.00, "vencimento": "YYYY-MM-DD ou vazio", "fornecedor": "nome do fornecedor/empresa emissora", "data_emissao": "YYYY-MM-DD ou vazio"}
-Se algum campo não existir, use string vazia ou 0. Retorne SOMENTE o JSON.`;
-
-      body = {
-        contents: [{
-          parts: [
-            { inline_data: { mime_type: 'application/pdf', data: base64 } },
-            { text: prompt }
-          ]
-        }],
-        generationConfig: { temperature: 0.1, maxOutputTokens: 300 }
-      };
-    }
-
-    const resp = await fetch(window.GEMINI_URL_VISION, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body)
-    });
-
-    if (!resp.ok) throw new Error(`Gemini erro ${resp.status}`);
-    const data = await resp.json();
-    const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
-
-    // Parseia o JSON retornado
-    const clean = text.replace(/```json|```/g, '').trim();
-    const parsed = JSON.parse(clean);
-
-    // Preenche os campos automaticamente
-    if (parsed.nf_numero) document.getElementById('attach-nf-num').value = parsed.nf_numero;
-    if (parsed.valor && parsed.valor > 0) document.getElementById('attach-nf-valor').value = parsed.valor;
-    if (parsed.vencimento) document.getElementById('attach-boleto-venc').value = parsed.vencimento;
-
-    // Tenta encontrar o fornecedor no select
-    if (parsed.fornecedor) {
-      const sel = document.getElementById('attach-supplier');
-      let found = false;
-      for (let opt of sel.options) {
-        if (opt.text.toLowerCase().includes(parsed.fornecedor.toLowerCase().slice(0, 6))) {
-          sel.value = opt.value;
-          found = true;
-          break;
-        }
-      }
-      if (!found) {
-        document.getElementById('attach-obs').value = `Fornecedor detectado: ${parsed.fornecedor}`;
-      }
-    }
-
-    // Salva automaticamente nos gastos financeiros
-    if (parsed.valor > 0) {
-      try {
-        await db.collection('compras_financeiro').add({
-          fornecedor:      parsed.fornecedor || 'NF importada',
-          classificacao:   'NF Importada',
-          destinatario:    detailOrderData?.house || '',
-          valor:           parseFloat(parsed.valor) || 0,
-          dataCompraStr:   parsed.data_emissao || new Date().toLocaleDateString('pt-BR'),
-          vencimentoStr:   parsed.vencimento   || '',
-          mes:             new Date().toLocaleString('pt-BR',{month:'long'}).toUpperCase(),
-          ano:             new Date().getFullYear(),
-          pago:            '',
-          nfNumero:        parsed.nf_numero || '',
-          pedidoRef:       detailOrderData?.code || '',
-          importadoViaIA:  true,
-          createdAt:       firebase.firestore.FieldValue.serverTimestamp()
-        });
-      } catch(e) { console.warn('Não foi possível salvar nos gastos:', e); }
-    }
-
-    statusEl.style.background = 'var(--ok-bg)';
-    statusEl.style.color = 'var(--ok)';
-    statusEl.textContent = `✅ NF lida com sucesso! Dados preenchidos automaticamente.`;
-
-  } catch(e) {
-    console.warn('Erro ao ler NF com IA:', e);
-    statusEl.style.background = 'var(--warn-bg)';
-    statusEl.style.color = 'var(--warn)';
-    statusEl.textContent = `⚠️ Não foi possível ler automaticamente. Preencha os campos manualmente.`;
   }
 }
 
@@ -6318,11 +6324,11 @@ async function sendOrderEmail(orderData, recipient) {
   }
 
   try {
-    await emailjs.send(
-      window.EMAILJS_SERVICE_ID,
-      window.EMAILJS_TEMPLATE_ID,
-      {
-        to_email:     recipient,
+    const resp = await fetch('/api/send-email', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        to:           recipient,
         orderCode:    orderData.code,
         house:        orderData.house,
         requester:    orderData.requesterName,
@@ -6332,20 +6338,25 @@ async function sendOrderEmail(orderData, recipient) {
         observations: orderData.observations || 'Nenhuma',
         people:       String(orderData.people || '—'),
         pdfBase64:    pdfBase64,
-      }
-    );
-    showToast('✅ E-mail enviado com sucesso!');
+      }),
+    });
+
+    const result = await resp.json();
+    if (!resp.ok) throw new Error(result.error || `HTTP ${resp.status}`);
+    showToast('✅ E-mail com PDF enviado com sucesso!');
   } catch(e) {
     console.warn('Erro ao enviar e-mail:', e);
     showToast(`⚠️ E-mail não enviado: ${e.message}`);
   }
-}async function sendAlertEmail(subject, body) {
+}
+
+async function sendAlertEmail(subject, body) {
   try {
-    await emailjs.send(
-      window.EMAILJS_SERVICE_ID,
-      window.EMAILJS_TEMPLATE_ID,
-      {
-        to_email:     window.ADMIN_EMAIL,
+    await fetch('/api/send-email', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        to:           ADMIN_EMAIL,
         orderCode:    subject,
         house:        '—',
         requester:    'Sistema Automático',
@@ -6354,13 +6365,14 @@ async function sendOrderEmail(orderData, recipient) {
         summary:      body,
         observations: 'Verifique o sistema com urgência.',
         people:       '—',
-        pdfBase64:    ''
-      }
-    );
+        pdfBase64:    '',
+      }),
+    });
   } catch(e) {
     console.warn('Erro ao enviar alerta:', e);
   }
 }
+
 // ─────────────────────────────────────────────
 // 📄  PDF BASE64 (para anexar no email)
 // ─────────────────────────────────────────────
@@ -6461,11 +6473,11 @@ function makePDFBase64(house, items, meta) {
 
 async function notifyAdminNewUser(name, email) {
   try {
-    await emailjs.send(
-      window.EMAILJS_SERVICE_ID,
-      window.EMAILJS_TEMPLATE_ID,
-      {
-        to_email:     window.ADMIN_EMAIL,
+    await fetch('/api/send-email', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        to:           ADMIN_EMAIL,
         orderCode:    'NOVO USUÁRIO',
         house:        '—',
         requester:    name,
@@ -6474,9 +6486,9 @@ async function notifyAdminNewUser(name, email) {
         summary:      `  • Nome: ${name}\n  • E-mail: ${email}`,
         observations: 'Acesse o sistema para aprovar ou recusar e atribuir a casa.',
         people:       '—',
-        pdfBase64:    '',
-      }
-    );
+        pdfBase64:    '', // sem PDF para notificação de usuário
+      }),
+    });
   } catch(e) {
     console.warn('Notif admin err:', e);
   }
@@ -6533,6 +6545,202 @@ function showToast(msg) {
   document.body.appendChild(t);
   setTimeout(() => { t.style.opacity='0'; setTimeout(() => t.remove(), 400); }, 3000);
 }
+
+// ─────────────────────────────────────────────
+// 🤖  LEITURA DE FORMULÁRIO COM IA (GEMINI)
+// ─────────────────────────────────────────────
+
+// Mapa de nomes do formulário físico → IDs do sistema
+const NOME_PARA_ID = {};
+Object.entries(CATEGORIAS).forEach(([catKey, cat]) => {
+  cat.produtos.forEach(p => {
+    // Normaliza: minúsculo, sem acento, sem parênteses para matching flexível
+    const norm = s => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]/g,' ').trim();
+    NOME_PARA_ID[norm(p.nome)] = { catKey, prodId: p.id, prodNome: p.nome };
+    // Aliases comuns
+    if (p.id === 'feijao') NOME_PARA_ID['feijao'] = { catKey, prodId: p.id, prodNome: p.nome };
+    if (p.id === 'oleo')   NOME_PARA_ID['oleo']   = { catKey, prodId: p.id, prodNome: p.nome };
+  });
+});
+
+function normalizeName(s) {
+  return s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]/g,' ').trim();
+}
+
+function findProduct(nome) {
+  const norm = normalizeName(nome);
+  // Busca exata
+  if (NOME_PARA_ID[norm]) return NOME_PARA_ID[norm];
+  // Busca parcial — encontra o produto que mais se aproxima
+  let best = null; let bestScore = 0;
+  Object.entries(NOME_PARA_ID).forEach(([key, val]) => {
+    const words = norm.split(' ').filter(w => w.length > 2);
+    const matches = words.filter(w => key.includes(w)).length;
+    if (matches > bestScore) { bestScore = matches; best = val; }
+  });
+  return bestScore > 0 ? best : null;
+}
+
+function onPhotoSelected() {
+  const file = document.getElementById('mov-photo').files[0];
+  document.getElementById('btn-read-ai').disabled = !file;
+  document.getElementById('ai-result-box').style.display = 'none';
+}
+
+async function readFormWithAI() {
+  const file = document.getElementById('mov-photo').files[0];
+  if (!file) { showToast('Selecione uma foto primeiro!'); return; }
+
+  const btn = document.getElementById('btn-read-ai');
+  const origText = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = '<div class="spinner"></div> Lendo...';
+
+  const resultBox = document.getElementById('ai-result-box');
+  const resultText = document.getElementById('ai-result-text');
+  resultBox.style.display = 'none';
+
+  try {
+    // Converter foto para base64
+    const base64 = await new Promise((res, rej) => {
+      const reader = new FileReader();
+      reader.onload = e => res(e.target.result.split(',')[1]);
+      reader.onerror = rej;
+      reader.readAsDataURL(file);
+    });
+
+    const mimeType = file.type || 'image/jpeg';
+
+    // Monta lista de todos os produtos para o prompt
+    const todosProdutos = [];
+    Object.entries(CATEGORIAS).forEach(([catKey, cat]) => {
+      cat.produtos.forEach(p => todosProdutos.push(p.nome));
+    });
+
+    const prompt = `Você é um sistema de leitura de formulários da Obra Lumen, uma ONG.
+
+Analise esta foto de um formulário físico de suprimentos preenchido à mão.
+O formulário tem linhas com nomes de produtos e duas colunas: "Entrada" e "Saída".
+
+Lista completa de produtos possíveis:
+${todosProdutos.join(', ')}
+
+Sua tarefa:
+1. Identifique APENAS os produtos que têm algum número preenchido (não vazios)
+2. Para cada produto preenchido, informe o valor na coluna Entrada e/ou Saída
+3. Ignore linhas em branco ou ilegíveis
+
+Retorne SOMENTE um JSON válido, sem markdown, sem explicação:
+{"itens":[{"produto":"Nome exato do produto","entrada":numero_ou_null,"saida":numero_ou_null}]}
+
+Exemplo: {"itens":[{"produto":"Arroz (Branco/Parboilizado)","entrada":50,"saida":null},{"produto":"Feijão (Corda/Carioca/Preto)","entrada":null,"saida":10}]}`;
+
+    const payload = {
+      contents: [{ parts: [
+        { inline_data: { mime_type: mimeType, data: base64 } },
+        { text: prompt }
+      ]}],
+      generationConfig: { temperature: 0.1 }
+    };
+
+    const resp = await fetch(GEMINI_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    if (!resp.ok) {
+      const errData = await resp.json().catch(() => ({}));
+      const errMsg = errData?.error?.message || `HTTP ${resp.status}`;
+      console.error('Gemini API error:', errData);
+      throw new Error(`Erro API: ${resp.status} — ${errMsg}`);
+    }
+
+    const data = await resp.json();
+    const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    const jsonStr = rawText.replace(/```json|```/g,'').trim();
+    const parsed = JSON.parse(jsonStr);
+
+    if (!parsed.itens?.length) {
+      resultText.innerHTML = '⚠️ Nenhum item preenchido foi encontrado na foto. Verifique se a imagem está legível e tente novamente.';
+      resultBox.style.display = 'block';
+      resultBox.style.background = 'var(--warn-bg)';
+      resultBox.style.borderColor = 'rgba(212,137,10,0.3)';
+      btn.disabled = false; btn.innerHTML = origText;
+      return;
+    }
+
+    // Preencher movItems com o que a IA leu
+    // Reseta primeiro
+    movItems = initItemObjects();
+
+    let encontrados = 0;
+    let naoEncontrados = [];
+    const detalhes = { entrada: [], saida: [] };
+
+    parsed.itens.forEach(item => {
+      const prod = findProduct(item.produto);
+      if (!prod) { naoEncontrados.push(item.produto); return; }
+
+      if (item.entrada && item.entrada > 0) {
+        if (!movItems[prod.catKey]) movItems[prod.catKey] = {};
+        movItems[prod.catKey][prod.prodId] = item.entrada;
+        detalhes.entrada.push(`${prod.prodNome}: ${item.entrada}`);
+        encontrados++;
+      }
+      if (item.saida && item.saida > 0) {
+        // Saídas ficam num objeto separado para registrar depois
+        if (!movItems[prod.catKey]) movItems[prod.catKey] = {};
+        // Se já tem entrada, prioriza a entrada; saída será registrada separada
+        if (movItems[prod.catKey][prod.prodId] === undefined) {
+          movItems[prod.catKey][prod.prodId] = item.saida;
+        }
+        detalhes.saida.push(`${prod.prodNome}: ${item.saida}`);
+        encontrados++;
+      }
+    });
+
+    // Detectar automaticamente se é entrada ou saída predominante
+    const hasEntrada = detalhes.entrada.length > 0;
+    const hasSaida   = detalhes.saida.length > 0;
+    if (hasEntrada && !hasSaida) document.getElementById('mov-type').value = 'entrada';
+    if (hasSaida && !hasEntrada) document.getElementById('mov-type').value = 'saida';
+
+    // Atualiza a UI
+    setMovCat(movCat); // re-render na aba atual
+
+    // Mostra resultado
+    let html = `<strong>✅ IA identificou ${encontrados} item(s) preenchido(s):</strong><br><br>`;
+    if (detalhes.entrada.length) html += `<strong>📥 Entradas:</strong> ${detalhes.entrada.join(', ')}<br>`;
+    if (detalhes.saida.length)   html += `<strong>📤 Saídas:</strong> ${detalhes.saida.join(', ')}<br>`;
+    if (naoEncontrados.length)   html += `<br><span style="color:var(--warn);">⚠️ Não reconhecidos: ${naoEncontrados.join(', ')}</span>`;
+    html += `<br><br><em>Revise os valores nas abas abaixo antes de confirmar.</em>`;
+    resultText.innerHTML = html;
+    resultBox.style.display = 'block';
+    resultBox.style.background = 'var(--ok-bg)';
+    resultBox.style.borderColor = 'rgba(26,122,68,0.3)';
+    resultBox.style.color = 'var(--text)';
+
+    // Vai para a aba com mais itens
+    const catCounts = Object.entries(movItems).map(([k,v]) => ({ k, n: Object.keys(v).length }));
+    const maxCat = catCounts.sort((a,b) => b.n - a.n)[0];
+    if (maxCat?.n > 0) setMovCat(maxCat.k);
+
+    showToast(`✅ IA preencheu ${encontrados} item(s). Revise e confirme!`);
+
+  } catch(e) {
+    console.error(e);
+    resultText.innerHTML = `❌ Erro ao ler o formulário: ${e.message}. Verifique se a foto está nítida e tente novamente.`;
+    resultBox.style.display = 'block';
+    resultBox.style.background = 'var(--danger-bg)';
+    resultBox.style.borderColor = '#f5c6c4';
+    resultBox.style.color = 'var(--danger)';
+  }
+
+  btn.disabled = false;
+  btn.innerHTML = origText;
+}
+
 // ─────────────────────────────────────────────
 // 📥📤  MOVIMENTAÇÃO DE ESTOQUE
 // ─────────────────────────────────────────────
@@ -12108,11 +12316,21 @@ ${resumo}
 
 Seja objetivo e prático. Use emojis para destacar pontos importantes.`;
 
- try {
-    const text = await window.callGemini(prompt);
+  try {
+    const resp = await fetch('/api/claude', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1000,
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+    const data = await resp.json();
+    const text = data.content?.find(b => b.type === 'text')?.text || 'Sem resposta da IA.';
     aiText.textContent = text;
   } catch(e) {
-    aiText.textContent = '⚠️ IA indisponível no momento. Os dados da tabela ainda estão disponíveis.';
+    aiText.textContent = '⚠️ IA indisponível no momento. Os dados da tabela e cards acima foram calculados localmente com base no histórico real.';
   }
 }
 
@@ -12226,8 +12444,14 @@ ${JSON.stringify(fornResumo, null, 2)}
 
 Seja direto e prático. Use emojis. Máximo 350 palavras.`;
 
-    const text = await window.callGemini(prompt);
-resultEl.textContent = text;
+    const resp = await fetch('/api/claude', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model: 'claude-sonnet-4-20250514', max_tokens: 800, messages: [{ role: 'user', content: prompt }] })
+    });
+    const data = await resp.json();
+    resultEl.textContent = data.content?.find(b => b.type === 'text')?.text || 'Sem dados suficientes para análise.';
+
   } catch(e) {
     resultEl.textContent = '⚠️ Erro: ' + e.message;
   }
@@ -12292,9 +12516,18 @@ Gere um alerta executivo de 4-5 linhas destacando:
 Use emojis. Seja direto.`;
 
     try {
-  const aiText = await window.callGemini(prompt);
-  return { padroes, aiText };
-} catch(e) { return { padroes, aiText: '' }; }
+      const resp = await fetch('/api/claude', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model: 'claude-sonnet-4-20250514', max_tokens: 400, messages: [{ role: 'user', content: prompt }] })
+      });
+      const data = await resp.json();
+      const aiText = data.content?.find(b => b.type === 'text')?.text || '';
+      return { padroes, aiText };
+    } catch(e) { return { padroes, aiText: '' }; }
+
+  } catch(e) { return null; }
+}
 
 // ─────────────────────────────────────────────
 // 🏷️  GERENCIAR CATEGORIAS (admin)
