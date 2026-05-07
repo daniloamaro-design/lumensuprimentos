@@ -2655,6 +2655,14 @@ document.querySelector('.main-content').insertAdjacentHTML('beforeend', `
             </select>
           </div>
           <div>
+            <label class="form-label">Período</label>
+            <select class="form-select" id="analise-periodo" onchange="toggleAnaliseSemanaPeriodo()" style="width:160px;">
+              <option value="mensal">Mensal</option>
+              <option value="semanal">Semanal</option>
+              <option value="acumulado">Acumulado (ano)</option>
+            </select>
+          </div>
+          <div id="analise-mes-wrap">
             <label class="form-label">Mês</label>
             <select class="form-select" id="analise-mes" onchange="carregarAnalise()" style="width:160px;">
               <option value="">Todos (acumulado)</option>
@@ -2666,7 +2674,18 @@ document.querySelector('.main-content').insertAdjacentHTML('beforeend', `
               <option value="NOVEMBRO">Novembro</option><option value="DEZEMBRO">Dezembro</option>
             </select>
           </div>
+          <div id="analise-semana-wrap" style="display:none;">
+            <label class="form-label">Semana</label>
+            <select class="form-select" id="analise-semana" onchange="carregarAnalise()" style="width:160px;">
+              <option value="1">Semana 1 (1-7)</option>
+              <option value="2">Semana 2 (8-14)</option>
+              <option value="3">Semana 3 (15-21)</option>
+              <option value="4">Semana 4 (22-31)</option>
+            </select>
+          </div>
           <button class="btn btn-primary btn-sm" onclick="carregarAnalise()">🔍 Analisar</button>
+          <button class="btn btn-outline btn-sm" onclick="gerarSlidesMetas()" style="color:var(--lumen);border-color:var(--lumen);">📊 Gerar Slides</button>
+          <button class="btn btn-outline btn-sm" onclick="enviarRelatorioSemanal()" style="color:var(--warn);border-color:var(--warn);">📧 Relatório Semanal</button>
         </div>
       </div>
     </div>
@@ -3119,9 +3138,9 @@ document.querySelector('.main-content').insertAdjacentHTML('beforeend', `
     <div id="opc-forn-chips" style="display:flex;gap:8px;flex-wrap:wrap;"></div>
   </div>
 
-  <!-- Totais por categoria + comparativo quinzena -->
+  <!-- Totais por categoria + comparativo quinzena + meta semanal -->
   <div id="opc-totais-cat" style="display:none;margin-bottom:16px;">
-    <div style="font-size:12px;font-weight:700;color:var(--text-muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:0.5px;">📦 Total por Categoria <span style="font-weight:400;font-size:11px;">(vs quinzena anterior)</span></div>
+    <div style="font-size:12px;font-weight:700;color:var(--text-muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:0.5px;">📦 Total por Categoria <span style="font-weight:400;font-size:11px;">(vs quinzena anterior · vs meta semanal)</span></div>
     <div id="opc-cat-chips" style="display:flex;gap:8px;flex-wrap:wrap;"></div>
   </div>
 
@@ -11303,6 +11322,7 @@ async function initOrcPendentes() {
       });
     } catch(e) { window.opcQuinzenaAnterior = {}; }
 
+    await opcCarregarMetasSemana();
     opcRenderizar();
 
   } catch(e) {
@@ -14488,6 +14508,379 @@ async function lancarPedidoNoFinanceiro(orderId, orderData) {
   }
 }
 
+// ═══════════════════════════════════════════════════════════════
+// 🤖 CHAT IA ASSISTENTE
+// ═══════════════════════════════════════════════════════════════
+let chatIAAberto = false;
+
+function toggleChatIA() {
+  chatIAAberto = !chatIAAberto;
+  const panel = document.getElementById('chat-ia-panel');
+  panel.style.display = chatIAAberto ? 'flex' : 'none';
+  if (chatIAAberto) document.getElementById('chat-ia-input')?.focus();
+}
+
+function addChatMsg(texto, tipo) {
+  const msgs = document.getElementById('chat-ia-msgs');
+  const div = document.createElement('div');
+  div.style.cssText = tipo === 'user'
+    ? 'background:var(--lumen);color:#fff;border-radius:12px 12px 2px 12px;padding:10px 14px;font-size:13px;align-self:flex-end;max-width:85%;'
+    : 'background:var(--surface);border:1px solid var(--border);border-radius:12px 12px 12px 2px;padding:10px 14px;font-size:13px;max-width:90%;white-space:pre-wrap;';
+  div.innerHTML = texto;
+  msgs.appendChild(div);
+  msgs.scrollTop = msgs.scrollHeight;
+  return div;
+}
+
+async function enviarMsgIA() {
+  const input = document.getElementById('chat-ia-input');
+  const msg   = input.value.trim();
+  if (!msg) return;
+  input.value = '';
+
+  addChatMsg(msg, 'user');
+  const loadingDiv = addChatMsg('⏳ Pensando...', 'ia');
+
+  // Coleta contexto do sistema para a IA
+  const ctx = {
+    paginaAtual: document.querySelector('[id^="page-"]:not([style*="display: none"]) .page-title')?.textContent || '',
+    totalFornecedores: suppliersCache?.length || 0,
+    totalPedidos: document.getElementById('cnt-andamento')?.textContent || '',
+    usuarioNome: currentUserData?.name || '',
+    usuarioPerfil: currentUserData?.role || '',
+  };
+
+  const systemPrompt = `Você é o Assistente Lumen, especialista no sistema de gestão de suprimentos da Obra Lumen.
+O sistema tem as seguintes seções:
+- ADMINISTRAÇÃO: Painel Geral, Usuários, Casas e Pessoas, Gerenciar Casas/Cidades/Produtos/Categorias, Todos os Pedidos, Ajustes Solicitados
+- ESTOQUE: Nova Solicitação, Entrada/Saída, Estoque Atual, Meus Pedidos, Per Capita por Casa, Preços por Cidade, Verificar Estoque Crítico, Solicitar Ajuste, Transferências
+- INDICADORES: Indicadores, Comparativo Quinzenal, Ind. dos Irmãos
+- FINANCEIRO: Orçamento Financeiro, Orç. Pendentes, Financeiro, Fornecedores, Indicadores Fornec., Metas e Análise
+
+Contexto atual: ${JSON.stringify(ctx)}
+
+Responda em português brasileiro. Seja direto e útil. Se o usuário perguntar onde encontrar algo, indique o menu e a seção exata. Se pedir análises de dados, forneça insights baseados no contexto. Máximo 200 palavras por resposta.`;
+
+  try {
+    const resp = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' + GEMINI_API_KEY, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        systemInstruction: { parts: [{ text: systemPrompt }] },
+        contents: [{ role: 'user', parts: [{ text: msg }] }]
+      })
+    });
+    const data = await resp.json();
+    const resposta = data.candidates?.[0]?.content?.parts?.[0]?.text || 'Desculpe, não consegui processar sua solicitação.';
+    loadingDiv.innerHTML = resposta;
+  } catch(e) {
+    loadingDiv.innerHTML = '❌ Erro ao conectar com a IA: ' + e.message;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 📊 METAS — FUNÇÕES ADICIONAIS
+// ═══════════════════════════════════════════════════════════════
+
+function toggleAnaliseSemanaPeriodo() {
+  const periodo = document.getElementById('analise-periodo')?.value;
+  const mesWrap = document.getElementById('analise-mes-wrap');
+  const semWrap = document.getElementById('analise-semana-wrap');
+  if (mesWrap) mesWrap.style.display = periodo === 'semanal' ? 'none' : '';
+  if (semWrap) semWrap.style.display = periodo === 'semanal' ? '' : 'none';
+  carregarAnalise();
+}
+
+// Carrega metas com fallback para o ano atual se não existir
+async function carregarMetasComFallback(ano) {
+  const snap = await db.collection('metas').doc('categorias_' + ano).get();
+  if (snap.exists && Object.keys(snap.data() || {}).length > 0) {
+    return snap.data();
+  }
+  // Fallback: usa meta do ano atual
+  const anoAtual = new Date().getFullYear();
+  if (parseInt(ano) !== anoAtual) {
+    const snapAtual = await db.collection('metas').doc('categorias_' + anoAtual).get();
+    if (snapAtual.exists) return snapAtual.data();
+  }
+  return {};
+}
+
+// Salva meta com histórico (versão com timestamp)
+async function salvarMetas() {
+  const ano  = document.getElementById('metas-ano')?.value || new Date().getFullYear();
+  const data = {};
+  Object.keys(CATEGORIAS).forEach(key => {
+    const mes  = parseFloat(document.getElementById('meta-mes-' + key)?.value) || 0;
+    const sem  = parseFloat(document.getElementById('meta-sem-' + key)?.value) || 0;
+    const anoV = parseFloat(document.getElementById('meta-ano-' + key)?.value) || (mes * 12);
+    if (mes > 0 || sem > 0) {
+      data[key] = { metaMes: mes, metaSemana: sem, metaAno: anoV || mes * 12 };
+    }
+  });
+
+  try {
+    // Salva versão atual
+    await db.collection('metas').doc('categorias_' + ano).set(data, { merge: true });
+
+    // Salva histórico com timestamp
+    await db.collection('metas_historico').add({
+      ano: parseInt(ano),
+      data,
+      atualizadoPor: currentUserData?.name || '',
+      atualizadoEm: firebase.firestore.FieldValue.serverTimestamp(),
+    });
+
+    _metasCache = data;
+    showToast('✅ Metas salvas com histórico!');
+  } catch(e) {
+    showToast('❌ Erro ao salvar: ' + e.message);
+  }
+}
+
+// ─── Meta semanal nos orçamentos pendentes ───
+async function opcCarregarMetasSemana() {
+  try {
+    const ano = new Date().getFullYear();
+    const metas = await carregarMetasComFallback(ano);
+    window.opcMetasSemana = metas;
+  } catch(e) {
+    window.opcMetasSemana = {};
+  }
+}
+
+// ─── Relatório semanal por email ───
+async function enviarRelatorioSemanal() {
+  showToast('⏳ Gerando relatório semanal...');
+
+  try {
+    const hoje    = new Date();
+    const semStr  = `Semana ${Math.ceil(hoje.getDate()/7)} de ${MESES_PT[hoje.getMonth()]}/${hoje.getFullYear()}`;
+    const ano     = hoje.getFullYear();
+    const mes     = MESES_PT[hoje.getMonth()];
+
+    // 1. Boletos em aberto e atrasados
+    const finSnap  = await db.collection('compras_financeiro').where('pago', '!=', 'Sim').get();
+    let totalAberto = 0, totalAtrasado = 0, bolAtrasados = [], bolVencendo = [];
+    finSnap.docs.forEach(doc => {
+      const d   = doc.data();
+      const val = parseFloat(d.valor) || 0;
+      totalAberto += val;
+      if (d.vencimentoStr) {
+        const vd = new Date(d.vencimentoStr + 'T00:00:00');
+        if (vd < hoje) {
+          totalAtrasado += val;
+          bolAtrasados.push(`  • ${d.fornecedor} — R$ ${val.toFixed(2)} (venc: ${vd.toLocaleDateString('pt-BR')})`);
+        } else if (vd <= new Date(hoje.getTime() + 7*24*60*60*1000)) {
+          bolVencendo.push(`  • ${d.fornecedor} — R$ ${val.toFixed(2)} (venc: ${vd.toLocaleDateString('pt-BR')})`);
+        }
+      }
+    });
+
+    // 2. Fornecedores acima de 50% e 80%
+    await loadSuppliers();
+    const forn50 = [], forn80 = [];
+    suppliersCache.forEach(s => {
+      const limite = parseFloat(s.limite) || 0;
+      const util   = parseFloat(s.utilizado) || 0;
+      if (!limite) return;
+      const pct = (util / limite) * 100;
+      if (pct >= 80) forn80.push(`  🔴 ${s.nome}: ${pct.toFixed(0)}% (R$ ${util.toFixed(0)}/${limite.toFixed(0)})`);
+      else if (pct >= 50) forn50.push(`  ⚠️ ${s.nome}: ${pct.toFixed(0)}% (R$ ${util.toFixed(0)}/${limite.toFixed(0)})`);
+    });
+
+    // 3. Análise de metas
+    const gastos = await buscarGastosReais(ano);
+    const metas  = await carregarMetasComFallback(ano);
+    let metasLinha = [];
+    Object.entries(CATEGORIAS).forEach(([key, cat]) => {
+      const m   = metas[key] || {};
+      const g   = gastos[key] || { meses: {}, total: 0 };
+      const val = g.meses[mes] || 0;
+      const meta = parseFloat(m.metaMes) || 0;
+      if (!meta && !val) return;
+      const pct  = meta > 0 ? ((val / meta) * 100).toFixed(0) : '—';
+      const icon = meta > 0 && val > meta ? '🔴' : meta > 0 && val > meta * 0.8 ? '⚠️' : '✅';
+      metasLinha.push(`  ${icon} ${cat.nome}: R$ ${val.toFixed(0)} / meta R$ ${meta.toFixed(0)} (${pct}%)`);
+    });
+
+    // 4. Monta relatório
+    const relatorio = `📊 RELATÓRIO SEMANAL — ${semStr}
+${'═'.repeat(50)}
+
+💰 FINANCEIRO GERAL
+• Total em aberto: R$ ${totalAberto.toFixed(2)}
+• Total atrasado:  R$ ${totalAtrasado.toFixed(2)}
+
+🔴 BOLETOS ATRASADOS (${bolAtrasados.length}):
+${bolAtrasados.slice(0,10).join('\n') || '  Nenhum'}
+
+⏰ VENCENDO EM 7 DIAS (${bolVencendo.length}):
+${bolVencendo.slice(0,10).join('\n') || '  Nenhum'}
+
+🏢 FORNECEDORES ACIMA DE 80% DO LIMITE:
+${forn80.join('\n') || '  Nenhum'}
+
+⚠️ FORNECEDORES ACIMA DE 50% DO LIMITE:
+${forn50.join('\n') || '  Nenhum'}
+
+🎯 ANÁLISE DE METAS (${mes}/${ano}):
+${metasLinha.join('\n') || '  Sem metas cadastradas'}
+
+${'═'.repeat(50)}
+Relatório gerado automaticamente pelo Sistema Lumen Estoque`;
+
+    await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, {
+      to_email:  ADMIN_EMAIL,
+      to_name:   'Administrador Lumen',
+      from_name: 'Sistema Lumen Estoque',
+      reply_to:  ADMIN_EMAIL,
+      subject:   `📊 Relatório Semanal Lumen — ${semStr}`,
+      message:   relatorio,
+    });
+
+    showToast('✅ Relatório semanal enviado para ' + ADMIN_EMAIL);
+  } catch(e) {
+    console.error('enviarRelatorioSemanal error:', e);
+    showToast('❌ Erro ao enviar relatório: ' + e.message);
+  }
+}
+
+// ─── Gera slides de metas (abre aba de download) ───
+async function gerarSlidesMetas() {
+  showToast('⏳ Gerando apresentação...');
+  try {
+    const ano    = document.getElementById('analise-ano')?.value || new Date().getFullYear();
+    const gastos = await buscarGastosReais(ano);
+    const metas  = await carregarMetasComFallback(ano);
+
+    // Monta URL com dados codificados para download via netlify function ou gera HTML de slides
+    const slidesData = Object.entries(CATEGORIAS).map(([key, cat]) => {
+      const m = metas[key] || {};
+      const g = gastos[key] || { total: 0 };
+      return {
+        categoria: cat.nome,
+        icon: cat.icon,
+        metaMes: m.metaMes || 0,
+        metaSemana: m.metaSemana || 0,
+        metaAno: m.metaAno || 0,
+        realizado: g.total || 0,
+      };
+    });
+
+    // Abre janela de apresentação
+    const w = window.open('', '_blank', 'width=1000,height=650');
+    const totalMeta = slidesData.reduce((s,d) => s + (d.metaMes||0), 0);
+    const totalReal = slidesData.reduce((s,d) => s + (d.realizado||0), 0);
+    const economia  = totalMeta - totalReal;
+    const fmt = v => 'R$ ' + (v||0).toLocaleString('pt-BR', {minimumFractionDigits:2});
+
+    w.document.write(`<!DOCTYPE html><html lang="pt-BR"><head>
+<meta charset="UTF-8"><title>Metas ${ano} — Obra Lumen</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', sans-serif; background: #0f172a; color: #fff; }
+  .slide { width: 100%; min-height: 100vh; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 48px; page-break-after: always; }
+  .slide-title { background: #065a82; }
+  .slide-analysis { background: #0f172a; }
+  h1 { font-size: 48px; font-weight: 900; color: #00d4ff; margin-bottom: 16px; }
+  h2 { font-size: 32px; font-weight: 700; color: #00d4ff; margin-bottom: 24px; }
+  .subtitle { font-size: 20px; color: #94a3b8; margin-bottom: 32px; }
+  .cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; width: 100%; max-width: 900px; margin: 24px 0; }
+  .card { background: #1e293b; border-radius: 16px; padding: 24px; text-align: center; border: 1px solid #334155; }
+  .card-val { font-size: 28px; font-weight: 800; color: #00d4ff; margin: 8px 0; }
+  .card-label { font-size: 13px; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px; }
+  table { width: 100%; max-width: 900px; border-collapse: collapse; }
+  th { background: #065a82; padding: 12px 16px; text-align: left; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px; }
+  td { padding: 12px 16px; border-bottom: 1px solid #1e293b; font-size: 14px; }
+  tr:nth-child(even) td { background: #1e293b22; }
+  .ok { color: #22c55e; } .warn { color: #f59e0b; } .danger { color: #ef4444; }
+  .bar-wrap { background: #1e293b; border-radius: 8px; height: 10px; width: 100%; margin-top: 8px; }
+  .bar-fill { height: 10px; border-radius: 8px; }
+  @media print { .slide { page-break-after: always; } }
+  .print-btn { position: fixed; bottom: 24px; right: 24px; padding: 14px 24px; background: #00d4ff; color: #0f172a; border: none; border-radius: 10px; font-size: 16px; font-weight: 700; cursor: pointer; z-index: 999; }
+</style></head><body>
+<button class="print-btn" onclick="window.print()">🖨️ Imprimir / Salvar PDF</button>
+
+<!-- SLIDE 1: CAPA -->
+<div class="slide slide-title">
+  <div style="font-size:64px;margin-bottom:16px;">📊</div>
+  <h1>Análise de Metas</h1>
+  <div class="subtitle">Obra Lumen · Ano ${ano}</div>
+  <div style="font-size:16px;color:#64748b;margin-top:16px;">${new Date().toLocaleDateString('pt-BR')}</div>
+  <div class="cards" style="margin-top:48px;">
+    <div class="card"><div class="card-label">Meta Total Mensal</div><div class="card-val">${fmt(totalMeta)}</div></div>
+    <div class="card"><div class="card-label">Total Realizado</div><div class="card-val" style="color:${totalReal > totalMeta ? '#ef4444':'#22c55e'};">${fmt(totalReal)}</div></div>
+    <div class="card"><div class="card-label">${economia >= 0 ? '💚 Economia' : '🔴 Excesso'}</div><div class="card-val" style="color:${economia >= 0 ? '#22c55e':'#ef4444'};">${fmt(Math.abs(economia))}</div></div>
+  </div>
+</div>
+
+<!-- SLIDE 2: ANÁLISE POR CATEGORIA -->
+<div class="slide slide-analysis">
+  <h2>📦 Realizado × Meta por Categoria</h2>
+  <table>
+    <thead><tr><th>Categoria</th><th>Meta Mês</th><th>Meta Semana</th><th>Realizado</th><th>Variação</th><th>Status</th></tr></thead>
+    <tbody>
+      ${slidesData.map(d => {
+        const varP = d.metaMes > 0 ? ((d.realizado/d.metaMes)-1)*100 : null;
+        const cor  = varP === null ? '#94a3b8' : varP > 15 ? '#ef4444' : varP > 0 ? '#f59e0b' : '#22c55e';
+        const status = varP === null ? '—' : varP > 15 ? '🔴 Acima' : varP > 0 ? '⚠️ Atenção' : '✅ OK';
+        const pctBar = d.metaMes > 0 ? Math.min(100,(d.realizado/d.metaMes)*100) : 0;
+        const barCor = pctBar > 100 ? '#ef4444' : pctBar > 80 ? '#f59e0b' : '#22c55e';
+        return `<tr>
+          <td style="font-weight:700;">${d.icon} ${d.categoria}</td>
+          <td>${d.metaMes > 0 ? fmt(d.metaMes) : '—'}</td>
+          <td>${d.metaSemana > 0 ? fmt(d.metaSemana) : '—'}</td>
+          <td style="font-weight:700;">${fmt(d.realizado)}</td>
+          <td style="color:${cor};font-weight:700;">${varP !== null ? (varP > 0 ? '+' : '') + varP.toFixed(1) + '%' : '—'}</td>
+          <td style="color:${cor};font-weight:700;">${status}</td>
+        </tr>`;
+      }).join('')}
+    </tbody>
+  </table>
+</div>
+
+<!-- SLIDE 3: DETALHAMENTO POR CATEGORIA -->
+${slidesData.filter(d => d.metaMes > 0 || d.realizado > 0).map(d => {
+  const pctBar = d.metaMes > 0 ? Math.min(100,(d.realizado/d.metaMes)*100) : 0;
+  const barCor = pctBar > 100 ? '#ef4444' : pctBar > 80 ? '#f59e0b' : '#22c55e';
+  return `<div class="slide slide-analysis">
+    <div style="font-size:48px;margin-bottom:12px;">${d.icon}</div>
+    <h2>${d.categoria}</h2>
+    <div class="cards">
+      <div class="card"><div class="card-label">Meta Mensal</div><div class="card-val">${fmt(d.metaMes)}</div></div>
+      <div class="card"><div class="card-label">Meta Semanal</div><div class="card-val">${fmt(d.metaSemana)}</div></div>
+      <div class="card"><div class="card-label">Meta Anual</div><div class="card-val">${fmt(d.metaAno)}</div></div>
+    </div>
+    <div style="width:100%;max-width:600px;margin-top:24px;">
+      <div style="display:flex;justify-content:space-between;margin-bottom:8px;">
+        <span style="font-size:14px;color:#94a3b8;">Realizado: <strong style="color:#fff;">${fmt(d.realizado)}</strong></span>
+        <span style="font-size:14px;color:#94a3b8;">${pctBar.toFixed(0)}% da meta mensal</span>
+      </div>
+      <div class="bar-wrap"><div class="bar-fill" style="width:${pctBar}%;background:${barCor};"></div></div>
+    </div>
+  </div>`;
+}).join('')}
+
+<!-- SLIDE FINAL -->
+<div class="slide slide-title">
+  <div style="font-size:64px;margin-bottom:24px;">🎯</div>
+  <h1>Continue Avançando!</h1>
+  <div class="subtitle">Obra Lumen · Sistema Lumen Estoque</div>
+  <div style="font-size:14px;color:#475569;margin-top:32px;">Gerado em ${new Date().toLocaleString('pt-BR')}</div>
+</div>
+
+</body></html>`);
+    w.document.close();
+    showToast('✅ Apresentação gerada! Use Ctrl+P para salvar como PDF.');
+  } catch(e) {
+    showToast('❌ Erro ao gerar slides: ' + e.message);
+  }
+}
+
+// Hook: carrega metas ao iniciar orçamentos pendentes
+const _origInitOrcPendentes = typeof initOrcPendentes === 'function' ? initOrcPendentes : null;
+
 // Apply saved custom colors on load
 (function() {
   const main  = localStorage.getItem('lumen-color-main');
@@ -14503,5 +14896,27 @@ async function lancarPedidoNoFinanceiro(orderId, orderData) {
 })();
 
 </script>
+<!-- CHAT IA FLUTUANTE -->
+<div id="chat-ia-fab" onclick="toggleChatIA()"
+  style="position:fixed;bottom:24px;right:24px;width:56px;height:56px;border-radius:50%;background:var(--lumen);color:#fff;display:flex;align-items:center;justify-content:center;font-size:24px;cursor:pointer;box-shadow:0 4px 20px rgba(0,0,0,0.3);z-index:9999;transition:transform 0.2s;"
+  title="Assistente IA">🤖</div>
+
+<div id="chat-ia-panel" style="display:none;position:fixed;bottom:90px;right:24px;width:380px;max-width:calc(100vw - 32px);height:500px;background:var(--surface);border:1px solid var(--border);border-radius:16px;box-shadow:0 8px 32px rgba(0,0,0,0.3);z-index:9998;display:none;flex-direction:column;overflow:hidden;">
+  <div style="padding:14px 16px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;background:var(--lumen);border-radius:16px 16px 0 0;">
+    <div style="color:#fff;font-weight:700;font-size:14px;">🤖 Assistente Lumen IA</div>
+    <button onclick="toggleChatIA()" style="background:none;border:none;color:#fff;font-size:20px;cursor:pointer;line-height:1;">×</button>
+  </div>
+  <div id="chat-ia-msgs" style="flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:10px;">
+    <div style="background:var(--lumen-lt);border-radius:12px;padding:10px 14px;font-size:13px;color:var(--text);">
+      Olá! Sou o Assistente Lumen. Posso ajudar você a navegar pelo sistema, analisar dados, ou responder dúvidas. Como posso ajudar?
+    </div>
+  </div>
+  <div style="padding:10px;border-top:1px solid var(--border);display:flex;gap:8px;">
+    <input type="text" id="chat-ia-input" placeholder="Digite sua pergunta..." onkeydown="if(event.key==='Enter')enviarMsgIA()"
+      style="flex:1;padding:8px 12px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:13px;outline:none;">
+    <button onclick="enviarMsgIA()" style="padding:8px 14px;background:var(--lumen);color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;">➤</button>
+  </div>
+</div>
+
 </body>
 </html>
