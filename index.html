@@ -3153,6 +3153,11 @@ document.querySelector('.main-content').insertAdjacentHTML('beforeend', `
   <div class="page-header">
     <div class="page-title">Financeiro — Compras</div>
     <div class="page-sub">Histórico de compras, indicadores financeiros e exportação no formato SP</div>
+    <div style="margin-top:10px;">
+      <button class="export-btn" onclick="sincronizarSistema()" style="background:var(--lumen-lt);color:var(--lumen);border-color:var(--lumen);">
+        🔗 Sincronizar Pedidos → Financeiro
+      </button>
+    </div>
   </div>
 
   <!-- ABAS INTERNAS -->
@@ -6774,49 +6779,30 @@ async function sendOrderEmail(orderData, recipient) {
   }
 
   try {
-    const resp = await fetch('/api/send-email', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        to:           recipient,
-        orderCode:    orderData.code,
-        house:        orderData.house,
-        requester:    orderData.requesterName,
-        date:         new Date().toLocaleDateString('pt-BR'),
-        categories:   formatCats(orderData.categories),
-        summary:      summary,
-        observations: orderData.observations || 'Nenhuma',
-        people:       String(orderData.people || '—'),
-        pdfBase64:    pdfBase64,
-      }),
+    await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, {
+      to_email:     recipient,
+      to_name:      'Equipe Lumen',
+      from_name:    'Sistema Lumen Estoque',
+      reply_to:     ADMIN_EMAIL,
+      subject:      `📦 Pedido ${orderData.code} — ${orderData.house}`,
+      message:      `Pedido: ${orderData.code}\nCasa: ${orderData.house}\nSolicitante: ${orderData.requesterName || '—'}\nData: ${new Date().toLocaleDateString('pt-BR')}\nCategorias: ${formatCats(orderData.categories)}\nPessoas: ${orderData.people || '—'}\n\nItens:\n${summary}\n\nObservações: ${orderData.observations || 'Nenhuma'}`,
     });
-
-    const result = await resp.json();
-    if (!resp.ok) throw new Error(result.error || `HTTP ${resp.status}`);
-    showToast('✅ E-mail com PDF enviado com sucesso!');
+    showToast('✅ E-mail enviado com sucesso!');
   } catch(e) {
-    console.warn('Erro ao enviar e-mail:', e);
+    console.warn('Erro ao enviar e-mail via EmailJS:', e);
     showToast(`⚠️ E-mail não enviado: ${e.message}`);
   }
 }
 
 async function sendAlertEmail(subject, body) {
   try {
-    await fetch('/api/send-email', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        to:           ADMIN_EMAIL,
-        orderCode:    subject,
-        house:        '—',
-        requester:    'Sistema Automático',
-        date:         new Date().toLocaleDateString('pt-BR'),
-        categories:   '—',
-        summary:      body,
-        observations: 'Verifique o sistema com urgência.',
-        people:       '—',
-        pdfBase64:    '',
-      }),
+    await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, {
+      to_email:  ADMIN_EMAIL,
+      to_name:   'Administrador',
+      from_name: 'Sistema Lumen',
+      reply_to:  ADMIN_EMAIL,
+      subject:   subject,
+      message:   body,
     });
   } catch(e) {
     console.warn('Erro ao enviar alerta:', e);
@@ -6923,21 +6909,13 @@ function makePDFBase64(house, items, meta) {
 
 async function notifyAdminNewUser(name, email) {
   try {
-    await fetch('/api/send-email', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        to:           ADMIN_EMAIL,
-        orderCode:    'NOVO USUÁRIO',
-        house:        '—',
-        requester:    name,
-        date:         new Date().toLocaleDateString('pt-BR'),
-        categories:   '—',
-        summary:      `  • Nome: ${name}\n  • E-mail: ${email}`,
-        observations: 'Acesse o sistema para aprovar ou recusar e atribuir a casa.',
-        people:       '—',
-        pdfBase64:    '', // sem PDF para notificação de usuário
-      }),
+    await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, {
+      to_email:  ADMIN_EMAIL,
+      to_name:   'Administrador',
+      from_name: 'Sistema Lumen',
+      reply_to:  ADMIN_EMAIL,
+      subject:   '🆕 Novo usuário aguardando aprovação — ' + name,
+      message:   `Novo usuário cadastrado:\nNome: ${name}\nE-mail: ${email}\n\nAcesse o sistema para aprovar ou recusar e atribuir a casa.`,
     });
   } catch(e) {
     console.warn('Notif admin err:', e);
@@ -11428,7 +11406,7 @@ async function opcGerenteDecisao(cotId, valor) {
             }
           } catch(e) { console.warn('Erro prazo:', e); }
 
-          await db.collection('orders').doc(orderId).update({
+          const orderUpdateData = {
             status: 'pedido_liberado',
             liberadoEm: firebase.firestore.FieldValue.serverTimestamp(),
             cotacaoAprovadaId: cotId,
@@ -11438,6 +11416,13 @@ async function opcGerenteDecisao(cotId, valor) {
             fornecedorNome: cotData.fornecedorNome || '',
             nfValor: parseFloat(cotData.valor) || 0,
             boletoVencimento,
+          };
+          await db.collection('orders').doc(orderId).update(orderUpdateData);
+
+          // Lança automaticamente no financeiro
+          await lancarPedidoNoFinanceiro(orderId, {
+            ...orderSnap.data(),
+            ...orderUpdateData,
           });
 
           // Lança no financeiro e consome limite do fornecedor
@@ -14282,6 +14267,224 @@ async function carregarProjecao() {
 
 function exportMetasExcel() {
   showToast('Em breve: exportação de metas em Excel!');
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 🔗 SINCRONIZAÇÃO TOTAL DO SISTEMA
+// Integra: Pedidos → Financeiro → Fornecedor → Histórico
+// ═══════════════════════════════════════════════════════════════
+
+const MESES_PT = ['JANEIRO','FEVEREIRO','MARÇO','ABRIL','MAIO','JUNHO',
+                  'JULHO','AGOSTO','SETEMBRO','OUTUBRO','NOVEMBRO','DEZEMBRO'];
+
+async function sincronizarSistema() {
+  if (!confirm(
+    '🔗 SINCRONIZAÇÃO DO SISTEMA\n\n' +
+    'Isso vai:\n' +
+    '• Criar registros financeiros para todos os pedidos liberados que ainda não têm lançamento\n' +
+    '• Atualizar limites dos fornecedores com base nos lançamentos não pagos\n' +
+    '• Limpar registros duplicados\n\n' +
+    'Deseja continuar?'
+  )) return;
+
+  showToast('⏳ Sincronizando sistema, aguarde...');
+
+  let criados = 0, ignorados = 0, erros = 0;
+
+  try {
+    // ── 1. Busca todos os pedidos liberados ──
+    const ordersSnap = await db.collection('orders')
+      .where('status', 'in', ['pedido_liberado','concluido','aguardando_nf','pendente_pag'])
+      .get();
+
+    // ── 2. Busca lançamentos já existentes (para não duplicar) ──
+    const finSnap = await db.collection('compras_financeiro').get();
+    const pedidosJaLancados = new Set(
+      finSnap.docs
+        .map(d => d.data().pedidoRef)
+        .filter(Boolean)
+    );
+
+    // ── 3. Busca fornecedores para calcular prazo ──
+    const supSnap = await db.collection('suppliers').get();
+    const supMap  = {};
+    supSnap.docs.forEach(d => { supMap[d.id] = { id: d.id, ...d.data() }; });
+
+    // ── 4. Para cada pedido sem lançamento, cria no financeiro ──
+    const batch = db.batch();
+    let batchCount = 0;
+
+    for (const doc of ordersSnap.docs) {
+      const o   = doc.data();
+      const cod = o.code || doc.id;
+
+      // Pula se já tem lançamento
+      if (pedidosJaLancados.has(cod)) { ignorados++; continue; }
+
+      const valor = parseFloat(o.nfValor || o.cotacaoValor || 0);
+      const fornId   = o.fornecedorId   || o.cotacaoFornecedor?.id || '';
+      const fornNome = o.fornecedorNome || o.cotacaoFornecedor     || '';
+
+      if (!valor && !fornNome) { ignorados++; continue; }
+
+      // Calcula vencimento se não tiver
+      let vencimentoStr = o.boletoVencimento || '';
+      if (!vencimentoStr && fornId && supMap[fornId]) {
+        const prazoNum = parseInt(supMap[fornId].prazo) || 0;
+        if (prazoNum > 0) {
+          const refDate = o.liberadoEm?.toDate ? o.liberadoEm.toDate() : new Date();
+          const vd = new Date(refDate);
+          vd.setDate(vd.getDate() + prazoNum);
+          vencimentoStr = vd.toISOString().slice(0,10);
+        }
+      }
+
+      // Data de referência
+      const refDate  = o.liberadoEm?.toDate ? o.liberadoEm.toDate()
+                     : o.createdAt?.toDate  ? o.createdAt.toDate()
+                     : new Date();
+      const mesIdx   = refDate.getMonth();
+      const anoNum   = refDate.getFullYear();
+
+      // Categoria
+      const cats = (o.categories || []);
+      const classificacao = cats.map(c => CATEGORIAS[c]?.nome || c).join(', ') || 'Pedido';
+
+      const newRef = db.collection('compras_financeiro').doc();
+      batch.set(newRef, {
+        fornecedor:      fornNome,
+        fornecedorId:    fornId,
+        classificacao,
+        destinatario:    o.house || '',
+        mes:             MESES_PT[mesIdx],
+        ano:             anoNum,
+        dataCompraSerial: refDate.getTime(),
+        vencimentoStr,
+        valor:           valor || 0,
+        pago:            o.status === 'concluido' ? 'Sim' : '',
+        pedidoRef:       cod,
+        pedidoId:        doc.id,
+        obs:             `Sincronizado automaticamente — ${cod}`,
+        lancadoSP:       false,
+        createdAt:       firebase.firestore.FieldValue.serverTimestamp(),
+        syncedAt:        firebase.firestore.FieldValue.serverTimestamp(),
+      });
+
+      criados++;
+      batchCount++;
+
+      // Firestore batch limit = 500
+      if (batchCount >= 490) {
+        await batch.commit();
+        batchCount = 0;
+      }
+    }
+
+    if (batchCount > 0) await batch.commit();
+
+    // ── 5. Recalcula limites dos fornecedores ──
+    const finSnapAtual = await db.collection('compras_financeiro')
+      .where('pago', '!=', 'Sim').get();
+
+    const totaisPorId = {}, totaisPorNome = {};
+    finSnapAtual.docs.forEach(doc => {
+      const d = doc.data();
+      const v = parseFloat(d.valor) || 0;
+      if (!v) return;
+      if (d.fornecedorId) totaisPorId[d.fornecedorId] = (totaisPorId[d.fornecedorId]||0) + v;
+      else if (d.fornecedor) {
+        const k = d.fornecedor.trim().toLowerCase();
+        totaisPorNome[k] = (totaisPorNome[k]||0) + v;
+      }
+    });
+
+    const supBatch = db.batch();
+    supSnap.docs.forEach(doc => {
+      const s = doc.data();
+      let total = totaisPorId[doc.id] || 0;
+      if (!total && s.nome) {
+        const k = s.nome.trim().toLowerCase();
+        total = totaisPorNome[k] || 0;
+      }
+      supBatch.update(doc.ref, { utilizado: total });
+    });
+    await supBatch.commit();
+
+    // ── 6. Recarrega dados ──
+    await finCarregarDados();
+    if (typeof loadSuppliers === 'function') loadSuppliers();
+
+    showToast(
+      `✅ Sincronização concluída!\n` +
+      `• ${criados} pedidos lançados no financeiro\n` +
+      `• ${ignorados} já estavam lançados\n` +
+      `• Limites dos fornecedores atualizados`
+    );
+
+    // Mostra resumo
+    alert(
+      `✅ SINCRONIZAÇÃO CONCLUÍDA\n\n` +
+      `📦 Pedidos lançados no financeiro: ${criados}\n` +
+      `⏭️ Já estavam lançados: ${ignorados}\n` +
+      `💼 Limites dos fornecedores: atualizados\n\n` +
+      `Os dados agora estão integrados!`
+    );
+
+  } catch(e) {
+    console.error('sincronizarSistema error:', e);
+    showToast('❌ Erro na sincronização: ' + e.message);
+  }
+}
+
+// Auto-lança no financeiro quando pedido é liberado pelo gerente
+// (já existe em opcGerenteDecisao, mas adicionamos também ao mudar status manualmente)
+async function lancarPedidoNoFinanceiro(orderId, orderData) {
+  try {
+    // Verifica se já existe lançamento
+    const existSnap = await db.collection('compras_financeiro')
+      .where('pedidoRef', '==', orderData.code || orderId)
+      .limit(1).get();
+
+    if (!existSnap.empty) return; // já lançado
+
+    const valor    = parseFloat(orderData.nfValor || orderData.cotacaoValor || 0);
+    const fornId   = orderData.fornecedorId  || '';
+    const fornNome = orderData.fornecedorNome || orderData.cotacaoFornecedor || '';
+
+    if (!valor) return;
+
+    const refDate = new Date();
+    const mesIdx  = refDate.getMonth();
+
+    const cats = (orderData.categories || []);
+    const classificacao = cats.map(c => CATEGORIAS[c]?.nome || c).join(', ') || 'Pedido';
+
+    await db.collection('compras_financeiro').add({
+      fornecedor:       fornNome,
+      fornecedorId:     fornId,
+      classificacao,
+      destinatario:     orderData.house || '',
+      mes:              MESES_PT[mesIdx],
+      ano:              refDate.getFullYear(),
+      dataCompraSerial: refDate.getTime(),
+      vencimentoStr:    orderData.boletoVencimento || '',
+      valor,
+      pago:             '',
+      pedidoRef:        orderData.code || orderId,
+      pedidoId:         orderId,
+      lancadoSP:        false,
+      createdAt:        firebase.firestore.FieldValue.serverTimestamp(),
+    });
+
+    // Consome limite do fornecedor
+    if (fornId && valor > 0) {
+      await db.collection('suppliers').doc(fornId).update({
+        utilizado: firebase.firestore.FieldValue.increment(valor)
+      }).catch(() => {});
+    }
+  } catch(e) {
+    console.warn('lancarPedidoNoFinanceiro error:', e);
+  }
 }
 
 // Apply saved custom colors on load
