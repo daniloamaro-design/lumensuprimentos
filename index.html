@@ -2133,6 +2133,71 @@
 // Inject new pages dynamically
 document.querySelector('.main-content').insertAdjacentHTML('beforeend', `
 
+<!-- MODAL: HISTÓRICO DO FORNECEDOR -->
+<div class="modal-overlay hidden" id="modal-hist-fornecedor">
+  <div class="modal" style="max-width:900px;width:95%;">
+    <div class="modal-header">
+      <div class="modal-title" id="modal-hist-forn-title">📋 Histórico do Fornecedor</div>
+      <button class="modal-close" onclick="closeModal('modal-hist-fornecedor')">×</button>
+    </div>
+    <div class="modal-body" style="padding:0;">
+      <!-- Resumo -->
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;padding:16px;">
+        <div class="stat-card" style="margin:0;">
+          <div class="stat-label">Total em Aberto</div>
+          <div class="stat-value warn" id="hf-total-aberto" style="font-size:18px;">R$ 0,00</div>
+        </div>
+        <div class="stat-card" style="margin:0;">
+          <div class="stat-label">Total Pago</div>
+          <div class="stat-value ok" id="hf-total-pago" style="font-size:18px;">R$ 0,00</div>
+        </div>
+        <div class="stat-card" style="margin:0;">
+          <div class="stat-label">Próximo Vencimento</div>
+          <div class="stat-value" id="hf-prox-venc" style="font-size:16px;color:var(--warn);">—</div>
+        </div>
+      </div>
+      <!-- Tabela -->
+      <div class="table-wrap" style="max-height:400px;overflow-y:auto;">
+        <table class="fin-table">
+          <thead>
+            <tr>
+              <th>Mês/Ano</th>
+              <th>Casa</th>
+              <th>Classificação</th>
+              <th>Vencimento</th>
+              <th style="text-align:right;">Valor</th>
+              <th style="text-align:center;">Status</th>
+            </tr>
+          </thead>
+          <tbody id="hf-tbody">
+            <tr><td colspan="6" style="text-align:center;padding:24px;color:var(--text-muted);">Carregando...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('modal-hist-fornecedor')">Fechar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: ALERTAS DE VENCIMENTO -->
+<div class="modal-overlay hidden" id="modal-alertas-venc">
+  <div class="modal" style="max-width:700px;width:95%;">
+    <div class="modal-header">
+      <div class="modal-title">🔔 Alertas de Vencimento</div>
+      <button class="modal-close" onclick="closeModal('modal-alertas-venc')">×</button>
+    </div>
+    <div class="modal-body" style="padding:16px;">
+      <div id="alertas-venc-body">Carregando...</div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-primary" onclick="enviarAlertasVencimento()">📧 Enviar Alertas por E-mail</button>
+      <button class="btn btn-outline" onclick="closeModal('modal-alertas-venc')">Fechar</button>
+    </div>
+  </div>
+</div>
+
 <!-- PAGE: FORNECEDORES -->
 <div class="page" id="page-fornecedores">
   <div class="page-header">
@@ -2145,6 +2210,9 @@ document.querySelector('.main-content').insertAdjacentHTML('beforeend', `
       </button>
       <button class="export-btn" onclick="recalcularLimitesFornecedores()" style="background:var(--warn-bg);color:var(--warn);border-color:var(--warn);">
         🔄 Recalcular Limites
+      </button>
+      <button class="export-btn" onclick="verificarVencimentos()" style="background:var(--danger-bg);color:var(--danger);border-color:var(--danger);">
+        🔔 Alertas de Vencimento
       </button>
     </div>
   </div>
@@ -2271,6 +2339,18 @@ document.querySelector('.main-content').insertAdjacentHTML('beforeend', `
   </div>
 
   <!-- Supplier list -->
+  <!-- Dashboard financeiro por fornecedor -->
+  <div class="card" style="margin-bottom:16px;">
+    <div class="card-header">
+      <div class="card-header-title">📊 Dashboard Financeiro — Limite × Utilizado por Fornecedor</div>
+    </div>
+    <div class="card-body">
+      <div style="position:relative;height:280px;">
+        <canvas id="chart-supp-limites"></canvas>
+      </div>
+    </div>
+  </div>
+
   <div id="supplier-list-wrap">
     <div class="loading-state"><div class="spinner spinner-dark"></div>Carregando...</div>
   </div>
@@ -9832,6 +9912,7 @@ async function loadSuppliers() {
       return;
     }
     wrap.innerHTML = suppliersCache.map(s => renderSupplierCard(s)).join('');
+    renderSuppDashboard();
 
     // Check 50% limit alerts
     suppliersCache.forEach(s => {
@@ -9865,7 +9946,8 @@ function renderSupplierCard(s) {
         <div class="supplier-meta">Categorias: ${cats}</div>
         ${s.obs ? `<div class="supplier-meta" style="margin-top:4px;font-style:italic;">${s.obs}</div>` : ''}
       </div>
-      <div style="display:flex;gap:8px;flex-shrink:0;">
+      <div style="display:flex;gap:8px;flex-shrink:0;flex-wrap:wrap;justify-content:flex-end;">
+        <button class="btn btn-outline btn-sm" onclick="abrirHistoricoFornecedor('${s.id}','${s.nome}')" style="font-size:11px;">📋 Histórico</button>
         <button class="btn btn-outline btn-sm" onclick="editSupplier('${s.id}')">Editar</button>
         <button class="btn btn-danger btn-sm" onclick="deleteSupplier('${s.id}','${s.nome}')">Remover</button>
       </div>
@@ -11359,9 +11441,13 @@ function opcRenderizar() {
         </div>
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
           ${cotIds.length > 0 ? `
-          <button onclick="opcAutorizarGrupoCotacoes(${JSON.stringify(cotIds)}, true)"
+          <button onclick="opcAprovarLoteCasa('${grpNome}','coord')"
             style="background:var(--ok-bg);color:var(--ok);border:1px solid var(--ok);border-radius:6px;padding:5px 12px;font-size:12px;font-weight:700;cursor:pointer;">
-            ✅ Autorizar todos
+            ✅ Coord. Aprovar tudo
+          </button>
+          <button onclick="opcAprovarLoteCasa('${grpNome}','gerente')"
+            style="background:#f0fdf4;color:#22c55e;border:1px solid #22c55e;border-radius:6px;padding:5px 12px;font-size:12px;font-weight:700;cursor:pointer;">
+            ✅ Gerente Aprovar tudo
           </button>
           <button onclick="opcAutorizarGrupoCotacoes(${JSON.stringify(cotIds)}, false)"
             style="background:var(--danger-bg);color:var(--danger);border:1px solid var(--danger);border-radius:6px;padding:5px 12px;font-size:12px;font-weight:700;cursor:pointer;">
@@ -13395,6 +13481,255 @@ async function recalcularLimitesFornecedores() {
     showToast('❌ Erro: ' + e.message);
   }
 }
+
+// ─────────────────────────────────────────────
+// 📊 DASHBOARD FINANCEIRO POR FORNECEDOR
+// ─────────────────────────────────────────────
+let chartSuppLimites = null;
+
+function renderSuppDashboard() {
+  const canvas = document.getElementById('chart-supp-limites');
+  if (!canvas) return;
+
+  const fornComLimite = suppliersCache.filter(s => parseFloat(s.limite) > 0);
+  if (fornComLimite.length === 0) {
+    canvas.parentElement.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-muted);">Nenhum fornecedor com limite cadastrado</div>';
+    return;
+  }
+
+  const labels     = fornComLimite.map(s => s.nome);
+  const utilizado  = fornComLimite.map(s => parseFloat(s.utilizado) || 0);
+  const disponivel = fornComLimite.map(s => Math.max(0, (parseFloat(s.limite)||0) - (parseFloat(s.utilizado)||0)));
+
+  if (chartSuppLimites) chartSuppLimites.destroy();
+  chartSuppLimites = new Chart(canvas.getContext('2d'), {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        { label: 'Utilizado (R$)',   data: utilizado,  backgroundColor: '#ef444488', borderColor: '#ef4444', borderWidth: 1 },
+        { label: 'Disponível (R$)',  data: disponivel, backgroundColor: '#22c55e44', borderColor: '#22c55e', borderWidth: 1 },
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { position: 'bottom' } },
+      scales: {
+        x: { stacked: true },
+        y: { stacked: true, ticks: { callback: v => 'R$' + v.toLocaleString('pt-BR') } }
+      }
+    }
+  });
+}
+
+// ─────────────────────────────────────────────
+// 📋 HISTÓRICO DE PAGAMENTOS POR FORNECEDOR
+// ─────────────────────────────────────────────
+async function abrirHistoricoFornecedor(fornId, fornNome) {
+  document.getElementById('modal-hist-forn-title').textContent = '📋 Histórico — ' + fornNome;
+  document.getElementById('hf-tbody').innerHTML = '<tr><td colspan="6" style="text-align:center;padding:24px;"><div class="spinner spinner-dark"></div></td></tr>';
+  document.getElementById('hf-total-aberto').textContent = '...';
+  document.getElementById('hf-total-pago').textContent   = '...';
+  document.getElementById('hf-prox-venc').textContent    = '...';
+  openModal('modal-hist-fornecedor');
+
+  try {
+    // Busca por ID e por nome (para histórico importado)
+    const [snapId, snapNome] = await Promise.all([
+      db.collection('compras_financeiro').where('fornecedorId','==',fornId).orderBy('createdAt','desc').get().catch(()=>({docs:[]})),
+      db.collection('compras_financeiro').where('fornecedor','==',fornNome).orderBy('createdAt','desc').get().catch(()=>({docs:[]}))
+    ]);
+
+    // Merge e deduplica
+    const seenIds = new Set();
+    const docs = [...snapId.docs, ...snapNome.docs]
+      .filter(d => { if (seenIds.has(d.id)) return false; seenIds.add(d.id); return true; })
+      .map(d => ({ id: d.id, ...d.data() }))
+      .sort((a,b) => {
+        const da = a.createdAt?.toDate ? a.createdAt.toDate() : new Date(0);
+        const db2 = b.createdAt?.toDate ? b.createdAt.toDate() : new Date(0);
+        return db2 - da;
+      });
+
+    let totalAberto = 0, totalPago = 0, proxVenc = null;
+    const hoje = new Date(); hoje.setHours(0,0,0,0);
+
+    docs.forEach(d => {
+      const val = parseFloat(d.valor) || 0;
+      if (d.pago === 'Sim') totalPago += val;
+      else {
+        totalAberto += val;
+        if (d.vencimentoStr) {
+          const vd = new Date(d.vencimentoStr + 'T00:00:00');
+          if (vd >= hoje && (!proxVenc || vd < proxVenc)) proxVenc = vd;
+        }
+      }
+    });
+
+    document.getElementById('hf-total-aberto').textContent = 'R$ ' + totalAberto.toLocaleString('pt-BR',{minimumFractionDigits:2});
+    document.getElementById('hf-total-pago').textContent   = 'R$ ' + totalPago.toLocaleString('pt-BR',{minimumFractionDigits:2});
+    document.getElementById('hf-prox-venc').textContent    = proxVenc ? proxVenc.toLocaleDateString('pt-BR') : '—';
+
+    if (docs.length === 0) {
+      document.getElementById('hf-tbody').innerHTML = '<tr><td colspan="6" style="text-align:center;padding:24px;color:var(--text-muted);">Nenhum lançamento encontrado</td></tr>';
+      return;
+    }
+
+    document.getElementById('hf-tbody').innerHTML = docs.map(d => {
+      const isPago    = d.pago === 'Sim';
+      const val       = parseFloat(d.valor) || 0;
+      const vencDate  = d.vencimentoStr ? new Date(d.vencimentoStr + 'T00:00:00') : null;
+      const isVencido = !isPago && vencDate && vencDate < hoje;
+      const vencLabel = vencDate ? `${vencDate.toLocaleDateString('pt-BR')}${isVencido ? ' <span style="color:var(--danger);font-size:10px;">⚠️ atrasado</span>' : ''}` : '—';
+      const statusHtml = isPago
+        ? '<span style="color:var(--ok);font-weight:700;">✅ Pago</span>'
+        : isVencido
+          ? '<span style="color:var(--danger);font-weight:700;">🔴 Vencido</span>'
+          : '<span style="color:var(--warn);font-weight:700;">⏳ Pendente</span>';
+
+      return `<tr style="${isVencido ? 'background:rgba(198,40,40,0.06);' : ''}">
+        <td style="font-size:12px;">${d.mes || '—'}/${d.ano || ''}</td>
+        <td style="font-size:12px;">${d.destinatario || d.house || '—'}</td>
+        <td style="font-size:12px;">${d.classificacao || '—'}</td>
+        <td style="font-size:12px;">${vencLabel}</td>
+        <td style="text-align:right;font-weight:700;">R$ ${val.toLocaleString('pt-BR',{minimumFractionDigits:2})}</td>
+        <td style="text-align:center;">${statusHtml}</td>
+      </tr>`;
+    }).join('');
+
+  } catch(e) {
+    console.error('abrirHistoricoFornecedor error:', e);
+    document.getElementById('hf-tbody').innerHTML = `<tr><td colspan="6" style="text-align:center;padding:24px;color:var(--danger);">Erro: ${e.message}</td></tr>`;
+  }
+}
+
+// ─────────────────────────────────────────────
+// 🔔 ALERTAS DE VENCIMENTO PRÓXIMO
+// ─────────────────────────────────────────────
+async function verificarVencimentos() {
+  openModal('modal-alertas-venc');
+  const body = document.getElementById('alertas-venc-body');
+  body.innerHTML = '<div style="text-align:center;padding:24px;"><div class="spinner spinner-dark"></div></div>';
+
+  try {
+    const hoje    = new Date(); hoje.setHours(0,0,0,0);
+    const em7dias = new Date(hoje); em7dias.setDate(hoje.getDate() + 7);
+    const em15dias= new Date(hoje); em15dias.setDate(hoje.getDate() + 15);
+
+    const snap = await db.collection('compras_financeiro')
+      .where('pago', '!=', 'Sim')
+      .get();
+
+    const vencendoHoje = [], vencendo7 = [], vencendo15 = [], vencidos = [];
+
+    snap.docs.forEach(doc => {
+      const d   = doc.data();
+      const val = parseFloat(d.valor) || 0;
+      if (!d.vencimentoStr || !val) return;
+      const vd = new Date(d.vencimentoStr + 'T00:00:00');
+      const item = { ...d, id: doc.id, vd, val };
+
+      if (vd < hoje)         vencidos.push(item);
+      else if (+vd === +hoje) vencendoHoje.push(item);
+      else if (vd <= em7dias) vencendo7.push(item);
+      else if (vd <= em15dias) vencendo15.push(item);
+    });
+
+    const renderGrupo = (titulo, cor, items) => {
+      if (!items.length) return '';
+      const total = items.reduce((s, i) => s + i.val, 0);
+      return `<div style="margin-bottom:16px;">
+        <div style="font-weight:700;color:${cor};font-size:13px;margin-bottom:8px;">${titulo} — ${items.length} lançamento(s) · R$ ${total.toLocaleString('pt-BR',{minimumFractionDigits:2})}</div>
+        ${items.map(i => `
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:var(--surface);border-radius:8px;margin-bottom:6px;border:1px solid var(--border);">
+            <div>
+              <span style="font-weight:700;">${i.fornecedor || '—'}</span>
+              <span style="color:var(--text-muted);font-size:12px;margin-left:8px;">${i.destinatario || ''} · ${i.mes || ''}/${i.ano || ''}</span>
+            </div>
+            <div style="display:flex;gap:12px;align-items:center;">
+              <span style="font-size:12px;color:var(--text-muted);">Venc: ${i.vd.toLocaleDateString('pt-BR')}</span>
+              <strong style="color:${cor};">R$ ${i.val.toLocaleString('pt-BR',{minimumFractionDigits:2})}</strong>
+            </div>
+          </div>`).join('')}
+      </div>`;
+    };
+
+    body.innerHTML = [
+      renderGrupo('🔴 Vencidos', 'var(--danger)', vencidos),
+      renderGrupo('🟠 Vence Hoje', '#f97316', vencendoHoje),
+      renderGrupo('🟡 Vence em até 7 dias', 'var(--warn)', vencendo7),
+      renderGrupo('🔵 Vence em até 15 dias', 'var(--lumen)', vencendo15),
+    ].join('') || '<div style="text-align:center;padding:32px;color:var(--ok);">✅ Nenhum vencimento próximo!</div>';
+
+    // Guarda para envio de email
+    window._alertasVencimento = { vencidos, vencendoHoje, vencendo7, vencendo15 };
+
+  } catch(e) {
+    body.innerHTML = `<div style="color:var(--danger);padding:16px;">Erro: ${e.message}</div>`;
+  }
+}
+
+async function enviarAlertasVencimento() {
+  const dados = window._alertasVencimento;
+  if (!dados) return;
+
+  const total = dados.vencidos.length + dados.vencendoHoje.length + dados.vencendo7.length;
+  if (total === 0) { showToast('Nenhum alerta para enviar!'); return; }
+
+  const linhas = [
+    ...dados.vencidos.map(i => `🔴 VENCIDO: ${i.fornecedor} — R$ ${i.val.toFixed(2)} (${i.destinatario||''}) — Venc: ${i.vd.toLocaleDateString('pt-BR')}`),
+    ...dados.vencendoHoje.map(i => `🟠 VENCE HOJE: ${i.fornecedor} — R$ ${i.val.toFixed(2)} (${i.destinatario||''})`),
+    ...dados.vencendo7.map(i => `🟡 Vence em 7 dias: ${i.fornecedor} — R$ ${i.val.toFixed(2)} (${i.destinatario||''}) — Venc: ${i.vd.toLocaleDateString('pt-BR')}`),
+  ].join('\n');
+
+  try {
+    await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, {
+      to_email:   ADMIN_EMAIL,
+      to_name:    'Administrador',
+      from_name:  'Sistema Lumen',
+      subject:    `🔔 ${total} boleto(s) vencendo/vencido(s) — Lumen Estoque`,
+      message:    `Prezado Administrador,\n\nOs seguintes boletos precisam de atenção:\n\n${linhas}\n\nAcesse o sistema para realizar os pagamentos.`,
+      reply_to:   ADMIN_EMAIL,
+    });
+    showToast('✅ Alertas enviados por e-mail!');
+    closeModal('modal-alertas-venc');
+  } catch(e) {
+    showToast('❌ Erro ao enviar e-mail: ' + e.message);
+  }
+}
+
+// ─────────────────────────────────────────────
+// 📦 APROVAÇÃO EM LOTE POR CASA
+// ─────────────────────────────────────────────
+async function opcAprovarLoteCasa(casaNome, tipo) {
+  // tipo = 'coord' ou 'gerente'
+  const pedidosCasa = opcPedidos.filter(p => p.house === casaNome);
+  const cotIds = pedidosCasa.flatMap(p => (opcCotacoes[p.id] || []).map(q => q.id));
+  if (!cotIds.length) { showToast('Nenhuma cotação encontrada para esta casa.'); return; }
+
+  const label = tipo === 'gerente' ? 'Gerente' : 'Coordenador';
+  if (!confirm(`Aprovar TODAS as ${cotIds.length} cotação(ões) da casa "${casaNome}" como ${label}?`)) return;
+
+  showToast(`⏳ Aprovando ${cotIds.length} cotações...`);
+  const batch = db.batch();
+  cotIds.forEach(id => {
+    const ref = db.collection('quotations').doc(id);
+    if (tipo === 'gerente') {
+      batch.update(ref, { statusGerente: 'aprovado', gerenteNome: currentUserData?.name || '', status: 'aprovado' });
+    } else {
+      batch.update(ref, { statusCoordenador: 'aprovado', coordenadorNome: currentUserData?.name || '', statusGerente: 'aguardando' });
+    }
+  });
+  await batch.commit();
+
+  // Atualiza cache local
+  cotIds.forEach(id => { opcAutorizados[id] = true; });
+  opcRenderizar();
+  showToast(`✅ ${cotIds.length} cotações aprovadas como ${label}!`);
+}
+
+// Hook: render supplier dashboard when suppliers load
+const _origLoadSuppliers = typeof loadSuppliers === 'function' ? loadSuppliers : null;
 
 // Apply saved custom colors on load
 (function() {
