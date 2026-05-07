@@ -14048,29 +14048,24 @@ async function buscarGastosReais(ano) {
     .where('ano', '==', parseInt(ano))
     .get();
 
-  const resultado = {}; // { catKey: { meses: {MÊS: total}, total: N } }
-
-  // Inicializa todas as categorias
+  const resultado = {};
   Object.keys(CATEGORIAS).forEach(k => {
-    resultado[k] = { meses: {}, total: 0 };
+    resultado[k] = { meses: {}, semanas: {}, total: 0 };
   });
-  resultado['outros'] = { meses: {}, total: 0 };
+  resultado['outros'] = { meses: {}, semanas: {}, total: 0 };
 
   snap.docs.forEach(doc => {
     const d   = doc.data();
     const val = parseFloat(d.valor) || 0;
     if (!val) return;
 
-    const mes  = (d.mes || '').toUpperCase().trim();
-    // Tenta casar classificação com categoria
+    const mes     = (d.mes || '').toUpperCase().trim();
     const classif = (d.classificacao || '').toLowerCase();
-    let catKey = 'outros';
+    let catKey    = 'outros';
 
-    // Tenta por catKey direto
     if (d.catKey && resultado[d.catKey]) {
       catKey = d.catKey;
     } else {
-      // Tenta por nome da categoria
       for (const [k, cat] of Object.entries(CATEGORIAS)) {
         if (classif.includes(cat.nome.toLowerCase()) || cat.nome.toLowerCase().includes(classif)) {
           catKey = k; break;
@@ -14078,103 +14073,228 @@ async function buscarGastosReais(ano) {
       }
     }
 
-    if (!resultado[catKey]) resultado[catKey] = { meses: {}, total: 0 };
+    if (!resultado[catKey]) resultado[catKey] = { meses: {}, semanas: {}, total: 0 };
     resultado[catKey].total += val;
     resultado[catKey].meses[mes] = (resultado[catKey].meses[mes] || 0) + val;
+
+    // Agrupa por semana real usando dataCompraSerial ou vencimentoStr
+    let dataRef = null;
+    if (d.dataCompraSerial) {
+      dataRef = new Date(d.dataCompraSerial);
+    } else if (d.vencimentoStr) {
+      dataRef = new Date(d.vencimentoStr + 'T00:00:00');
+    } else if (d.createdAt && d.createdAt.toDate) {
+      dataRef = d.createdAt.toDate();
+    }
+
+    if (dataRef && !isNaN(dataRef)) {
+      const dia  = dataRef.getDate();
+      const mesK = MESES_PT[dataRef.getMonth()];
+      const sem  = dia <= 7 ? 1 : dia <= 14 ? 2 : dia <= 21 ? 3 : 4;
+      const semKey = mesK + '_' + sem; // ex: MAIO_2
+      resultado[catKey].semanas[semKey] = (resultado[catKey].semanas[semKey] || 0) + val;
+    }
   });
 
   _gastosCache[ano] = resultado;
   return resultado;
 }
 
+// ── Busca gastos de um período semanal específico ──
+async function buscarGastosSemanais(ano, mes, semNum) {
+  const cacheKey = ano + '_' + mes + '_' + semNum;
+  if (_gastosCache['sem_' + cacheKey]) return _gastosCache['sem_' + cacheKey];
+
+  // Define intervalo de dias da semana
+  const diasSem = [[1,7],[8,14],[15,21],[22,31]];
+  const [diaIni, diaFim] = diasSem[semNum - 1];
+  const mesIdx = MESES_PT.indexOf(mes);
+  if (mesIdx < 0) return {};
+
+  const dataIni = new Date(parseInt(ano), mesIdx, diaIni, 0, 0, 0);
+  const dataFim = new Date(parseInt(ano), mesIdx, diaFim, 23, 59, 59);
+
+  const resultado = {};
+  Object.keys(CATEGORIAS).forEach(k => { resultado[k] = 0; });
+
+  // Busca pelo serial (mais preciso)
+  try {
+    const snap = await db.collection('compras_financeiro')
+      .where('ano', '==', parseInt(ano))
+      .where('mes', '==', mes)
+      .get();
+
+    snap.docs.forEach(doc => {
+      const d   = doc.data();
+      const val = parseFloat(d.valor) || 0;
+      if (!val) return;
+
+      let dataRef = null;
+      if (d.dataCompraSerial)           dataRef = new Date(d.dataCompraSerial);
+      else if (d.vencimentoStr)         dataRef = new Date(d.vencimentoStr + 'T00:00:00');
+      else if (d.createdAt?.toDate)     dataRef = d.createdAt.toDate();
+
+      // Se não tem data, ignora (não estimamos dados inexistentes)
+      if (!dataRef || isNaN(dataRef)) return;
+
+      if (dataRef < dataIni || dataRef > dataFim) return;
+
+      const classif = (d.classificacao || '').toLowerCase();
+      let catKey = 'outros';
+      if (d.catKey && resultado[d.catKey] !== undefined) catKey = d.catKey;
+      else {
+        for (const [k, cat] of Object.entries(CATEGORIAS)) {
+          if (classif.includes(cat.nome.toLowerCase())) { catKey = k; break; }
+        }
+      }
+      resultado[catKey] = (resultado[catKey] || 0) + val;
+    });
+  } catch(e) { console.warn('buscarGastosSemanais error:', e); }
+
+  _gastosCache['sem_' + cacheKey] = resultado;
+  return resultado;
+}
+
 // ── Análise de Desempenho ──
 async function carregarAnalise() {
   const ano     = document.getElementById('analise-ano')?.value || '2026';
+  // Limpa cache para garantir dados frescos ao mudar ano/período
+  Object.keys(_gastosCache).filter(k => k.startsWith(ano) || k.startsWith('sem_' + ano)).forEach(k => delete _gastosCache[k]);
+  const periodo = document.getElementById('analise-periodo')?.value || 'mensal';
   const mesFilt = document.getElementById('analise-mes')?.value || '';
+  const mesSem  = document.getElementById('analise-mes-sem')?.value || MESES_PT[new Date().getMonth()];
+  const semNum  = parseInt(document.getElementById('analise-semana')?.value || '1');
   const tbody   = document.getElementById('analise-tbody');
   if (!tbody) return;
 
   try {
-    // Carrega metas e gastos
     const [snapMeta, gastos] = await Promise.all([
       db.collection('metas').doc('categorias_' + ano).get(),
       buscarGastosReais(ano)
     ]);
     const metas = snapMeta.exists ? snapMeta.data() : {};
 
-    let totalReal = 0, totalMeta = 0;
-    const rows = [];
-    const labelsChart = [], dataReal = [], dataMeta = [];
+    // Para período semanal, busca dados reais da semana
+    let gastosSemanais = {};
+    if (periodo === 'semanal') {
+      gastosSemanais = await buscarGastosSemanais(ano, mesSem, semNum);
+    }
+
+    const mesAtualIdx = new Date().getMonth();
+    const fmt = v => 'R$ ' + Math.abs(v||0).toLocaleString('pt-BR', {minimumFractionDigits:2});
+    const fmtV = (v, meta) => {
+      if (meta <= 0) return '—';
+      const pct = ((v/meta)-1)*100;
+      const cor = pct > 0 ? 'var(--danger)' : 'var(--ok)';
+      return '<span style="color:' + cor + ';font-weight:700;">' + (pct>0?'+':'') + pct.toFixed(1) + '%</span>';
+    };
+    const fmtDif = (real, meta) => {
+      const d = real - meta;
+      const cor = d > 0 ? 'var(--danger)' : 'var(--ok)';
+      return '<span style="color:' + cor + ';font-weight:700;">' + (d>0?'+':'') + fmt(d) + '</span>';
+    };
+
+    let totalRealPer = 0, totalMetaPer = 0;
+    const rows = [], labelsChart = [], dataReal = [], dataMeta = [];
 
     Object.entries(CATEGORIAS).forEach(([key, cat]) => {
       const m = metas[key] || {};
-      const g = gastos[key] || { meses: {}, total: 0 };
+      const g = gastos[key] || { meses: {}, semanas: {}, total: 0 };
 
-      // Valor realizado no período
-      let real = 0;
-      if (mesFilt) {
-        real = g.meses[mesFilt] || 0;
-      } else {
-        real = g.total;
-      }
-
-      // Meta do período
       const metaMes = parseFloat(m.metaMes) || 0;
-      let metaPeriodo = 0;
-      if (mesFilt) {
-        metaPeriodo = metaMes;
+      const metaSem = parseFloat(m.metaSemana) || 0;
+      const metaAno = parseFloat(m.metaAno) || metaMes * 12;
+
+      // Realizado mensal (mês de referência)
+      const mesRef  = periodo === 'semanal' ? mesSem : (mesFilt || MESES_PT[mesAtualIdx]);
+      const realMes = g.meses[mesRef] || 0;
+
+      // Realizado semanal — dado REAL se período semanal, estimado se não
+      const realSemReal = periodo === 'semanal' ? (gastosSemanais[key] || 0) : 0;
+      const realSemEst  = realMes / 4.33; // estimativa quando não é filtro semanal
+
+      // Realizado e meta do período selecionado
+      let realPer = 0, metaPer = 0;
+      if (periodo === 'semanal') {
+        realPer = realSemReal;
+        metaPer = metaSem;
+      } else if (periodo === 'mensal') {
+        realPer = realMes;
+        metaPer = metaMes;
       } else {
-        // Meses já passados no ano
-        const mesAtual = new Date().getMonth(); // 0-indexed
-        metaPeriodo = metaMes * (mesAtual + 1);
+        realPer = g.total;
+        metaPer = metaMes * (mesAtualIdx + 1);
       }
 
-      if (!metaMes && !real) return;
+      if (!metaMes && !metaSem && !realMes && !g.total) return;
 
-      totalReal += real;
-      totalMeta += metaPeriodo;
+      totalRealPer += realPer;
+      totalMetaPer += metaPer;
 
-      const varR = real - metaPeriodo;
-      const varP = metaPeriodo > 0 ? ((real / metaPeriodo) - 1) * 100 : null;
-
-      rows.push({ key, cat, real, metaPeriodo, metaMes, metaSemana: m.metaSemana || 0, varR, varP });
+      rows.push({ key, cat, metaPer, realPer, metaMes, realMes, metaSem, realSemReal, realSemEst });
       labelsChart.push(cat.icon + ' ' + cat.nome);
-      dataReal.push(real);
-      dataMeta.push(metaPeriodo);
+      dataReal.push(realPer);
+      dataMeta.push(metaPer);
     });
 
-    // Cards
-    const economia = totalMeta - totalReal;
-    const variacaoTotal = totalMeta > 0 ? ((totalReal / totalMeta) - 1) * 100 : 0;
-    const fmt = v => 'R$ ' + Math.abs(v).toLocaleString('pt-BR', {minimumFractionDigits:2});
+    // Atualiza header da tabela com as colunas corretas
+    const thead = tbody.closest('table')?.querySelector('thead tr');
+    if (thead) {
+      const perLabel = periodo === 'semanal' ? 'Período (Semana ' + semNum + ')' : periodo === 'mensal' ? 'Período (Mês)' : 'Período (Acumulado)';
+      thead.innerHTML =
+        '<th>Categoria</th>' +
+        '<th style="text-align:right;background:#1e3a5f22;">Meta ' + perLabel + '</th>' +
+        '<th style="text-align:right;background:#1e3a5f22;">Real. ' + perLabel + '</th>' +
+        '<th style="text-align:right;background:#1e3a5f22;">Var. R$</th>' +
+        '<th style="text-align:right;background:#1e3a5f22;">Var. %</th>' +
+        '<th style="text-align:right;background:#22c55e11;">Meta Mensal</th>' +
+        '<th style="text-align:right;background:#22c55e11;">Real. Mensal</th>' +
+        '<th style="text-align:right;background:#22c55e11;">Var. R$</th>' +
+        '<th style="text-align:right;background:#22c55e11;">Var. %</th>' +
+        '<th style="text-align:right;background:#3b82f611;">Meta Semanal</th>' +
+        '<th style="text-align:right;background:#3b82f611;">Real. Semanal</th>' +
+        '<th style="text-align:right;background:#3b82f611;">Var. %</th>' +
+        '<th style="text-align:center;">Status</th>';
+    }
 
-    document.getElementById('analise-total-real').textContent = fmt(totalReal);
-    document.getElementById('analise-total-meta').textContent = fmt(totalMeta);
+    // Cards resumo
+    const economia     = totalMetaPer - totalRealPer;
+    const variacaoTot  = totalMetaPer > 0 ? ((totalRealPer/totalMetaPer)-1)*100 : 0;
+    document.getElementById('analise-total-real').textContent = fmt(totalRealPer);
+    document.getElementById('analise-total-meta').textContent = fmt(totalMetaPer);
     document.getElementById('analise-variacao').innerHTML =
-      `<span style="color:${variacaoTotal > 10 ? 'var(--danger)' : variacaoTotal > 0 ? 'var(--warn)' : 'var(--ok)'};">${variacaoTotal > 0 ? '+' : ''}${variacaoTotal.toFixed(1)}%</span>`;
+      '<span style="color:' + (variacaoTot>10?'var(--danger)':variacaoTot>0?'var(--warn)':'var(--ok)') + ';">' +
+      (variacaoTot>0?'+':'') + variacaoTot.toFixed(1) + '%</span>';
     document.getElementById('analise-economia').innerHTML =
-      `<span style="color:${economia >= 0 ? 'var(--ok)' : 'var(--danger)'};">${economia >= 0 ? '💚 Economizou ' : '🔴 Excesso '} ${fmt(economia)}</span>`;
+      '<span style="color:' + (economia>=0?'var(--ok)':'var(--danger)') + ';">' +
+      (economia>=0?'💚 Economizou ':'🔴 Excesso ') + fmt(economia) + '</span>';
 
-    // Tabela
-    tbody.innerHTML = rows.sort((a,b) => b.real - a.real).map(r => {
-      const statusOk   = r.varP === null || r.varP <= 0;
-      const statusWarn = r.varP !== null && r.varP > 0 && r.varP <= 15;
-      const statusDng  = r.varP !== null && r.varP > 15;
-      const statusHtml = statusOk ? '<span style="color:var(--ok);font-weight:700;">✅ OK</span>'
-        : statusWarn ? '<span style="color:var(--warn);font-weight:700;">⚠️ Atenção</span>'
-        : '<span style="color:var(--danger);font-weight:700;">🔴 Acima</span>';
-      return `<tr>
-        <td style="font-weight:700;">${r.cat.icon} ${r.cat.nome}</td>
-        <td style="text-align:right;">${r.metaMes > 0 ? fmt(r.metaMes) : '—'}</td>
-        <td style="text-align:right;">${r.metaSemana > 0 ? fmt(r.metaSemana) : '—'}</td>
-        <td style="text-align:right;font-weight:700;color:var(--lumen);">${fmt(r.real)}</td>
-        <td style="text-align:right;font-weight:700;color:${r.varR > 0 ? 'var(--danger)' : 'var(--ok)'};">${r.varR > 0 ? '+' : ''}${fmt(r.varR)}</td>
-        <td style="text-align:right;font-weight:700;color:${r.varP !== null && r.varP > 0 ? 'var(--danger)' : 'var(--ok)'};">
-          ${r.varP !== null ? (r.varP > 0 ? '+' : '') + r.varP.toFixed(1) + '%' : '—'}
-        </td>
-        <td style="text-align:center;">${statusHtml}</td>
-      </tr>`;
-    }).join('') || '<tr><td colspan="7" style="text-align:center;padding:24px;color:var(--text-muted);">Nenhum dado encontrado. Cadastre metas e importe histórico financeiro.</td></tr>';
+    // Tabela com as 13 colunas
+    tbody.innerHTML = rows.sort((a,b) => b.realPer - a.realPer).map(r => {
+      const varPerR  = r.realPer - r.metaPer;
+      const stCls    = r.metaPer <= 0 ? 'ok' : varPerR > r.metaPer*0.15 ? 'danger' : varPerR > 0 ? 'warn' : 'ok';
+      const stLbl    = r.metaPer <= 0 ? '—' : varPerR > r.metaPer*0.15 ? '<span style="color:var(--danger);font-weight:700;">🔴 Acima</span>'
+                       : varPerR > 0 ? '<span style="color:var(--warn);font-weight:700;">⚠️ Atenção</span>'
+                       : '<span style="color:var(--ok);font-weight:700;">✅ OK</span>';
+      // Semanal: só mostra dado real (0 se não há dados para a semana)
+      const realSemExib = periodo === 'semanal' ? r.realSemReal : r.realSemReal;
+      const semSufixo   = '';
+      return '<tr>' +
+        '<td style="font-weight:700;">' + r.cat.icon + ' ' + r.cat.nome + '</td>' +
+        '<td style="text-align:right;background:#1e3a5f11;">' + (r.metaPer > 0 ? fmt(r.metaPer) : '—') + '</td>' +
+        '<td style="text-align:right;font-weight:700;color:var(--lumen);background:#1e3a5f11;">' + fmt(r.realPer) + '</td>' +
+        '<td style="text-align:right;background:#1e3a5f11;">' + (r.metaPer > 0 ? fmtDif(r.realPer, r.metaPer) : '—') + '</td>' +
+        '<td style="text-align:right;background:#1e3a5f11;">' + (r.metaPer > 0 ? fmtV(r.realPer, r.metaPer) : '—') + '</td>' +
+        '<td style="text-align:right;background:#22c55e08;">' + (r.metaMes > 0 ? fmt(r.metaMes) : '—') + '</td>' +
+        '<td style="text-align:right;font-weight:700;background:#22c55e08;">' + fmt(r.realMes) + '</td>' +
+        '<td style="text-align:right;background:#22c55e08;">' + (r.metaMes > 0 ? fmtDif(r.realMes, r.metaMes) : '—') + '</td>' +
+        '<td style="text-align:right;background:#22c55e08;">' + (r.metaMes > 0 ? fmtV(r.realMes, r.metaMes) : '—') + '</td>' +
+        '<td style="text-align:right;background:#3b82f608;">' + (r.metaSem > 0 ? fmt(r.metaSem) : '—') + '</td>' +
+        '<td style="text-align:right;font-weight:700;background:#3b82f608;">' + (r.realSemReal > 0 ? fmt(r.realSemReal) : (periodo === 'semanal' ? '<span style="color:var(--text-muted);font-size:12px;">Sem dados reais</span>' : '—')) + '</td>' +
+        '<td style="text-align:right;background:#3b82f608;">' + (r.metaSem > 0 && r.realSemReal > 0 ? fmtV(r.realSemReal, r.metaSem) : '—') + '</td>' +
+        '<td style="text-align:center;">' + stLbl + '</td>' +
+        '</tr>';
+    }).join('') || '<tr><td colspan="13" style="text-align:center;padding:24px;color:var(--text-muted);">Nenhum dado encontrado. Cadastre metas e importe histórico financeiro.</td></tr>';
 
     // Gráfico
     const ctx = document.getElementById('chart-meta-cat').getContext('2d');
@@ -14185,7 +14305,7 @@ async function carregarAnalise() {
         labels: labelsChart,
         datasets: [
           { label: 'Realizado', data: dataReal, backgroundColor: '#3b82f688', borderColor: '#3b82f6', borderWidth: 2 },
-          { label: 'Meta',      data: dataMeta, backgroundColor: '#22c55e44', borderColor: '#22c55e', borderWidth: 2, borderDash: [5,5] },
+          { label: 'Meta',      data: dataMeta, backgroundColor: '#22c55e44', borderColor: '#22c55e', borderWidth: 2 },
         ]
       },
       options: {
