@@ -1159,6 +1159,10 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/><polyline points="2 20 22 20"/></svg>
         Indicadores Fornec.
       </button>
+      <button class="sidebar-item" data-page="metas" onclick="goPageMobile('metas')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
+        Metas e Análise
+      </button>
     </div>
 
     <!-- SIDEBAR: COMPRAS (visível só para compras) -->
@@ -2573,6 +2577,187 @@ document.querySelector('.main-content').insertAdjacentHTML('beforeend', `
             <tr><td colspan="7" style="text-align:center;padding:32px;color:var(--text-muted);">Carregando...</td></tr>
           </tbody>
         </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- PAGE: METAS E ANÁLISE ECONÔMICA -->
+<div class="page" id="page-metas">
+  <div class="page-header">
+    <div class="page-title">Metas e Análise Econômica</div>
+    <div class="page-sub">Defina metas de gasto por categoria e acompanhe o desempenho financeiro ao longo do ano</div>
+    <div style="margin-top:8px;display:flex;gap:8px;">
+      <button class="export-btn" onclick="exportMetasExcel()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+        Exportar Excel
+      </button>
+    </div>
+  </div>
+
+  <!-- Abas -->
+  <div style="display:flex;gap:4px;margin-bottom:20px;border-bottom:2px solid var(--border);padding-bottom:0;">
+    <button id="metas-tab-btn-metas" onclick="metasSetTab('metas',this)"
+      style="padding:10px 18px;border:none;background:none;font-size:13px;font-weight:700;color:var(--lumen);border-bottom:2px solid var(--lumen);cursor:pointer;margin-bottom:-2px;">
+      🎯 Definir Metas
+    </button>
+    <button id="metas-tab-btn-analise" onclick="metasSetTab('analise',this)"
+      style="padding:10px 18px;border:none;background:none;font-size:13px;font-weight:600;color:var(--text-muted);cursor:pointer;margin-bottom:-2px;">
+      📊 Análise de Desempenho
+    </button>
+    <button id="metas-tab-btn-projecao" onclick="metasSetTab('projecao',this)"
+      style="padding:10px 18px;border:none;background:none;font-size:13px;font-weight:600;color:var(--text-muted);cursor:pointer;margin-bottom:-2px;">
+      📈 Projeção Anual
+    </button>
+  </div>
+
+  <!-- ABA: DEFINIR METAS -->
+  <div id="metas-tab-metas">
+    <div class="card" style="margin-bottom:16px;">
+      <div class="card-header">
+        <div class="card-header-title">🎯 Definir Metas por Categoria</div>
+        <div class="card-header-sub">As metas são salvas automaticamente e usadas nas análises</div>
+      </div>
+      <div class="card-body">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">
+          <div>
+            <label class="form-label">Ano de Referência</label>
+            <select class="form-select" id="metas-ano" onchange="carregarMetas()">
+              <option value="2025">2025</option>
+              <option value="2026" selected>2026</option>
+              <option value="2027">2027</option>
+            </select>
+          </div>
+        </div>
+        <div id="metas-form-categorias" style="display:flex;flex-direction:column;gap:12px;">
+          <!-- Preenchido via JS -->
+        </div>
+        <div style="margin-top:20px;display:flex;gap:12px;">
+          <button class="btn btn-primary" onclick="salvarMetas()">💾 Salvar Metas</button>
+          <button class="btn btn-outline" onclick="carregarMetas()">🔄 Recarregar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ABA: ANÁLISE DE DESEMPENHO -->
+  <div id="metas-tab-analise" style="display:none;">
+    <!-- Filtros -->
+    <div class="card" style="margin-bottom:16px;">
+      <div class="card-body" style="padding:14px 18px;">
+        <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;">
+          <div>
+            <label class="form-label">Ano</label>
+            <select class="form-select" id="analise-ano" onchange="carregarAnalise()" style="width:120px;">
+              <option value="2025">2025</option>
+              <option value="2026" selected>2026</option>
+            </select>
+          </div>
+          <div>
+            <label class="form-label">Mês</label>
+            <select class="form-select" id="analise-mes" onchange="carregarAnalise()" style="width:160px;">
+              <option value="">Todos (acumulado)</option>
+              <option value="JANEIRO">Janeiro</option><option value="FEVEREIRO">Fevereiro</option>
+              <option value="MARÇO">Março</option><option value="ABRIL">Abril</option>
+              <option value="MAIO">Maio</option><option value="JUNHO">Junho</option>
+              <option value="JULHO">Julho</option><option value="AGOSTO">Agosto</option>
+              <option value="SETEMBRO">Setembro</option><option value="OUTUBRO">Outubro</option>
+              <option value="NOVEMBRO">Novembro</option><option value="DEZEMBRO">Dezembro</option>
+            </select>
+          </div>
+          <button class="btn btn-primary btn-sm" onclick="carregarAnalise()">🔍 Analisar</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Cards resumo -->
+    <div class="stats-grid" style="margin-bottom:20px;" id="analise-cards">
+      <div class="stat-card"><div class="stat-label">Total Realizado</div><div class="stat-value" id="analise-total-real" style="font-size:20px;">—</div></div>
+      <div class="stat-card"><div class="stat-label">Meta Total</div><div class="stat-value" id="analise-total-meta" style="font-size:20px;">—</div></div>
+      <div class="stat-card"><div class="stat-label">Variação</div><div class="stat-value" id="analise-variacao" style="font-size:20px;">—</div></div>
+      <div class="stat-card"><div class="stat-label">Economia / Excesso</div><div class="stat-value" id="analise-economia" style="font-size:20px;">—</div></div>
+    </div>
+
+    <!-- Gráfico real vs meta -->
+    <div class="card" style="margin-bottom:16px;">
+      <div class="card-header"><div class="card-header-title">📊 Realizado × Meta por Categoria</div></div>
+      <div class="card-body"><div style="position:relative;height:300px;"><canvas id="chart-meta-cat"></canvas></div></div>
+    </div>
+
+    <!-- Tabela detalhada -->
+    <div class="card">
+      <div class="card-header"><div class="card-header-title">📋 Tabela Detalhada por Categoria</div></div>
+      <div class="card-body" style="padding:0;">
+        <div class="table-wrap">
+          <table class="fin-table">
+            <thead><tr>
+              <th>Categoria</th>
+              <th style="text-align:right;">Meta Mês</th>
+              <th style="text-align:right;">Meta Semana</th>
+              <th style="text-align:right;">Realizado</th>
+              <th style="text-align:right;">Variação R$</th>
+              <th style="text-align:right;">Variação %</th>
+              <th style="text-align:center;">Status</th>
+            </tr></thead>
+            <tbody id="analise-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ABA: PROJEÇÃO ANUAL -->
+  <div id="metas-tab-projecao" style="display:none;">
+    <div class="card" style="margin-bottom:16px;">
+      <div class="card-body" style="padding:14px 18px;">
+        <div style="display:flex;gap:12px;align-items:flex-end;">
+          <div>
+            <label class="form-label">Ano</label>
+            <select class="form-select" id="proj-ano" onchange="carregarProjecao()" style="width:120px;">
+              <option value="2025">2025</option>
+              <option value="2026" selected>2026</option>
+            </select>
+          </div>
+          <button class="btn btn-primary btn-sm" onclick="carregarProjecao()">📈 Projetar</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Cards projeção -->
+    <div class="stats-grid" style="margin-bottom:20px;">
+      <div class="stat-card"><div class="stat-label">Gasto Médio Mensal</div><div class="stat-value" id="proj-media-mes" style="font-size:18px;">—</div></div>
+      <div class="stat-card"><div class="stat-label">Projeção Final do Ano</div><div class="stat-value" id="proj-total-ano" style="font-size:18px;">—</div></div>
+      <div class="stat-card"><div class="stat-label">Meta Anual Total</div><div class="stat-value" id="proj-meta-ano" style="font-size:18px;">—</div></div>
+      <div class="stat-card"><div class="stat-label">Tendência</div><div class="stat-value" id="proj-tendencia" style="font-size:16px;">—</div></div>
+    </div>
+
+    <!-- Gráfico evolução mensal -->
+    <div class="card" style="margin-bottom:16px;">
+      <div class="card-header">
+        <div class="card-header-title">📈 Evolução Mensal — Realizado vs Meta</div>
+        <div class="card-header-sub">Linha pontilhada = meta | Barra = realizado</div>
+      </div>
+      <div class="card-body"><div style="position:relative;height:320px;"><canvas id="chart-proj-mensal"></canvas></div></div>
+    </div>
+
+    <!-- Gráfico gasto pico + média -->
+    <div class="card">
+      <div class="card-header"><div class="card-header-title">📉 Análise por Setor — Pico, Média e Meta</div></div>
+      <div class="card-body" style="padding:0;">
+        <div class="table-wrap">
+          <table class="fin-table">
+            <thead><tr>
+              <th>Setor</th>
+              <th style="text-align:right;">Gasto Pico</th>
+              <th style="text-align:right;">Média (Mês)</th>
+              <th style="text-align:right;">Média (Semana)</th>
+              <th style="text-align:right;">Meta Alvo (Mês)</th>
+              <th style="text-align:right;">Meta Alvo (Semana)</th>
+              <th style="text-align:center;">Tendência</th>
+            </tr></thead>
+            <tbody id="proj-tbody"></tbody>
+          </table>
+        </div>
       </div>
     </div>
   </div>
@@ -4593,7 +4778,7 @@ function goPage(page) {
     'percapita':'Per Capita por Casa','manage-houses':'Gerenciar Casas',
     'manage-cities':'Gerenciar Cidades','manage-products':'Gerenciar Produtos',
     'indicadores':'Indicadores','transferencias':'Transferências',
-    'fornecedores':'Fornecedores','comparativo':'Comparativo Quinzenal','calc-real':'Calculado × Real','orcamento-financeiro':'Orçamento Financeiro','ind-fornecedores':'Indicadores de Fornecedores','orc-pendentes':'Orçamentos Pendentes','financeiro-compras':'Financeiro — Compras'
+    'fornecedores':'Fornecedores','comparativo':'Comparativo Quinzenal','calc-real':'Calculado × Real','orcamento-financeiro':'Orçamento Financeiro','ind-fornecedores':'Indicadores de Fornecedores','orc-pendentes':'Orçamentos Pendentes','financeiro-compras':'Financeiro — Compras','metas':'Metas e Análise Econômica'
   };
   document.getElementById('topbar-page-title').textContent = titles[page] || '';
 
@@ -4619,6 +4804,7 @@ function goPage(page) {
   if (page === 'orcamento-financeiro') { initOrcamentoFinanceiro(); }
   if (page === 'orc-pendentes')        { initOrcPendentes(); }
   if (page === 'financeiro-compras')    { initFinanceiroCompras(); }
+  if (page === 'metas')                { initMetas(); }
   if (page === 'manage-cats')          { initManageCats(); }
   if (page === 'previsao')             { initPrevisao(); }
 }
@@ -13730,6 +13916,373 @@ async function opcAprovarLoteCasa(casaNome, tipo) {
 
 // Hook: render supplier dashboard when suppliers load
 const _origLoadSuppliers = typeof loadSuppliers === 'function' ? loadSuppliers : null;
+
+// ═══════════════════════════════════════════════════════════════
+// 🎯 METAS E ANÁLISE ECONÔMICA
+// ═══════════════════════════════════════════════════════════════
+let chartMetaCat   = null;
+let chartProjMensal= null;
+let _metasCache    = {}; // { catKey: { metaMes, metaSemana } }
+let _gastosCache   = {}; // { catKey: { meses: {MÊS: total} } }
+
+const MESES_ORDEM = ['JANEIRO','FEVEREIRO','MARÇO','ABRIL','MAIO','JUNHO','JULHO','AGOSTO','SETEMBRO','OUTUBRO','NOVEMBRO','DEZEMBRO'];
+
+function metasSetTab(tab, btn) {
+  ['metas','analise','projecao'].forEach(t => {
+    const el = document.getElementById('metas-tab-' + t);
+    const b  = document.getElementById('metas-tab-btn-' + t);
+    if (el) el.style.display = t === tab ? '' : 'none';
+    if (b) {
+      b.style.color      = t === tab ? 'var(--lumen)' : 'var(--text-muted)';
+      b.style.fontWeight = t === tab ? '700' : '600';
+      b.style.borderBottom = t === tab ? '2px solid var(--lumen)' : 'none';
+    }
+  });
+  if (tab === 'analise')  carregarAnalise();
+  if (tab === 'projecao') carregarProjecao();
+}
+
+async function initMetas() {
+  await carregarMetas();
+}
+
+// ── Carrega metas do Firestore e monta o formulário ──
+async function carregarMetas() {
+  const ano = document.getElementById('metas-ano')?.value || new Date().getFullYear();
+  const wrap = document.getElementById('metas-form-categorias');
+  if (!wrap) return;
+  wrap.innerHTML = '<div style="color:var(--text-muted);padding:16px;">Carregando...</div>';
+
+  try {
+    const snap = await db.collection('metas').doc('categorias_' + ano).get();
+    _metasCache = snap.exists ? (snap.data() || {}) : {};
+
+    // Monta formulário para cada categoria
+    const cats = Object.entries(CATEGORIAS);
+    wrap.innerHTML = cats.map(([key, cat]) => {
+      const m = _metasCache[key] || {};
+      return `<div style="display:grid;grid-template-columns:200px 1fr 1fr 1fr;gap:12px;align-items:center;padding:12px;background:var(--surface);border-radius:8px;border:1px solid var(--border);">
+        <div style="display:flex;align-items:center;gap:8px;font-weight:700;">
+          <span style="font-size:18px;">${cat.icon}</span>
+          <span>${cat.nome}</span>
+        </div>
+        <div>
+          <label class="form-label" style="font-size:11px;">Meta Mensal (R$)</label>
+          <input type="number" class="form-input" id="meta-mes-${key}" value="${m.metaMes || ''}" placeholder="0,00" min="0" step="100">
+        </div>
+        <div>
+          <label class="form-label" style="font-size:11px;">Meta Semanal (R$)</label>
+          <input type="number" class="form-input" id="meta-sem-${key}" value="${m.metaSemana || ''}" placeholder="0,00" min="0" step="100">
+        </div>
+        <div>
+          <label class="form-label" style="font-size:11px;">Meta Anual (R$)</label>
+          <input type="number" class="form-input" id="meta-ano-${key}" value="${m.metaAno || ''}" placeholder="auto" min="0" step="1000"
+            title="Deixe vazio para calcular como Meta Mensal × 12">
+        </div>
+      </div>`;
+    }).join('');
+  } catch(e) {
+    wrap.innerHTML = `<div style="color:var(--danger);">Erro: ${e.message}</div>`;
+  }
+}
+
+async function salvarMetas() {
+  const ano  = document.getElementById('metas-ano')?.value || new Date().getFullYear();
+  const data = {};
+  Object.keys(CATEGORIAS).forEach(key => {
+    const mes  = parseFloat(document.getElementById('meta-mes-' + key)?.value) || 0;
+    const sem  = parseFloat(document.getElementById('meta-sem-' + key)?.value) || 0;
+    const anoV = parseFloat(document.getElementById('meta-ano-' + key)?.value) || (mes * 12);
+    if (mes > 0 || sem > 0) {
+      data[key] = { metaMes: mes, metaSemana: sem, metaAno: anoV || mes * 12 };
+    }
+  });
+
+  try {
+    await db.collection('metas').doc('categorias_' + ano).set(data, { merge: true });
+    _metasCache = data;
+    showToast('✅ Metas salvas com sucesso!');
+  } catch(e) {
+    showToast('❌ Erro ao salvar: ' + e.message);
+  }
+}
+
+// ── Busca gastos reais do financeiro agrupados por categoria e mês ──
+async function buscarGastosReais(ano) {
+  if (_gastosCache[ano]) return _gastosCache[ano];
+
+  const snap = await db.collection('compras_financeiro')
+    .where('ano', '==', parseInt(ano))
+    .get();
+
+  const resultado = {}; // { catKey: { meses: {MÊS: total}, total: N } }
+
+  // Inicializa todas as categorias
+  Object.keys(CATEGORIAS).forEach(k => {
+    resultado[k] = { meses: {}, total: 0 };
+  });
+  resultado['outros'] = { meses: {}, total: 0 };
+
+  snap.docs.forEach(doc => {
+    const d   = doc.data();
+    const val = parseFloat(d.valor) || 0;
+    if (!val) return;
+
+    const mes  = (d.mes || '').toUpperCase().trim();
+    // Tenta casar classificação com categoria
+    const classif = (d.classificacao || '').toLowerCase();
+    let catKey = 'outros';
+
+    // Tenta por catKey direto
+    if (d.catKey && resultado[d.catKey]) {
+      catKey = d.catKey;
+    } else {
+      // Tenta por nome da categoria
+      for (const [k, cat] of Object.entries(CATEGORIAS)) {
+        if (classif.includes(cat.nome.toLowerCase()) || cat.nome.toLowerCase().includes(classif)) {
+          catKey = k; break;
+        }
+      }
+    }
+
+    if (!resultado[catKey]) resultado[catKey] = { meses: {}, total: 0 };
+    resultado[catKey].total += val;
+    resultado[catKey].meses[mes] = (resultado[catKey].meses[mes] || 0) + val;
+  });
+
+  _gastosCache[ano] = resultado;
+  return resultado;
+}
+
+// ── Análise de Desempenho ──
+async function carregarAnalise() {
+  const ano     = document.getElementById('analise-ano')?.value || '2026';
+  const mesFilt = document.getElementById('analise-mes')?.value || '';
+  const tbody   = document.getElementById('analise-tbody');
+  if (!tbody) return;
+
+  try {
+    // Carrega metas e gastos
+    const [snapMeta, gastos] = await Promise.all([
+      db.collection('metas').doc('categorias_' + ano).get(),
+      buscarGastosReais(ano)
+    ]);
+    const metas = snapMeta.exists ? snapMeta.data() : {};
+
+    let totalReal = 0, totalMeta = 0;
+    const rows = [];
+    const labelsChart = [], dataReal = [], dataMeta = [];
+
+    Object.entries(CATEGORIAS).forEach(([key, cat]) => {
+      const m = metas[key] || {};
+      const g = gastos[key] || { meses: {}, total: 0 };
+
+      // Valor realizado no período
+      let real = 0;
+      if (mesFilt) {
+        real = g.meses[mesFilt] || 0;
+      } else {
+        real = g.total;
+      }
+
+      // Meta do período
+      const metaMes = parseFloat(m.metaMes) || 0;
+      let metaPeriodo = 0;
+      if (mesFilt) {
+        metaPeriodo = metaMes;
+      } else {
+        // Meses já passados no ano
+        const mesAtual = new Date().getMonth(); // 0-indexed
+        metaPeriodo = metaMes * (mesAtual + 1);
+      }
+
+      if (!metaMes && !real) return;
+
+      totalReal += real;
+      totalMeta += metaPeriodo;
+
+      const varR = real - metaPeriodo;
+      const varP = metaPeriodo > 0 ? ((real / metaPeriodo) - 1) * 100 : null;
+
+      rows.push({ key, cat, real, metaPeriodo, metaMes, metaSemana: m.metaSemana || 0, varR, varP });
+      labelsChart.push(cat.icon + ' ' + cat.nome);
+      dataReal.push(real);
+      dataMeta.push(metaPeriodo);
+    });
+
+    // Cards
+    const economia = totalMeta - totalReal;
+    const variacaoTotal = totalMeta > 0 ? ((totalReal / totalMeta) - 1) * 100 : 0;
+    const fmt = v => 'R$ ' + Math.abs(v).toLocaleString('pt-BR', {minimumFractionDigits:2});
+
+    document.getElementById('analise-total-real').textContent = fmt(totalReal);
+    document.getElementById('analise-total-meta').textContent = fmt(totalMeta);
+    document.getElementById('analise-variacao').innerHTML =
+      `<span style="color:${variacaoTotal > 10 ? 'var(--danger)' : variacaoTotal > 0 ? 'var(--warn)' : 'var(--ok)'};">${variacaoTotal > 0 ? '+' : ''}${variacaoTotal.toFixed(1)}%</span>`;
+    document.getElementById('analise-economia').innerHTML =
+      `<span style="color:${economia >= 0 ? 'var(--ok)' : 'var(--danger)'};">${economia >= 0 ? '💚 Economizou ' : '🔴 Excesso '} ${fmt(economia)}</span>`;
+
+    // Tabela
+    tbody.innerHTML = rows.sort((a,b) => b.real - a.real).map(r => {
+      const statusOk   = r.varP === null || r.varP <= 0;
+      const statusWarn = r.varP !== null && r.varP > 0 && r.varP <= 15;
+      const statusDng  = r.varP !== null && r.varP > 15;
+      const statusHtml = statusOk ? '<span style="color:var(--ok);font-weight:700;">✅ OK</span>'
+        : statusWarn ? '<span style="color:var(--warn);font-weight:700;">⚠️ Atenção</span>'
+        : '<span style="color:var(--danger);font-weight:700;">🔴 Acima</span>';
+      return `<tr>
+        <td style="font-weight:700;">${r.cat.icon} ${r.cat.nome}</td>
+        <td style="text-align:right;">${r.metaMes > 0 ? fmt(r.metaMes) : '—'}</td>
+        <td style="text-align:right;">${r.metaSemana > 0 ? fmt(r.metaSemana) : '—'}</td>
+        <td style="text-align:right;font-weight:700;color:var(--lumen);">${fmt(r.real)}</td>
+        <td style="text-align:right;font-weight:700;color:${r.varR > 0 ? 'var(--danger)' : 'var(--ok)'};">${r.varR > 0 ? '+' : ''}${fmt(r.varR)}</td>
+        <td style="text-align:right;font-weight:700;color:${r.varP !== null && r.varP > 0 ? 'var(--danger)' : 'var(--ok)'};">
+          ${r.varP !== null ? (r.varP > 0 ? '+' : '') + r.varP.toFixed(1) + '%' : '—'}
+        </td>
+        <td style="text-align:center;">${statusHtml}</td>
+      </tr>`;
+    }).join('') || '<tr><td colspan="7" style="text-align:center;padding:24px;color:var(--text-muted);">Nenhum dado encontrado. Cadastre metas e importe histórico financeiro.</td></tr>';
+
+    // Gráfico
+    const ctx = document.getElementById('chart-meta-cat').getContext('2d');
+    if (chartMetaCat) chartMetaCat.destroy();
+    chartMetaCat = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: labelsChart,
+        datasets: [
+          { label: 'Realizado', data: dataReal, backgroundColor: '#3b82f688', borderColor: '#3b82f6', borderWidth: 2 },
+          { label: 'Meta',      data: dataMeta, backgroundColor: '#22c55e44', borderColor: '#22c55e', borderWidth: 2, borderDash: [5,5] },
+        ]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { position: 'bottom' } },
+        scales: { y: { ticks: { callback: v => 'R$' + (v/1000).toFixed(0) + 'k' } } }
+      }
+    });
+
+  } catch(e) {
+    console.error('carregarAnalise error:', e);
+    showToast('Erro na análise: ' + e.message);
+  }
+}
+
+// ── Projeção Anual ──
+async function carregarProjecao() {
+  const ano = document.getElementById('proj-ano')?.value || '2026';
+  const tbody = document.getElementById('proj-tbody');
+
+  try {
+    const [snapMeta, gastos] = await Promise.all([
+      db.collection('metas').doc('categorias_' + ano).get(),
+      buscarGastosReais(ano)
+    ]);
+    const metas = snapMeta.exists ? snapMeta.data() : {};
+
+    const mesAtualIdx = new Date().getMonth(); // 0-indexed
+    const mesesDecorridos = mesAtualIdx + 1;
+    const mesesRestantes  = 12 - mesesDecorridos;
+
+    let totalGastoAte = 0, totalMetaAno = 0, totalProjetado = 0;
+    const dadosMensais = {}; // { MÊS: total }
+    const rows = [];
+
+    // Agrupa gastos por mês (todos os cats)
+    Object.values(gastos).forEach(g => {
+      Object.entries(g.meses).forEach(([mes, val]) => {
+        dadosMensais[mes] = (dadosMensais[mes] || 0) + val;
+      });
+      totalGastoAte += g.total;
+    });
+
+    // Por categoria
+    Object.entries(CATEGORIAS).forEach(([key, cat]) => {
+      const m = metas[key] || {};
+      const g = gastos[key] || { meses: {}, total: 0 };
+      const metaMes = parseFloat(m.metaMes) || 0;
+      const metaAno = parseFloat(m.metaAno) || metaMes * 12;
+
+      if (!metaMes && !g.total) return;
+
+      totalMetaAno += metaAno;
+
+      // Calcula meses com dados
+      const mesesComDados = MESES_ORDEM.filter(m2 => g.meses[m2]);
+      const pico   = mesesComDados.length > 0 ? Math.max(...mesesComDados.map(m2 => g.meses[m2])) : 0;
+      const media  = mesesComDados.length > 0 ? g.total / mesesComDados.length : 0;
+      const mediaSem = media / 4.33;
+
+      // Projeção para o resto do ano
+      const projetado = g.total + (media * mesesRestantes);
+      totalProjetado += projetado;
+
+      const tendencia = projetado > metaAno
+        ? '<span style="color:var(--danger);">📈 Acima da meta</span>'
+        : '<span style="color:var(--ok);">📉 Dentro da meta</span>';
+
+      const fmt = v => 'R$ ' + v.toLocaleString('pt-BR', {minimumFractionDigits:0, maximumFractionDigits:0});
+
+      rows.push(`<tr>
+        <td style="font-weight:700;">${cat.icon} ${cat.nome}</td>
+        <td style="text-align:right;font-weight:700;color:var(--danger);">${fmt(pico)}</td>
+        <td style="text-align:right;">${fmt(media)}</td>
+        <td style="text-align:right;">${fmt(mediaSem)}</td>
+        <td style="text-align:right;font-weight:700;color:var(--ok);">${metaMes > 0 ? fmt(metaMes) : '—'}</td>
+        <td style="text-align:right;font-weight:700;color:var(--ok);">${m.metaSemana > 0 ? fmt(m.metaSemana) : '—'}</td>
+        <td style="text-align:center;font-size:12px;">${tendencia}</td>
+      </tr>`);
+    });
+
+    if (tbody) tbody.innerHTML = rows.join('') || '<tr><td colspan="7" style="text-align:center;padding:24px;color:var(--text-muted);">Cadastre metas para ver a projeção.</td></tr>';
+
+    // Cards
+    const mediaGastoMes = mesesDecorridos > 0 ? totalGastoAte / mesesDecorridos : 0;
+    const tendenciaGeral = totalProjetado <= totalMetaAno
+      ? '<span style="color:var(--ok);">✅ Dentro da meta anual</span>'
+      : `<span style="color:var(--danger);">⚠️ +R$${((totalProjetado-totalMetaAno)/1000).toFixed(0)}k acima da meta</span>`;
+
+    const fmt2 = v => 'R$ ' + v.toLocaleString('pt-BR', {minimumFractionDigits:0, maximumFractionDigits:0});
+    document.getElementById('proj-media-mes').textContent  = fmt2(mediaGastoMes);
+    document.getElementById('proj-total-ano').textContent  = fmt2(totalProjetado);
+    document.getElementById('proj-meta-ano').textContent   = fmt2(totalMetaAno);
+    document.getElementById('proj-tendencia').innerHTML    = tendenciaGeral;
+
+    // Gráfico evolução mensal
+    const labelsMeses = MESES_ORDEM.map(m2 => m2.slice(0,3));
+    const dataRealMes = MESES_ORDEM.map(m2 => dadosMensais[m2] || null);
+    const dataMetaMes = MESES_ORDEM.map(() => {
+      const totalMetaMes = Object.values(metas).reduce((s,m2) => s + (parseFloat(m2.metaMes)||0), 0);
+      return totalMetaMes;
+    });
+
+    const ctx2 = document.getElementById('chart-proj-mensal').getContext('2d');
+    if (chartProjMensal) chartProjMensal.destroy();
+    chartProjMensal = new Chart(ctx2, {
+      type: 'bar',
+      data: {
+        labels: labelsMeses,
+        datasets: [
+          { label: 'Realizado', data: dataRealMes, backgroundColor: '#3b82f688', borderColor: '#3b82f6', borderWidth: 2, type: 'bar' },
+          { label: 'Meta Mensal', data: dataMetaMes, borderColor: '#22c55e', borderWidth: 2, borderDash: [6,4], type: 'line', fill: false, pointRadius: 3, tension: 0 },
+        ]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { position: 'bottom' } },
+        scales: { y: { ticks: { callback: v => 'R$' + (v/1000).toFixed(0) + 'k' } } }
+      }
+    });
+
+  } catch(e) {
+    console.error('carregarProjecao error:', e);
+    showToast('Erro na projeção: ' + e.message);
+  }
+}
+
+function exportMetasExcel() {
+  showToast('Em breve: exportação de metas em Excel!');
+}
 
 // Apply saved custom colors on load
 (function() {
