@@ -2674,14 +2674,27 @@ document.querySelector('.main-content').insertAdjacentHTML('beforeend', `
               <option value="NOVEMBRO">Novembro</option><option value="DEZEMBRO">Dezembro</option>
             </select>
           </div>
-          <div id="analise-semana-wrap" style="display:none;">
-            <label class="form-label">Semana</label>
-            <select class="form-select" id="analise-semana" onchange="carregarAnalise()" style="width:160px;">
-              <option value="1">Semana 1 (1-7)</option>
-              <option value="2">Semana 2 (8-14)</option>
-              <option value="3">Semana 3 (15-21)</option>
-              <option value="4">Semana 4 (22-31)</option>
-            </select>
+          <div id="analise-semana-wrap" style="display:none;display:flex;gap:12px;">
+            <div>
+              <label class="form-label">Mês</label>
+              <select class="form-select" id="analise-mes-sem" onchange="carregarAnalise()" style="width:140px;">
+                <option value="JANEIRO">Janeiro</option><option value="FEVEREIRO">Fevereiro</option>
+                <option value="MARÇO">Março</option><option value="ABRIL">Abril</option>
+                <option value="MAIO" selected>Maio</option><option value="JUNHO">Junho</option>
+                <option value="JULHO">Julho</option><option value="AGOSTO">Agosto</option>
+                <option value="SETEMBRO">Setembro</option><option value="OUTUBRO">Outubro</option>
+                <option value="NOVEMBRO">Novembro</option><option value="DEZEMBRO">Dezembro</option>
+              </select>
+            </div>
+            <div>
+              <label class="form-label">Semana</label>
+              <select class="form-select" id="analise-semana" onchange="carregarAnalise()" style="width:160px;">
+                <option value="1">Semana 1 (1-7)</option>
+                <option value="2">Semana 2 (8-14)</option>
+                <option value="3">Semana 3 (15-21)</option>
+                <option value="4">Semana 4 (22-31)</option>
+              </select>
+            </div>
           </div>
           <button class="btn btn-primary btn-sm" onclick="carregarAnalise()">🔍 Analisar</button>
           <button class="btn btn-outline btn-sm" onclick="gerarSlidesMetas()" style="color:var(--lumen);border-color:var(--lumen);">📊 Gerar Slides</button>
@@ -13963,27 +13976,41 @@ async function carregarMetas() {
     const snap = await db.collection('metas').doc('categorias_' + ano).get();
     _metasCache = snap.exists ? (snap.data() || {}) : {};
 
-    // Monta formulário para cada categoria
+    // Busca médias reais dos gastos
+    let gastosReais = {};
+    try {
+      gastosReais = await buscarGastosReais(ano);
+    } catch(e) { gastosReais = {}; }
+
+    // Monta formulário para cada categoria com médias reais
     const cats = Object.entries(CATEGORIAS);
     wrap.innerHTML = cats.map(([key, cat]) => {
       const m = _metasCache[key] || {};
-      return `<div style="display:grid;grid-template-columns:200px 1fr 1fr 1fr;gap:12px;align-items:center;padding:12px;background:var(--surface);border-radius:8px;border:1px solid var(--border);">
-        <div style="display:flex;align-items:center;gap:8px;font-weight:700;">
+      const g = gastosReais[key] || { meses: {}, total: 0 };
+      const mesesComDados = Object.values(g.meses).filter(v => v > 0);
+      const mediaMes  = mesesComDados.length > 0 ? g.total / mesesComDados.length : 0;
+      const mediaSem  = mediaMes / 4.33;
+      const fmtMed    = v => v > 0 ? 'Média real: R$ ' + v.toLocaleString('pt-BR',{minimumFractionDigits:0,maximumFractionDigits:0}) : '';
+      return `<div style="display:grid;grid-template-columns:200px 1fr 1fr 1fr;gap:12px;align-items:start;padding:14px;background:var(--surface);border-radius:8px;border:1px solid var(--border);">
+        <div style="display:flex;align-items:center;gap:8px;font-weight:700;margin-top:22px;">
           <span style="font-size:18px;">${cat.icon}</span>
           <span>${cat.nome}</span>
         </div>
         <div>
           <label class="form-label" style="font-size:11px;">Meta Mensal (R$)</label>
           <input type="number" class="form-input" id="meta-mes-${key}" value="${m.metaMes || ''}" placeholder="0,00" min="0" step="100">
+          ${mediaMes > 0 ? `<div style="font-size:11px;color:var(--text-muted);margin-top:4px;">${fmtMed(mediaMes)}</div>` : ''}
         </div>
         <div>
           <label class="form-label" style="font-size:11px;">Meta Semanal (R$)</label>
           <input type="number" class="form-input" id="meta-sem-${key}" value="${m.metaSemana || ''}" placeholder="0,00" min="0" step="100">
+          ${mediaSem > 0 ? `<div style="font-size:11px;color:var(--text-muted);margin-top:4px;">${fmtMed(mediaSem)}</div>` : ''}
         </div>
         <div>
           <label class="form-label" style="font-size:11px;">Meta Anual (R$)</label>
           <input type="number" class="form-input" id="meta-ano-${key}" value="${m.metaAno || ''}" placeholder="auto" min="0" step="1000"
             title="Deixe vazio para calcular como Meta Mensal × 12">
+          ${g.total > 0 ? `<div style="font-size:11px;color:var(--text-muted);margin-top:4px;">Total ${ano}: R$ ${g.total.toLocaleString('pt-BR',{minimumFractionDigits:0,maximumFractionDigits:0})}</div>` : ''}
         </div>
       </div>`;
     }).join('');
@@ -14586,8 +14613,8 @@ function toggleAnaliseSemanaPeriodo() {
   const periodo = document.getElementById('analise-periodo')?.value;
   const mesWrap = document.getElementById('analise-mes-wrap');
   const semWrap = document.getElementById('analise-semana-wrap');
-  if (mesWrap) mesWrap.style.display = periodo === 'semanal' ? 'none' : '';
-  if (semWrap) semWrap.style.display = periodo === 'semanal' ? '' : 'none';
+  if (mesWrap) mesWrap.style.display = periodo === 'semanal' ? 'none' : (periodo === 'acumulado' ? 'none' : '');
+  if (semWrap) semWrap.style.display = periodo === 'semanal' ? 'flex' : 'none';
   carregarAnalise();
 }
 
@@ -14751,130 +14778,247 @@ async function gerarSlidesMetas() {
   showToast('⏳ Gerando apresentação...');
   try {
     const ano    = document.getElementById('analise-ano')?.value || new Date().getFullYear();
+    const periodo= document.getElementById('analise-periodo')?.value || 'mensal';
+    const mesFilt= document.getElementById('analise-mes')?.value || '';
+    const mesSem = document.getElementById('analise-mes-sem')?.value || MESES_PT[new Date().getMonth()];
+    const semNum = parseInt(document.getElementById('analise-semana')?.value || '1');
+
     const gastos = await buscarGastosReais(ano);
     const metas  = await carregarMetasComFallback(ano);
 
-    // Monta URL com dados codificados para download via netlify function ou gera HTML de slides
-    const slidesData = Object.entries(CATEGORIAS).map(([key, cat]) => {
+    const hoje  = new Date();
+    const mesAtualIdx = hoje.getMonth();
+
+    // Cria texto descritivo do período analisado
+    let periodoTexto = '';
+    if (periodo === 'semanal') {
+      const semDias = ['1-7','8-14','15-21','22-31'];
+      periodoTexto = `Semana ${semNum} (dias ${semDias[semNum-1]}) de ${mesSem} / ${ano}`;
+    } else if (periodo === 'mensal' && mesFilt) {
+      periodoTexto = `${mesFilt} / ${ano}`;
+    } else {
+      periodoTexto = `Acumulado ${ano} (Janeiro a ${MESES_PT[mesAtualIdx]})`;
+    }
+
+    const fmt = v => 'R$ ' + (v||0).toLocaleString('pt-BR', {minimumFractionDigits:2});
+
+    // Monta dados por categoria com período + mensal + semanal
+    const slidesData = [];
+    let totalRealPer = 0, totalMetaPer = 0;
+
+    Object.entries(CATEGORIAS).forEach(([key, cat]) => {
       const m = metas[key] || {};
-      const g = gastos[key] || { total: 0 };
-      return {
-        categoria: cat.nome,
-        icon: cat.icon,
-        metaMes: m.metaMes || 0,
-        metaSemana: m.metaSemana || 0,
-        metaAno: m.metaAno || 0,
-        realizado: g.total || 0,
-      };
+      const g = gastos[key] || { meses: {}, total: 0 };
+
+      const metaMes = parseFloat(m.metaMes) || 0;
+      const metaSem = parseFloat(m.metaSemana) || 0;
+      const metaAno = parseFloat(m.metaAno) || metaMes * 12;
+
+      // Realizado mensal (mês selecionado ou mês atual)
+      const mesRef = periodo === 'semanal' ? mesSem : (mesFilt || MESES_PT[mesAtualIdx]);
+      const realMes = g.meses[mesRef] || 0;
+
+      // Realizado semanal (estimado: real do mês / 4.33)
+      const realSem = realMes / 4.33;
+
+      // Realizado período
+      let realPer = 0;
+      if (periodo === 'semanal')       realPer = realSem;
+      else if (periodo === 'mensal')   realPer = realMes;
+      else                              realPer = g.total;
+
+      // Meta período
+      let metaPer = 0;
+      if (periodo === 'semanal')       metaPer = metaSem;
+      else if (periodo === 'mensal')   metaPer = metaMes;
+      else                              metaPer = metaMes * (mesAtualIdx + 1);
+
+      if (!metaMes && !realMes && !g.total) return;
+
+      totalRealPer += realPer;
+      totalMetaPer += metaPer;
+
+      slidesData.push({ key, cat, metaMes, metaSem, metaAno, metaPer,
+        realMes, realSem, realPer });
     });
 
-    // Abre janela de apresentação
-    const w = window.open('', '_blank', 'width=1000,height=650');
-    const totalMeta = slidesData.reduce((s,d) => s + (d.metaMes||0), 0);
-    const totalReal = slidesData.reduce((s,d) => s + (d.realizado||0), 0);
-    const economia  = totalMeta - totalReal;
-    const fmt = v => 'R$ ' + (v||0).toLocaleString('pt-BR', {minimumFractionDigits:2});
+    const economia  = totalMetaPer - totalRealPer;
+    const varGeral  = totalMetaPer > 0 ? ((totalRealPer / totalMetaPer - 1) * 100).toFixed(1) : null;
 
-    w.document.write(`<!DOCTYPE html><html lang="pt-BR"><head>
-<meta charset="UTF-8"><title>Metas ${ano} — Obra Lumen</title>
+    // Oportunidades: categorias acima da meta com maior excesso
+    const oport = slidesData
+      .filter(d => d.metaPer > 0 && d.realPer > d.metaPer)
+      .sort((a,b) => (b.realPer - b.metaPer) - (a.realPer - a.metaPer))
+      .slice(0, 4);
+
+    // Projeção de economia se bater as metas
+    const totalMesAtual = Object.values(gastos).reduce((s,g2) => s + (g2.meses[MESES_PT[mesAtualIdx]]||0), 0);
+    const totalMetaMes  = Object.values(metas).reduce((s,m2) => s + (parseFloat(m2?.metaMes)||0), 0);
+    const economiaMes   = Math.max(0, totalMesAtual - totalMetaMes);
+    const economiaProjAnual = economiaMes * 12;
+
+    // Abre apresentação
+    const w = window.open('', '_blank', 'width=1100,height=680');
+    w.document.write(\`<!DOCTYPE html><html lang="pt-BR"><head>
+<meta charset="UTF-8"><title>Metas \${ano} — Obra Lumen</title>
 <style>
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: 'Segoe UI', sans-serif; background: #0f172a; color: #fff; }
-  .slide { width: 100%; min-height: 100vh; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 48px; page-break-after: always; }
-  .slide-title { background: #065a82; }
-  .slide-analysis { background: #0f172a; }
-  h1 { font-size: 48px; font-weight: 900; color: #00d4ff; margin-bottom: 16px; }
-  h2 { font-size: 32px; font-weight: 700; color: #00d4ff; margin-bottom: 24px; }
-  .subtitle { font-size: 20px; color: #94a3b8; margin-bottom: 32px; }
-  .cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; width: 100%; max-width: 900px; margin: 24px 0; }
-  .card { background: #1e293b; border-radius: 16px; padding: 24px; text-align: center; border: 1px solid #334155; }
-  .card-val { font-size: 28px; font-weight: 800; color: #00d4ff; margin: 8px 0; }
-  .card-label { font-size: 13px; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px; }
-  table { width: 100%; max-width: 900px; border-collapse: collapse; }
-  th { background: #065a82; padding: 12px 16px; text-align: left; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px; }
-  td { padding: 12px 16px; border-bottom: 1px solid #1e293b; font-size: 14px; }
-  tr:nth-child(even) td { background: #1e293b22; }
-  .ok { color: #22c55e; } .warn { color: #f59e0b; } .danger { color: #ef4444; }
-  .bar-wrap { background: #1e293b; border-radius: 8px; height: 10px; width: 100%; margin-top: 8px; }
-  .bar-fill { height: 10px; border-radius: 8px; }
-  @media print { .slide { page-break-after: always; } }
-  .print-btn { position: fixed; bottom: 24px; right: 24px; padding: 14px 24px; background: #00d4ff; color: #0f172a; border: none; border-radius: 10px; font-size: 16px; font-weight: 700; cursor: pointer; z-index: 999; }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { font-family:'Segoe UI',sans-serif; background:#0d1b2a; color:#e8f1f2; }
+  @media print { body { -webkit-print-color-adjust:exact; } .noprint { display:none!important; } }
+  .slide { width:100%; min-height:100vh; display:flex; flex-direction:column; justify-content:center; align-items:center; padding:52px 60px; page-break-after:always; border-bottom:2px solid #1e3a5f; }
+  h1 { font-size:52px; font-weight:900; color:#00c8e0; margin-bottom:12px; text-align:center; }
+  h2 { font-size:28px; font-weight:700; color:#00c8e0; margin-bottom:20px; text-align:center; }
+  .subtitle { font-size:18px; color:#7fb3d3; margin-bottom:8px; text-align:center; }
+  .period-badge { background:#1e3a5f; border:1px solid #00c8e0; color:#00c8e0; border-radius:24px; padding:8px 24px; font-size:16px; font-weight:700; display:inline-block; margin-top:16px; }
+  table { width:100%; max-width:960px; border-collapse:collapse; }
+  th { background:#1e3a5f; padding:10px 14px; text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:1px; color:#7fb3d3; }
+  th.right { text-align:right; }
+  td { padding:10px 14px; border-bottom:1px solid #1e3a5f; font-size:13px; vertical-align:middle; }
+  td.right { text-align:right; font-weight:700; }
+  tr:hover td { background:#1e3a5f44; }
+  .ok { color:#22c55e; } .warn { color:#f59e0b; } .danger { color:#ef4444; }
+  .cards3 { display:grid; grid-template-columns:repeat(3,1fr); gap:16px; width:100%; max-width:900px; margin:24px 0; }
+  .cards4 { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; width:100%; max-width:960px; margin:16px 0; }
+  .card { background:#1e3a5f; border-radius:12px; padding:20px 16px; text-align:center; border:1px solid #2a5280; }
+  .card-label { font-size:11px; color:#7fb3d3; text-transform:uppercase; letter-spacing:1px; margin-bottom:8px; }
+  .card-val { font-size:22px; font-weight:800; }
+  .print-btn { position:fixed; bottom:24px; right:24px; padding:12px 22px; background:#00c8e0; color:#0d1b2a; border:none; border-radius:10px; font-size:14px; font-weight:700; cursor:pointer; z-index:999; box-shadow:0 4px 16px #00c8e055; }
+  .logo-wrap { margin-bottom:24px; }
+  .logo-wrap img { height:72px; }
+  .opp-card { background:#1e3a5f; border-left:4px solid #ef4444; border-radius:8px; padding:14px 18px; margin-bottom:10px; width:100%; max-width:760px; display:flex; justify-content:space-between; align-items:center; }
+  .opp-cat { font-size:16px; font-weight:700; }
+  .opp-vals { text-align:right; }
 </style></head><body>
-<button class="print-btn" onclick="window.print()">🖨️ Imprimir / Salvar PDF</button>
+<button class="print-btn noprint" onclick="window.print()">🖨️ Imprimir / PDF</button>
 
 <!-- SLIDE 1: CAPA -->
-<div class="slide slide-title">
-  <div style="font-size:64px;margin-bottom:16px;">📊</div>
+<div class="slide" style="background:#0d1b2a;">
+  <div class="logo-wrap"><img src="\${LOGO_B64}" alt="Obra Lumen"></div>
   <h1>Análise de Metas</h1>
-  <div class="subtitle">Obra Lumen · Ano ${ano}</div>
-  <div style="font-size:16px;color:#64748b;margin-top:16px;">${new Date().toLocaleDateString('pt-BR')}</div>
-  <div class="cards" style="margin-top:48px;">
-    <div class="card"><div class="card-label">Meta Total Mensal</div><div class="card-val">${fmt(totalMeta)}</div></div>
-    <div class="card"><div class="card-label">Total Realizado</div><div class="card-val" style="color:${totalReal > totalMeta ? '#ef4444':'#22c55e'};">${fmt(totalReal)}</div></div>
-    <div class="card"><div class="card-label">${economia >= 0 ? '💚 Economia' : '🔴 Excesso'}</div><div class="card-val" style="color:${economia >= 0 ? '#22c55e':'#ef4444'};">${fmt(Math.abs(economia))}</div></div>
+  <div class="subtitle">Obra Lumen · Gestão de Suprimentos</div>
+  <div class="period-badge">📅 \${periodoTexto}</div>
+  <div style="font-size:13px;color:#3a6186;margin-top:40px;">${new Date().toLocaleString('pt-BR')}</div>
+</div>
+
+<!-- SLIDE 2: RESUMO EXECUTIVO -->
+<div class="slide">
+  <h2>📊 Resumo Executivo</h2>
+  <div class="subtitle">\${periodoTexto}</div>
+  <div class="cards3" style="margin-top:24px;">
+    <div class="card">
+      <div class="card-label">Meta do Período</div>
+      <div class="card-val" style="color:#00c8e0;">\${fmt(totalMetaPer)}</div>
+    </div>
+    <div class="card">
+      <div class="card-label">Realizado no Período</div>
+      <div class="card-val" style="color:\${totalRealPer > totalMetaPer ? '#ef4444':'#22c55e'};">\${fmt(totalRealPer)}</div>
+    </div>
+    <div class="card">
+      <div class="card-label">\${economia >= 0 ? '💚 Economia' : '🔴 Excesso'}</div>
+      <div class="card-val" style="color:\${economia >= 0 ? '#22c55e':'#ef4444'};">\${fmt(Math.abs(economia))}</div>
+      \${varGeral !== null ? \`<div style="font-size:13px;color:\${parseFloat(varGeral)>0?'#ef4444':'#22c55e'};margin-top:4px;">\${parseFloat(varGeral)>0?'+':''}\${varGeral}% da meta</div>\` : ''}
+    </div>
   </div>
 </div>
 
-<!-- SLIDE 2: ANÁLISE POR CATEGORIA -->
-<div class="slide slide-analysis">
+<!-- SLIDE 3: TABELA DETALHADA -->
+<div class="slide">
   <h2>📦 Realizado × Meta por Categoria</h2>
   <table>
-    <thead><tr><th>Categoria</th><th>Meta Mês</th><th>Meta Semana</th><th>Realizado</th><th>Variação</th><th>Status</th></tr></thead>
+    <thead><tr>
+      <th>Categoria</th>
+      <th class="right">Meta Período</th><th class="right">Real. Período</th><th class="right">Var. %</th>
+      <th class="right">Meta Mês</th><th class="right">Real. Mês</th><th class="right">Var. %</th>
+      <th class="right">Meta Sem.</th><th class="right">Real. Sem.</th><th class="right">Status</th>
+    </tr></thead>
     <tbody>
-      ${slidesData.map(d => {
-        const varP = d.metaMes > 0 ? ((d.realizado/d.metaMes)-1)*100 : null;
-        const cor  = varP === null ? '#94a3b8' : varP > 15 ? '#ef4444' : varP > 0 ? '#f59e0b' : '#22c55e';
-        const status = varP === null ? '—' : varP > 15 ? '🔴 Acima' : varP > 0 ? '⚠️ Atenção' : '✅ OK';
-        const pctBar = d.metaMes > 0 ? Math.min(100,(d.realizado/d.metaMes)*100) : 0;
-        const barCor = pctBar > 100 ? '#ef4444' : pctBar > 80 ? '#f59e0b' : '#22c55e';
-        return `<tr>
-          <td style="font-weight:700;">${d.icon} ${d.categoria}</td>
-          <td>${d.metaMes > 0 ? fmt(d.metaMes) : '—'}</td>
-          <td>${d.metaSemana > 0 ? fmt(d.metaSemana) : '—'}</td>
-          <td style="font-weight:700;">${fmt(d.realizado)}</td>
-          <td style="color:${cor};font-weight:700;">${varP !== null ? (varP > 0 ? '+' : '') + varP.toFixed(1) + '%' : '—'}</td>
-          <td style="color:${cor};font-weight:700;">${status}</td>
-        </tr>`;
+      \${slidesData.map(d => {
+        const varPer = d.metaPer > 0 ? ((d.realPer/d.metaPer-1)*100).toFixed(1) : null;
+        const varMes = d.metaMes > 0 ? ((d.realMes/d.metaMes-1)*100).toFixed(1) : null;
+        const status = varPer === null ? '—' : parseFloat(varPer) > 15 ? '<span class="danger">🔴 Acima</span>' : parseFloat(varPer) > 0 ? '<span class="warn">⚠️</span>' : '<span class="ok">✅ OK</span>';
+        const corPer = varPer !== null && parseFloat(varPer) > 0 ? 'danger' : 'ok';
+        const corMes = varMes !== null && parseFloat(varMes) > 0 ? 'danger' : 'ok';
+        return \`<tr>
+          <td style="font-weight:700;">\${d.cat.icon} \${d.cat.nome}</td>
+          <td class="right">\${d.metaPer > 0 ? fmt(d.metaPer) : '—'}</td>
+          <td class="right \${corPer}">\${fmt(d.realPer)}</td>
+          <td class="right \${corPer}">\${varPer !== null ? (parseFloat(varPer)>0?'+':'')+varPer+'%' : '—'}</td>
+          <td class="right">\${d.metaMes > 0 ? fmt(d.metaMes) : '—'}</td>
+          <td class="right \${corMes}">\${fmt(d.realMes)}</td>
+          <td class="right \${corMes}">\${varMes !== null ? (parseFloat(varMes)>0?'+':'')+varMes+'%' : '—'}</td>
+          <td class="right">\${d.metaSem > 0 ? fmt(d.metaSem) : '—'}</td>
+          <td class="right">\${fmt(d.realSem)}</td>
+          <td>\${status}</td>
+        </tr>\`;
       }).join('')}
     </tbody>
   </table>
 </div>
 
-<!-- SLIDE 3: DETALHAMENTO POR CATEGORIA -->
-${slidesData.filter(d => d.metaMes > 0 || d.realizado > 0).map(d => {
-  const pctBar = d.metaMes > 0 ? Math.min(100,(d.realizado/d.metaMes)*100) : 0;
-  const barCor = pctBar > 100 ? '#ef4444' : pctBar > 80 ? '#f59e0b' : '#22c55e';
-  return `<div class="slide slide-analysis">
-    <div style="font-size:48px;margin-bottom:12px;">${d.icon}</div>
-    <h2>${d.categoria}</h2>
-    <div class="cards">
-      <div class="card"><div class="card-label">Meta Mensal</div><div class="card-val">${fmt(d.metaMes)}</div></div>
-      <div class="card"><div class="card-label">Meta Semanal</div><div class="card-val">${fmt(d.metaSemana)}</div></div>
-      <div class="card"><div class="card-label">Meta Anual</div><div class="card-val">${fmt(d.metaAno)}</div></div>
+<!-- SLIDES POR CATEGORIA -->
+\${slidesData.filter(d => d.metaMes > 0 || d.realMes > 0).map(d => {
+  const varPer = d.metaPer > 0 ? ((d.realPer/d.metaPer-1)*100).toFixed(1) : null;
+  const varMes = d.metaMes > 0 ? ((d.realMes/d.metaMes-1)*100).toFixed(1) : null;
+  const pctMes = d.metaMes > 0 ? Math.min(150, (d.realMes/d.metaMes)*100) : 0;
+  const barCor = pctMes > 100 ? '#ef4444' : pctMes > 80 ? '#f59e0b' : '#22c55e';
+  return \`<div class="slide">
+    <div style="font-size:52px;margin-bottom:8px;">\${d.cat.icon}</div>
+    <h2>\${d.cat.nome}</h2>
+    <div class="cards4">
+      <div class="card"><div class="card-label">Meta Período</div><div class="card-val" style="color:#00c8e0;">\${d.metaPer > 0 ? fmt(d.metaPer) : '—'}</div></div>
+      <div class="card"><div class="card-label">Real. Período</div><div class="card-val" style="color:\${varPer!==null&&parseFloat(varPer)>0?'#ef4444':'#22c55e'};">\${fmt(d.realPer)}</div>\${varPer!==null?\`<div style="font-size:12px;color:\${parseFloat(varPer)>0?'#ef4444':'#22c55e'};margin-top:4px;">\${parseFloat(varPer)>0?'+':''}\${varPer}%</div>\`:''}</div>
+      <div class="card"><div class="card-label">Meta Mensal</div><div class="card-val" style="color:#00c8e0;">\${d.metaMes > 0 ? fmt(d.metaMes) : '—'}</div></div>
+      <div class="card"><div class="card-label">Real. Mensal</div><div class="card-val" style="color:\${varMes!==null&&parseFloat(varMes)>0?'#ef4444':'#22c55e'};">\${fmt(d.realMes)}</div>\${varMes!==null?\`<div style="font-size:12px;color:\${parseFloat(varMes)>0?'#ef4444':'#22c55e'};margin-top:4px;">\${parseFloat(varMes)>0?'+':''}\${varMes}%</div>\`:''}</div>
     </div>
-    <div style="width:100%;max-width:600px;margin-top:24px;">
-      <div style="display:flex;justify-content:space-between;margin-bottom:8px;">
-        <span style="font-size:14px;color:#94a3b8;">Realizado: <strong style="color:#fff;">${fmt(d.realizado)}</strong></span>
-        <span style="font-size:14px;color:#94a3b8;">${pctBar.toFixed(0)}% da meta mensal</span>
+    <div style="width:100%;max-width:640px;margin-top:8px;">
+      <div style="display:flex;justify-content:space-between;margin-bottom:6px;font-size:13px;color:#7fb3d3;">
+        <span>Meta Sem.: <strong style="color:#fff;">\${d.metaSem > 0 ? fmt(d.metaSem) : '—'}</strong></span>
+        <span>Real. Sem.: <strong style="color:#fff;">\${fmt(d.realSem)}</strong></span>
+        <span>\${pctMes.toFixed(0)}% da meta mensal</span>
       </div>
-      <div class="bar-wrap"><div class="bar-fill" style="width:${pctBar}%;background:${barCor};"></div></div>
+      <div style="background:#1e3a5f;border-radius:8px;height:12px;">
+        <div style="width:\${pctMes}%;height:12px;border-radius:8px;background:\${barCor};"></div>
+      </div>
     </div>
-  </div>`;
+  </div>\`;
 }).join('')}
 
-<!-- SLIDE FINAL -->
-<div class="slide slide-title">
-  <div style="font-size:64px;margin-bottom:24px;">🎯</div>
-  <h1>Continue Avançando!</h1>
-  <div class="subtitle">Obra Lumen · Sistema Lumen Estoque</div>
-  <div style="font-size:14px;color:#475569;margin-top:32px;">Gerado em ${new Date().toLocaleString('pt-BR')}</div>
+<!-- SLIDE: OPORTUNIDADES DE MELHORIA -->
+<div class="slide">
+  <h2>💡 Oportunidades de Melhoria</h2>
+  <div class="subtitle">Categorias com maior espaço para redução de gastos</div>
+  \${oport.length > 0 ? oport.map(d => {
+    const excesso = d.realPer - d.metaPer;
+    const pct = d.metaPer > 0 ? ((d.realPer/d.metaPer-1)*100).toFixed(0) : 0;
+    return \`<div class="opp-card">
+      <div class="opp-cat">\${d.cat.icon} \${d.cat.nome}</div>
+      <div class="opp-vals">
+        <div style="color:#ef4444;font-size:18px;font-weight:800;">+\${fmt(excesso)} acima</div>
+        <div style="color:#7fb3d3;font-size:12px;">+\${pct}% da meta do período</div>
+      </div>
+    </div>\`;
+  }).join('') : '<div style="color:#22c55e;font-size:20px;margin-top:24px;">✅ Todas as categorias dentro da meta!</div>'}
+  <div style="margin-top:32px;background:#1e3a5f;border-radius:12px;padding:20px 32px;width:100%;max-width:760px;">
+    <div style="font-size:14px;color:#7fb3d3;margin-bottom:8px;">💰 PROJEÇÃO: Se atingirmos as metas mensais...</div>
+    <div style="font-size:24px;font-weight:800;color:#22c55e;">Economia anual estimada: \${fmt(economiaProjAnual)}</div>
+    <div style="font-size:13px;color:#7fb3d3;margin-top:4px;">Baseado no excesso médio de \${fmt(economiaMes)} por mês</div>
+  </div>
 </div>
 
-</body></html>`);
+<!-- SLIDE FINAL -->
+<div class="slide" style="background:#0d1b2a;">
+  <div class="logo-wrap"><img src="\${LOGO_B64}" alt="Obra Lumen" style="height:80px;"></div>
+  <h1 style="font-size:36px;">Juntos por uma gestão mais eficiente!</h1>
+  <div class="subtitle">Obra Lumen · Sistema Lumen Estoque</div>
+  <div style="font-size:13px;color:#3a6186;margin-top:32px;">Gerado em \${new Date().toLocaleString('pt-BR')}</div>
+</div>
+
+</body></html>\`);
     w.document.close();
     showToast('✅ Apresentação gerada! Use Ctrl+P para salvar como PDF.');
   } catch(e) {
     showToast('❌ Erro ao gerar slides: ' + e.message);
+    console.error(e);
   }
 }
 
