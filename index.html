@@ -14785,235 +14785,195 @@ async function gerarSlidesMetas() {
 
     const gastos = await buscarGastosReais(ano);
     const metas  = await carregarMetasComFallback(ano);
-
-    const hoje  = new Date();
+    const hoje   = new Date();
     const mesAtualIdx = hoje.getMonth();
 
-    // Cria texto descritivo do período analisado
     let periodoTexto = '';
-    if (periodo === 'semanal') {
-      const semDias = ['1-7','8-14','15-21','22-31'];
-      periodoTexto = `Semana ${semNum} (dias ${semDias[semNum-1]}) de ${mesSem} / ${ano}`;
-    } else if (periodo === 'mensal' && mesFilt) {
-      periodoTexto = `${mesFilt} / ${ano}`;
-    } else {
-      periodoTexto = `Acumulado ${ano} (Janeiro a ${MESES_PT[mesAtualIdx]})`;
-    }
+    const semDias = ['1-7','8-14','15-21','22-31'];
+    if (periodo === 'semanal')            periodoTexto = 'Semana ' + semNum + ' (dias ' + semDias[semNum-1] + ') de ' + mesSem + ' / ' + ano;
+    else if (periodo === 'mensal' && mesFilt) periodoTexto = mesFilt + ' / ' + ano;
+    else                                  periodoTexto = 'Acumulado ' + ano + ' (Janeiro a ' + MESES_PT[mesAtualIdx] + ')';
 
-    const fmt = v => 'R$ ' + (v||0).toLocaleString('pt-BR', {minimumFractionDigits:2});
+    const fmt = function(v) { return 'R$ ' + (v||0).toLocaleString('pt-BR', {minimumFractionDigits:2}); };
 
-    // Monta dados por categoria com período + mensal + semanal
     const slidesData = [];
     let totalRealPer = 0, totalMetaPer = 0;
 
-    Object.entries(CATEGORIAS).forEach(([key, cat]) => {
+    Object.entries(CATEGORIAS).forEach(function([key, cat]) {
       const m = metas[key] || {};
       const g = gastos[key] || { meses: {}, total: 0 };
-
       const metaMes = parseFloat(m.metaMes) || 0;
       const metaSem = parseFloat(m.metaSemana) || 0;
-      const metaAno = parseFloat(m.metaAno) || metaMes * 12;
-
-      // Realizado mensal (mês selecionado ou mês atual)
-      const mesRef = periodo === 'semanal' ? mesSem : (mesFilt || MESES_PT[mesAtualIdx]);
+      const mesRef  = periodo === 'semanal' ? mesSem : (mesFilt || MESES_PT[mesAtualIdx]);
       const realMes = g.meses[mesRef] || 0;
-
-      // Realizado semanal (estimado: real do mês / 4.33)
       const realSem = realMes / 4.33;
-
-      // Realizado período
-      let realPer = 0;
-      if (periodo === 'semanal')       realPer = realSem;
-      else if (periodo === 'mensal')   realPer = realMes;
-      else                              realPer = g.total;
-
-      // Meta período
-      let metaPer = 0;
-      if (periodo === 'semanal')       metaPer = metaSem;
-      else if (periodo === 'mensal')   metaPer = metaMes;
-      else                              metaPer = metaMes * (mesAtualIdx + 1);
-
+      let realPer = 0, metaPer = 0;
+      if (periodo === 'semanal')       { realPer = realSem; metaPer = metaSem; }
+      else if (periodo === 'mensal')   { realPer = realMes; metaPer = metaMes; }
+      else                              { realPer = g.total; metaPer = metaMes * (mesAtualIdx + 1); }
       if (!metaMes && !realMes && !g.total) return;
-
-      totalRealPer += realPer;
-      totalMetaPer += metaPer;
-
-      slidesData.push({ key, cat, metaMes, metaSem, metaAno, metaPer,
-        realMes, realSem, realPer });
+      totalRealPer += realPer; totalMetaPer += metaPer;
+      slidesData.push({ key, cat, metaMes, metaSem, metaPer, realMes, realSem, realPer });
     });
 
     const economia  = totalMetaPer - totalRealPer;
     const varGeral  = totalMetaPer > 0 ? ((totalRealPer / totalMetaPer - 1) * 100).toFixed(1) : null;
-
-    // Oportunidades: categorias acima da meta com maior excesso
-    const oport = slidesData
-      .filter(d => d.metaPer > 0 && d.realPer > d.metaPer)
-      .sort((a,b) => (b.realPer - b.metaPer) - (a.realPer - a.metaPer))
-      .slice(0, 4);
-
-    // Projeção de economia se bater as metas
-    const totalMesAtual = Object.values(gastos).reduce((s,g2) => s + (g2.meses[MESES_PT[mesAtualIdx]]||0), 0);
-    const totalMetaMes  = Object.values(metas).reduce((s,m2) => s + (parseFloat(m2?.metaMes)||0), 0);
+    const oport = slidesData.filter(function(d) { return d.metaPer > 0 && d.realPer > d.metaPer; })
+      .sort(function(a,b) { return (b.realPer-b.metaPer)-(a.realPer-a.metaPer); }).slice(0,4);
+    const totalMesAtual = Object.values(gastos).reduce(function(s,g2) { return s+(g2.meses[MESES_PT[mesAtualIdx]]||0); }, 0);
+    const totalMetaMes  = Object.values(metas).reduce(function(s,m2) { return s+(parseFloat(m2&&m2.metaMes)||0); }, 0);
     const economiaMes   = Math.max(0, totalMesAtual - totalMetaMes);
     const economiaProjAnual = economiaMes * 12;
 
-    // Abre apresentação
+    // Get logo from page
+    const logoEl  = document.querySelector('.login-logo-img');
+    const logoSrc = logoEl ? logoEl.src : '';
+
     const w = window.open('', '_blank', 'width=1100,height=680');
-    w.document.write(\`<!DOCTYPE html><html lang="pt-BR"><head>
-<meta charset="UTF-8"><title>Metas \${ano} — Obra Lumen</title>
-<style>
-  * { box-sizing:border-box; margin:0; padding:0; }
-  body { font-family:'Segoe UI',sans-serif; background:#0d1b2a; color:#e8f1f2; }
-  @media print { body { -webkit-print-color-adjust:exact; } .noprint { display:none!important; } }
-  .slide { width:100%; min-height:100vh; display:flex; flex-direction:column; justify-content:center; align-items:center; padding:52px 60px; page-break-after:always; border-bottom:2px solid #1e3a5f; }
-  h1 { font-size:52px; font-weight:900; color:#00c8e0; margin-bottom:12px; text-align:center; }
-  h2 { font-size:28px; font-weight:700; color:#00c8e0; margin-bottom:20px; text-align:center; }
-  .subtitle { font-size:18px; color:#7fb3d3; margin-bottom:8px; text-align:center; }
-  .period-badge { background:#1e3a5f; border:1px solid #00c8e0; color:#00c8e0; border-radius:24px; padding:8px 24px; font-size:16px; font-weight:700; display:inline-block; margin-top:16px; }
-  table { width:100%; max-width:960px; border-collapse:collapse; }
-  th { background:#1e3a5f; padding:10px 14px; text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:1px; color:#7fb3d3; }
-  th.right { text-align:right; }
-  td { padding:10px 14px; border-bottom:1px solid #1e3a5f; font-size:13px; vertical-align:middle; }
-  td.right { text-align:right; font-weight:700; }
-  tr:hover td { background:#1e3a5f44; }
-  .ok { color:#22c55e; } .warn { color:#f59e0b; } .danger { color:#ef4444; }
-  .cards3 { display:grid; grid-template-columns:repeat(3,1fr); gap:16px; width:100%; max-width:900px; margin:24px 0; }
-  .cards4 { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; width:100%; max-width:960px; margin:16px 0; }
-  .card { background:#1e3a5f; border-radius:12px; padding:20px 16px; text-align:center; border:1px solid #2a5280; }
-  .card-label { font-size:11px; color:#7fb3d3; text-transform:uppercase; letter-spacing:1px; margin-bottom:8px; }
-  .card-val { font-size:22px; font-weight:800; }
-  .print-btn { position:fixed; bottom:24px; right:24px; padding:12px 22px; background:#00c8e0; color:#0d1b2a; border:none; border-radius:10px; font-size:14px; font-weight:700; cursor:pointer; z-index:999; box-shadow:0 4px 16px #00c8e055; }
-  .logo-wrap { margin-bottom:24px; }
-  .logo-wrap img { height:72px; }
-  .opp-card { background:#1e3a5f; border-left:4px solid #ef4444; border-radius:8px; padding:14px 18px; margin-bottom:10px; width:100%; max-width:760px; display:flex; justify-content:space-between; align-items:center; }
-  .opp-cat { font-size:16px; font-weight:700; }
-  .opp-vals { text-align:right; }
-</style></head><body>
-<button class="print-btn noprint" onclick="window.print()">🖨️ Imprimir / PDF</button>
+    if (!w) { showToast('⚠️ Pop-up bloqueado! Permita pop-ups para este site.'); return; }
 
-<!-- SLIDE 1: CAPA -->
-<div class="slide" style="background:#0d1b2a;">
-  <div class="logo-wrap"><img src="\${LOGO_B64}" alt="Obra Lumen"></div>
-  <h1>Análise de Metas</h1>
-  <div class="subtitle">Obra Lumen · Gestão de Suprimentos</div>
-  <div class="period-badge">📅 \${periodoTexto}</div>
-  <div style="font-size:13px;color:#3a6186;margin-top:40px;">${new Date().toLocaleString('pt-BR')}</div>
-</div>
+    let html = '<!DOCTYPE html><html lang="pt-BR"><head>';
+    html += '<meta charset="UTF-8"><title>Metas ' + ano + ' — Obra Lumen</title>';
+    html += '<style>';
+    html += '* { box-sizing:border-box; margin:0; padding:0; }';
+    html += 'body { font-family:"Segoe UI",sans-serif; background:#0d1b2a; color:#e8f1f2; }';
+    html += '@media print { body { -webkit-print-color-adjust:exact; } .noprint { display:none!important; } }';
+    html += '.slide { width:100%; min-height:100vh; display:flex; flex-direction:column; justify-content:center; align-items:center; padding:52px 60px; page-break-after:always; border-bottom:2px solid #1e3a5f; }';
+    html += 'h1 { font-size:48px; font-weight:900; color:#00c8e0; margin-bottom:12px; text-align:center; }';
+    html += 'h2 { font-size:26px; font-weight:700; color:#00c8e0; margin-bottom:20px; text-align:center; }';
+    html += '.subtitle { font-size:17px; color:#7fb3d3; margin-bottom:8px; text-align:center; }';
+    html += '.period-badge { background:#1e3a5f; border:1px solid #00c8e0; color:#00c8e0; border-radius:24px; padding:8px 24px; font-size:15px; font-weight:700; display:inline-block; margin-top:16px; }';
+    html += 'table { width:100%; max-width:960px; border-collapse:collapse; }';
+    html += 'th { background:#1e3a5f; padding:9px 12px; text-align:left; font-size:10px; text-transform:uppercase; letter-spacing:1px; color:#7fb3d3; }';
+    html += 'th.r { text-align:right; }';
+    html += 'td { padding:9px 12px; border-bottom:1px solid #1e3a5f; font-size:12px; vertical-align:middle; }';
+    html += 'td.r { text-align:right; font-weight:700; }';
+    html += '.ok { color:#22c55e; } .warn { color:#f59e0b; } .danger { color:#ef4444; }';
+    html += '.cards3 { display:grid; grid-template-columns:repeat(3,1fr); gap:16px; width:100%; max-width:900px; margin:24px 0; }';
+    html += '.cards4 { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; width:100%; max-width:960px; margin:16px 0; }';
+    html += '.card { background:#1e3a5f; border-radius:12px; padding:18px 14px; text-align:center; border:1px solid #2a5280; }';
+    html += '.card-label { font-size:10px; color:#7fb3d3; text-transform:uppercase; letter-spacing:1px; margin-bottom:8px; }';
+    html += '.card-val { font-size:20px; font-weight:800; }';
+    html += '.print-btn { position:fixed; bottom:24px; right:24px; padding:12px 22px; background:#00c8e0; color:#0d1b2a; border:none; border-radius:10px; font-size:14px; font-weight:700; cursor:pointer; z-index:999; }';
+    html += '.opp-card { background:#1e3a5f; border-left:4px solid #ef4444; border-radius:8px; padding:14px 18px; margin-bottom:10px; width:100%; max-width:760px; display:flex; justify-content:space-between; align-items:center; }';
+    html += '.bar-bg { background:#1e3a5f; border-radius:8px; height:12px; width:100%; }';
+    html += '.bar-fill { height:12px; border-radius:8px; }';
+    html += '</style></head><body>';
+    html += '<button class="print-btn noprint" onclick="window.print()">🖨️ Imprimir / PDF</button>';
 
-<!-- SLIDE 2: RESUMO EXECUTIVO -->
-<div class="slide">
-  <h2>📊 Resumo Executivo</h2>
-  <div class="subtitle">\${periodoTexto}</div>
-  <div class="cards3" style="margin-top:24px;">
-    <div class="card">
-      <div class="card-label">Meta do Período</div>
-      <div class="card-val" style="color:#00c8e0;">\${fmt(totalMetaPer)}</div>
-    </div>
-    <div class="card">
-      <div class="card-label">Realizado no Período</div>
-      <div class="card-val" style="color:\${totalRealPer > totalMetaPer ? '#ef4444':'#22c55e'};">\${fmt(totalRealPer)}</div>
-    </div>
-    <div class="card">
-      <div class="card-label">\${economia >= 0 ? '💚 Economia' : '🔴 Excesso'}</div>
-      <div class="card-val" style="color:\${economia >= 0 ? '#22c55e':'#ef4444'};">\${fmt(Math.abs(economia))}</div>
-      \${varGeral !== null ? \`<div style="font-size:13px;color:\${parseFloat(varGeral)>0?'#ef4444':'#22c55e'};margin-top:4px;">\${parseFloat(varGeral)>0?'+':''}\${varGeral}% da meta</div>\` : ''}
-    </div>
-  </div>
-</div>
+    // SLIDE 1 - CAPA
+    html += '<div class="slide" style="background:#0d1b2a;">';
+    if (logoSrc) html += '<div style="margin-bottom:24px;"><img src="' + logoSrc + '" alt="Obra Lumen" style="height:72px;"></div>';
+    html += '<h1>Análise de Metas</h1>';
+    html += '<div class="subtitle">Obra Lumen · Gestão de Suprimentos</div>';
+    html += '<div class="period-badge">📅 ' + periodoTexto + '</div>';
+    html += '<div style="font-size:13px;color:#3a6186;margin-top:40px;">' + new Date().toLocaleString('pt-BR') + '</div>';
+    html += '</div>';
 
-<!-- SLIDE 3: TABELA DETALHADA -->
-<div class="slide">
-  <h2>📦 Realizado × Meta por Categoria</h2>
-  <table>
-    <thead><tr>
-      <th>Categoria</th>
-      <th class="right">Meta Período</th><th class="right">Real. Período</th><th class="right">Var. %</th>
-      <th class="right">Meta Mês</th><th class="right">Real. Mês</th><th class="right">Var. %</th>
-      <th class="right">Meta Sem.</th><th class="right">Real. Sem.</th><th class="right">Status</th>
-    </tr></thead>
-    <tbody>
-      \${slidesData.map(d => {
-        const varPer = d.metaPer > 0 ? ((d.realPer/d.metaPer-1)*100).toFixed(1) : null;
-        const varMes = d.metaMes > 0 ? ((d.realMes/d.metaMes-1)*100).toFixed(1) : null;
-        const status = varPer === null ? '—' : parseFloat(varPer) > 15 ? '<span class="danger">🔴 Acima</span>' : parseFloat(varPer) > 0 ? '<span class="warn">⚠️</span>' : '<span class="ok">✅ OK</span>';
-        const corPer = varPer !== null && parseFloat(varPer) > 0 ? 'danger' : 'ok';
-        const corMes = varMes !== null && parseFloat(varMes) > 0 ? 'danger' : 'ok';
-        return \`<tr>
-          <td style="font-weight:700;">\${d.cat.icon} \${d.cat.nome}</td>
-          <td class="right">\${d.metaPer > 0 ? fmt(d.metaPer) : '—'}</td>
-          <td class="right \${corPer}">\${fmt(d.realPer)}</td>
-          <td class="right \${corPer}">\${varPer !== null ? (parseFloat(varPer)>0?'+':'')+varPer+'%' : '—'}</td>
-          <td class="right">\${d.metaMes > 0 ? fmt(d.metaMes) : '—'}</td>
-          <td class="right \${corMes}">\${fmt(d.realMes)}</td>
-          <td class="right \${corMes}">\${varMes !== null ? (parseFloat(varMes)>0?'+':'')+varMes+'%' : '—'}</td>
-          <td class="right">\${d.metaSem > 0 ? fmt(d.metaSem) : '—'}</td>
-          <td class="right">\${fmt(d.realSem)}</td>
-          <td>\${status}</td>
-        </tr>\`;
-      }).join('')}
-    </tbody>
-  </table>
-</div>
+    // SLIDE 2 - RESUMO
+    html += '<div class="slide">';
+    html += '<h2>📊 Resumo Executivo</h2>';
+    html += '<div class="subtitle">' + periodoTexto + '</div>';
+    html += '<div class="cards3" style="margin-top:24px;">';
+    html += '<div class="card"><div class="card-label">Meta do Período</div><div class="card-val" style="color:#00c8e0;">' + fmt(totalMetaPer) + '</div></div>';
+    const corReal = totalRealPer > totalMetaPer ? '#ef4444' : '#22c55e';
+    html += '<div class="card"><div class="card-label">Realizado no Período</div><div class="card-val" style="color:' + corReal + ';">' + fmt(totalRealPer) + '</div></div>';
+    const corEcon = economia >= 0 ? '#22c55e' : '#ef4444';
+    const lblEcon = economia >= 0 ? '💚 Economia' : '🔴 Excesso';
+    html += '<div class="card"><div class="card-label">' + lblEcon + '</div><div class="card-val" style="color:' + corEcon + ';">' + fmt(Math.abs(economia)) + '</div>';
+    if (varGeral !== null) html += '<div style="font-size:12px;color:' + (parseFloat(varGeral)>0?'#ef4444':'#22c55e') + ';margin-top:4px;">' + (parseFloat(varGeral)>0?'+':'') + varGeral + '% da meta</div>';
+    html += '</div></div>';
+    html += '</div>';
 
-<!-- SLIDES POR CATEGORIA -->
-\${slidesData.filter(d => d.metaMes > 0 || d.realMes > 0).map(d => {
-  const varPer = d.metaPer > 0 ? ((d.realPer/d.metaPer-1)*100).toFixed(1) : null;
-  const varMes = d.metaMes > 0 ? ((d.realMes/d.metaMes-1)*100).toFixed(1) : null;
-  const pctMes = d.metaMes > 0 ? Math.min(150, (d.realMes/d.metaMes)*100) : 0;
-  const barCor = pctMes > 100 ? '#ef4444' : pctMes > 80 ? '#f59e0b' : '#22c55e';
-  return \`<div class="slide">
-    <div style="font-size:52px;margin-bottom:8px;">\${d.cat.icon}</div>
-    <h2>\${d.cat.nome}</h2>
-    <div class="cards4">
-      <div class="card"><div class="card-label">Meta Período</div><div class="card-val" style="color:#00c8e0;">\${d.metaPer > 0 ? fmt(d.metaPer) : '—'}</div></div>
-      <div class="card"><div class="card-label">Real. Período</div><div class="card-val" style="color:\${varPer!==null&&parseFloat(varPer)>0?'#ef4444':'#22c55e'};">\${fmt(d.realPer)}</div>\${varPer!==null?\`<div style="font-size:12px;color:\${parseFloat(varPer)>0?'#ef4444':'#22c55e'};margin-top:4px;">\${parseFloat(varPer)>0?'+':''}\${varPer}%</div>\`:''}</div>
-      <div class="card"><div class="card-label">Meta Mensal</div><div class="card-val" style="color:#00c8e0;">\${d.metaMes > 0 ? fmt(d.metaMes) : '—'}</div></div>
-      <div class="card"><div class="card-label">Real. Mensal</div><div class="card-val" style="color:\${varMes!==null&&parseFloat(varMes)>0?'#ef4444':'#22c55e'};">\${fmt(d.realMes)}</div>\${varMes!==null?\`<div style="font-size:12px;color:\${parseFloat(varMes)>0?'#ef4444':'#22c55e'};margin-top:4px;">\${parseFloat(varMes)>0?'+':''}\${varMes}%</div>\`:''}</div>
-    </div>
-    <div style="width:100%;max-width:640px;margin-top:8px;">
-      <div style="display:flex;justify-content:space-between;margin-bottom:6px;font-size:13px;color:#7fb3d3;">
-        <span>Meta Sem.: <strong style="color:#fff;">\${d.metaSem > 0 ? fmt(d.metaSem) : '—'}</strong></span>
-        <span>Real. Sem.: <strong style="color:#fff;">\${fmt(d.realSem)}</strong></span>
-        <span>\${pctMes.toFixed(0)}% da meta mensal</span>
-      </div>
-      <div style="background:#1e3a5f;border-radius:8px;height:12px;">
-        <div style="width:\${pctMes}%;height:12px;border-radius:8px;background:\${barCor};"></div>
-      </div>
-    </div>
-  </div>\`;
-}).join('')}
+    // SLIDE 3 - TABELA
+    html += '<div class="slide">';
+    html += '<h2>📦 Realizado × Meta por Categoria</h2>';
+    html += '<table><thead><tr>';
+    html += '<th>Categoria</th>';
+    html += '<th class="r">Meta Per.</th><th class="r">Real. Per.</th><th class="r">Var. %</th>';
+    html += '<th class="r">Meta Mês</th><th class="r">Real. Mês</th><th class="r">Var. %</th>';
+    html += '<th class="r">Meta Sem.</th><th class="r">Real. Sem.</th><th class="r">Status</th>';
+    html += '</tr></thead><tbody>';
+    slidesData.forEach(function(d) {
+      const varPer = d.metaPer > 0 ? ((d.realPer/d.metaPer-1)*100).toFixed(1) : null;
+      const varMes = d.metaMes > 0 ? ((d.realMes/d.metaMes-1)*100).toFixed(1) : null;
+      const stCls  = varPer === null ? '' : parseFloat(varPer) > 15 ? 'danger' : parseFloat(varPer) > 0 ? 'warn' : 'ok';
+      const stLbl  = varPer === null ? '—' : parseFloat(varPer) > 15 ? '🔴 Acima' : parseFloat(varPer) > 0 ? '⚠️ Aten.' : '✅ OK';
+      const mCls   = varMes === null ? '' : parseFloat(varMes) > 0 ? 'danger' : 'ok';
+      html += '<tr>';
+      html += '<td style="font-weight:700;">' + d.cat.icon + ' ' + d.cat.nome + '</td>';
+      html += '<td class="r">' + (d.metaPer > 0 ? fmt(d.metaPer) : '—') + '</td>';
+      html += '<td class="r ' + stCls + '">' + fmt(d.realPer) + '</td>';
+      html += '<td class="r ' + stCls + '">' + (varPer !== null ? (parseFloat(varPer)>0?'+':'') + varPer + '%' : '—') + '</td>';
+      html += '<td class="r">' + (d.metaMes > 0 ? fmt(d.metaMes) : '—') + '</td>';
+      html += '<td class="r ' + mCls + '">' + fmt(d.realMes) + '</td>';
+      html += '<td class="r ' + mCls + '">' + (varMes !== null ? (parseFloat(varMes)>0?'+':'') + varMes + '%' : '—') + '</td>';
+      html += '<td class="r">' + (d.metaSem > 0 ? fmt(d.metaSem) : '—') + '</td>';
+      html += '<td class="r">' + fmt(d.realSem) + '</td>';
+      html += '<td class="' + stCls + '">' + stLbl + '</td>';
+      html += '</tr>';
+    });
+    html += '</tbody></table></div>';
 
-<!-- SLIDE: OPORTUNIDADES DE MELHORIA -->
-<div class="slide">
-  <h2>💡 Oportunidades de Melhoria</h2>
-  <div class="subtitle">Categorias com maior espaço para redução de gastos</div>
-  \${oport.length > 0 ? oport.map(d => {
-    const excesso = d.realPer - d.metaPer;
-    const pct = d.metaPer > 0 ? ((d.realPer/d.metaPer-1)*100).toFixed(0) : 0;
-    return \`<div class="opp-card">
-      <div class="opp-cat">\${d.cat.icon} \${d.cat.nome}</div>
-      <div class="opp-vals">
-        <div style="color:#ef4444;font-size:18px;font-weight:800;">+\${fmt(excesso)} acima</div>
-        <div style="color:#7fb3d3;font-size:12px;">+\${pct}% da meta do período</div>
-      </div>
-    </div>\`;
-  }).join('') : '<div style="color:#22c55e;font-size:20px;margin-top:24px;">✅ Todas as categorias dentro da meta!</div>'}
-  <div style="margin-top:32px;background:#1e3a5f;border-radius:12px;padding:20px 32px;width:100%;max-width:760px;">
-    <div style="font-size:14px;color:#7fb3d3;margin-bottom:8px;">💰 PROJEÇÃO: Se atingirmos as metas mensais...</div>
-    <div style="font-size:24px;font-weight:800;color:#22c55e;">Economia anual estimada: \${fmt(economiaProjAnual)}</div>
-    <div style="font-size:13px;color:#7fb3d3;margin-top:4px;">Baseado no excesso médio de \${fmt(economiaMes)} por mês</div>
-  </div>
-</div>
+    // SLIDES POR CATEGORIA
+    slidesData.filter(function(d) { return d.metaMes > 0 || d.realMes > 0; }).forEach(function(d) {
+      const varPer = d.metaPer > 0 ? ((d.realPer/d.metaPer-1)*100).toFixed(1) : null;
+      const varMes = d.metaMes > 0 ? ((d.realMes/d.metaMes-1)*100).toFixed(1) : null;
+      const pctMes = d.metaMes > 0 ? Math.min(150, (d.realMes/d.metaMes)*100) : 0;
+      const barCor = pctMes > 100 ? '#ef4444' : pctMes > 80 ? '#f59e0b' : '#22c55e';
+      const cpReal = varPer !== null && parseFloat(varPer) > 0 ? '#ef4444' : '#22c55e';
+      const cmReal = varMes !== null && parseFloat(varMes) > 0 ? '#ef4444' : '#22c55e';
+      html += '<div class="slide">';
+      html += '<div style="font-size:48px;margin-bottom:8px;">' + d.cat.icon + '</div>';
+      html += '<h2>' + d.cat.nome + '</h2>';
+      html += '<div class="cards4">';
+      html += '<div class="card"><div class="card-label">Meta Período</div><div class="card-val" style="color:#00c8e0;">' + (d.metaPer > 0 ? fmt(d.metaPer) : '—') + '</div></div>';
+      html += '<div class="card"><div class="card-label">Real. Período</div><div class="card-val" style="color:' + cpReal + ';">' + fmt(d.realPer) + '</div>' + (varPer ? '<div style="font-size:11px;color:' + cpReal + ';margin-top:4px;">' + (parseFloat(varPer)>0?'+':'') + varPer + '%</div>' : '') + '</div>';
+      html += '<div class="card"><div class="card-label">Meta Mensal</div><div class="card-val" style="color:#00c8e0;">' + (d.metaMes > 0 ? fmt(d.metaMes) : '—') + '</div></div>';
+      html += '<div class="card"><div class="card-label">Real. Mensal</div><div class="card-val" style="color:' + cmReal + ';">' + fmt(d.realMes) + '</div>' + (varMes ? '<div style="font-size:11px;color:' + cmReal + ';margin-top:4px;">' + (parseFloat(varMes)>0?'+':'') + varMes + '%</div>' : '') + '</div>';
+      html += '</div>';
+      html += '<div style="width:100%;max-width:640px;margin-top:8px;">';
+      html += '<div style="display:flex;justify-content:space-between;margin-bottom:6px;font-size:12px;color:#7fb3d3;">';
+      html += '<span>Meta Sem.: <strong style="color:#fff;">' + (d.metaSem > 0 ? fmt(d.metaSem) : '—') + '</strong></span>';
+      html += '<span>Real. Sem.: <strong style="color:#fff;">' + fmt(d.realSem) + '</strong></span>';
+      html += '<span>' + pctMes.toFixed(0) + '% da meta mensal</span></div>';
+      html += '<div class="bar-bg"><div class="bar-fill" style="width:' + Math.min(100,pctMes) + '%;background:' + barCor + ';"></div></div>';
+      html += '</div></div>';
+    });
 
-<!-- SLIDE FINAL -->
-<div class="slide" style="background:#0d1b2a;">
-  <div class="logo-wrap"><img src="\${LOGO_B64}" alt="Obra Lumen" style="height:80px;"></div>
-  <h1 style="font-size:36px;">Juntos por uma gestão mais eficiente!</h1>
-  <div class="subtitle">Obra Lumen · Sistema Lumen Estoque</div>
-  <div style="font-size:13px;color:#3a6186;margin-top:32px;">Gerado em \${new Date().toLocaleString('pt-BR')}</div>
-</div>
+    // SLIDE OPORTUNIDADES
+    html += '<div class="slide">';
+    html += '<h2>💡 Oportunidades de Melhoria</h2>';
+    html += '<div class="subtitle">Categorias com maior espaço para redução de gastos</div>';
+    if (oport.length > 0) {
+      oport.forEach(function(d) {
+        const excesso = d.realPer - d.metaPer;
+        const pct = d.metaPer > 0 ? ((d.realPer/d.metaPer-1)*100).toFixed(0) : 0;
+        html += '<div class="opp-card">';
+        html += '<div style="font-size:16px;font-weight:700;">' + d.cat.icon + ' ' + d.cat.nome + '</div>';
+        html += '<div style="text-align:right;"><div style="color:#ef4444;font-size:18px;font-weight:800;">+' + fmt(excesso) + ' acima</div>';
+        html += '<div style="color:#7fb3d3;font-size:12px;">+' + pct + '% da meta do período</div></div>';
+        html += '</div>';
+      });
+    } else {
+      html += '<div style="color:#22c55e;font-size:20px;margin-top:24px;">✅ Todas as categorias dentro da meta!</div>';
+    }
+    html += '<div style="margin-top:28px;background:#1e3a5f;border-radius:12px;padding:18px 28px;width:100%;max-width:760px;">';
+    html += '<div style="font-size:13px;color:#7fb3d3;margin-bottom:8px;">💰 PROJEÇÃO: Se atingirmos as metas mensais...</div>';
+    html += '<div style="font-size:22px;font-weight:800;color:#22c55e;">Economia anual estimada: ' + fmt(economiaProjAnual) + '</div>';
+    html += '<div style="font-size:12px;color:#7fb3d3;margin-top:4px;">Baseado no excesso médio de ' + fmt(economiaMes) + ' por mês</div>';
+    html += '</div></div>';
 
-</body></html>\`);
+    // SLIDE FINAL
+    html += '<div class="slide" style="background:#0d1b2a;">';
+    if (logoSrc) html += '<div style="margin-bottom:24px;"><img src="' + logoSrc + '" alt="Obra Lumen" style="height:80px;"></div>';
+    html += '<h1 style="font-size:32px;">Juntos por uma gestão mais eficiente!</h1>';
+    html += '<div class="subtitle">Obra Lumen · Sistema Lumen Estoque</div>';
+    html += '<div style="font-size:13px;color:#3a6186;margin-top:32px;">Gerado em ' + new Date().toLocaleString('pt-BR') + '</div>';
+    html += '</div>';
+    html += '</body></html>';
+
+    w.document.write(html);
     w.document.close();
     showToast('✅ Apresentação gerada! Use Ctrl+P para salvar como PDF.');
   } catch(e) {
@@ -15021,6 +14981,7 @@ async function gerarSlidesMetas() {
     console.error(e);
   }
 }
+
 
 // Hook: carrega metas ao iniciar orçamentos pendentes
 const _origInitOrcPendentes = typeof initOrcPendentes === 'function' ? initOrcPendentes : null;
