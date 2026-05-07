@@ -2723,13 +2723,16 @@ document.querySelector('.main-content').insertAdjacentHTML('beforeend', `
       <div class="card-body" style="padding:0;">
         <div class="table-wrap">
           <table class="fin-table">
-            <thead><tr>
+            <thead id="analise-thead"><tr>
               <th>Categoria</th>
-              <th style="text-align:right;">Meta Mês</th>
-              <th style="text-align:right;">Meta Semana</th>
-              <th style="text-align:right;">Realizado</th>
-              <th style="text-align:right;">Variação R$</th>
-              <th style="text-align:right;">Variação %</th>
+              <th style="text-align:right;background:#22c55e22;">Meta Mês</th>
+              <th style="text-align:right;background:#22c55e22;">Real Mês</th>
+              <th style="text-align:right;background:#22c55e22;">Var. R$</th>
+              <th style="text-align:right;background:#22c55e22;">Var. %</th>
+              <th style="text-align:right;background:#3b82f622;">Meta Semana</th>
+              <th style="text-align:right;background:#3b82f622;">Real Semana</th>
+              <th style="text-align:right;background:#3b82f622;">Var. R$</th>
+              <th style="text-align:right;background:#3b82f622;">Var. %</th>
               <th style="text-align:center;">Status</th>
             </tr></thead>
             <tbody id="analise-tbody"></tbody>
@@ -13982,37 +13985,67 @@ async function carregarMetas() {
       gastosReais = await buscarGastosReais(ano);
     } catch(e) { gastosReais = {}; }
 
-    // Monta formulário para cada categoria com médias reais
+    // Formulário com 6 colunas: real e meta para mês, semana e ano
     const cats = Object.entries(CATEGORIAS);
-    wrap.innerHTML = cats.map(([key, cat]) => {
+    const fmtN = function(v) { return v > 0 ? 'R$ ' + v.toLocaleString('pt-BR',{minimumFractionDigits:0,maximumFractionDigits:0}) : '—'; };
+    const card = function(label, valor, isReal) {
+      const bg  = isReal ? 'var(--ok-bg)' : 'var(--surface)';
+      const cor = isReal ? 'var(--ok)' : 'var(--text)';
+      const brd = isReal ? '1px solid var(--ok)' : '1px solid var(--border)';
+      return '<div style="background:' + bg + ';border:' + brd + ';border-radius:6px;padding:8px 10px;">' +
+        '<div style="font-size:10px;color:' + (isReal ? 'var(--ok)' : 'var(--text-muted)') + ';font-weight:700;margin-bottom:4px;">' + label + '</div>' +
+        '<div style="font-size:14px;font-weight:800;color:' + cor + ';">' + valor + '</div>' +
+        '</div>';
+    };
+    wrap.innerHTML = cats.map(function([key, cat]) {
       const m = _metasCache[key] || {};
-      const g = gastosReais[key] || { meses: {}, total: 0 };
-      const mesesComDados = Object.values(g.meses).filter(v => v > 0);
-      const mediaMes  = mesesComDados.length > 0 ? g.total / mesesComDados.length : 0;
-      const mediaSem  = mediaMes / 4.33;
-      const fmtMed    = v => v > 0 ? 'Média real: R$ ' + v.toLocaleString('pt-BR',{minimumFractionDigits:0,maximumFractionDigits:0}) : '';
-      return `<div style="display:grid;grid-template-columns:200px 1fr 1fr 1fr;gap:12px;align-items:start;padding:14px;background:var(--surface);border-radius:8px;border:1px solid var(--border);">
-        <div style="display:flex;align-items:center;gap:8px;font-weight:700;margin-top:22px;">
-          <span style="font-size:18px;">${cat.icon}</span>
-          <span>${cat.nome}</span>
-        </div>
-        <div>
-          <label class="form-label" style="font-size:11px;">Meta Mensal (R$)</label>
-          <input type="number" class="form-input" id="meta-mes-${key}" value="${m.metaMes || ''}" placeholder="0,00" min="0" step="100">
-          ${mediaMes > 0 ? `<div style="font-size:11px;color:var(--text-muted);margin-top:4px;">${fmtMed(mediaMes)}</div>` : ''}
-        </div>
-        <div>
-          <label class="form-label" style="font-size:11px;">Meta Semanal (R$)</label>
-          <input type="number" class="form-input" id="meta-sem-${key}" value="${m.metaSemana || ''}" placeholder="0,00" min="0" step="100">
-          ${mediaSem > 0 ? `<div style="font-size:11px;color:var(--text-muted);margin-top:4px;">${fmtMed(mediaSem)}</div>` : ''}
-        </div>
-        <div>
-          <label class="form-label" style="font-size:11px;">Meta Anual (R$)</label>
-          <input type="number" class="form-input" id="meta-ano-${key}" value="${m.metaAno || ''}" placeholder="auto" min="0" step="1000"
-            title="Deixe vazio para calcular como Meta Mensal × 12">
-          ${g.total > 0 ? `<div style="font-size:11px;color:var(--text-muted);margin-top:4px;">Total ${ano}: R$ ${g.total.toLocaleString('pt-BR',{minimumFractionDigits:0,maximumFractionDigits:0})}</div>` : ''}
-        </div>
-      </div>`;
+      const g = gastosReais[key] || { meses: {}, semanas: {}, total: 0 };
+
+      // Médias reais mensais
+      const mesesComDados = Object.values(g.meses).filter(function(v) { return v > 0; });
+      const realMesMedia  = mesesComDados.length > 0 ? g.total / mesesComDados.length : 0;
+
+      // Médias reais semanais (usa semanas reais ou estima)
+      const semanasComDados = Object.values(g.semanas || {}).filter(function(v) { return v > 0; });
+      const realSemMedia    = semanasComDados.length > 0
+        ? semanasComDados.reduce(function(s,v) { return s+v; }, 0) / semanasComDados.length
+        : (realMesMedia > 0 ? realMesMedia / 4.33 : 0);
+
+      const realAnual    = g.total;
+      const metaAnoCalc  = parseFloat(m.metaAno) || (parseFloat(m.metaMes)||0) * 12;
+
+      return '<div style="background:var(--surface);border-radius:10px;border:1px solid var(--border);margin-bottom:6px;overflow:hidden;">' +
+        '<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:rgba(255,255,255,0.03);border-bottom:1px solid var(--border);">' +
+        '<span style="font-size:20px;">' + cat.icon + '</span>' +
+        '<span style="font-weight:700;font-size:14px;">' + cat.nome + '</span>' +
+        '</div>' +
+        '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--border);">' +
+
+        // MENSAL
+        '<div style="background:var(--surface);padding:12px 14px;">' +
+        '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--lumen);margin-bottom:8px;">📅 MENSAL</div>' +
+        card('Real Médio Mensal', fmtN(realMesMedia), true) +
+        '<div style="margin-top:8px;"><label class="form-label" style="font-size:10px;">Meta Mensal (R$)</label>' +
+        '<input type="number" class="form-input" id="meta-mes-' + key + '" value="' + (m.metaMes || '') + '" placeholder="0,00" min="0" step="100"></div>' +
+        '</div>' +
+
+        // SEMANAL
+        '<div style="background:var(--surface);padding:12px 14px;">' +
+        '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--lumen);margin-bottom:8px;">📆 SEMANAL</div>' +
+        card('Real Médio Semanal', fmtN(realSemMedia), true) +
+        '<div style="margin-top:8px;"><label class="form-label" style="font-size:10px;">Meta Semanal (R$)</label>' +
+        '<input type="number" class="form-input" id="meta-sem-' + key + '" value="' + (m.metaSemana || '') + '" placeholder="0,00" min="0" step="100"></div>' +
+        '</div>' +
+
+        // ANUAL
+        '<div style="background:var(--surface);padding:12px 14px;">' +
+        '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--lumen);margin-bottom:8px;">📊 ANUAL</div>' +
+        card('Real Acumulado ' + ano, fmtN(realAnual), true) +
+        '<div style="margin-top:8px;"><label class="form-label" style="font-size:10px;">Meta Anual (R$)</label>' +
+        '<input type="number" class="form-input" id="meta-ano-' + key + '" value="' + (m.metaAno || '') + '" placeholder="' + (metaAnoCalc > 0 ? metaAnoCalc.toLocaleString('pt-BR',{maximumFractionDigits:0}) : 'auto (mês×12)') + '" min="0" step="1000"></div>' +
+        '</div>' +
+
+        '</div></div>';
     }).join('');
   } catch(e) {
     wrap.innerHTML = `<div style="color:var(--danger);">Erro: ${e.message}</div>`;
@@ -14237,25 +14270,7 @@ async function carregarAnalise() {
       dataMeta.push(metaPer);
     });
 
-    // Atualiza header da tabela com as colunas corretas
-    const thead = tbody.closest('table')?.querySelector('thead tr');
-    if (thead) {
-      const perLabel = periodo === 'semanal' ? 'Período (Semana ' + semNum + ')' : periodo === 'mensal' ? 'Período (Mês)' : 'Período (Acumulado)';
-      thead.innerHTML =
-        '<th>Categoria</th>' +
-        '<th style="text-align:right;background:#1e3a5f22;">Meta ' + perLabel + '</th>' +
-        '<th style="text-align:right;background:#1e3a5f22;">Real. ' + perLabel + '</th>' +
-        '<th style="text-align:right;background:#1e3a5f22;">Var. R$</th>' +
-        '<th style="text-align:right;background:#1e3a5f22;">Var. %</th>' +
-        '<th style="text-align:right;background:#22c55e11;">Meta Mensal</th>' +
-        '<th style="text-align:right;background:#22c55e11;">Real. Mensal</th>' +
-        '<th style="text-align:right;background:#22c55e11;">Var. R$</th>' +
-        '<th style="text-align:right;background:#22c55e11;">Var. %</th>' +
-        '<th style="text-align:right;background:#3b82f611;">Meta Semanal</th>' +
-        '<th style="text-align:right;background:#3b82f611;">Real. Semanal</th>' +
-        '<th style="text-align:right;background:#3b82f611;">Var. %</th>' +
-        '<th style="text-align:center;">Status</th>';
-    }
+    // Header é fixo no HTML — apenas atualiza o span do período se necessário
 
     // Cards resumo
     const economia     = totalMetaPer - totalRealPer;
@@ -14269,32 +14284,39 @@ async function carregarAnalise() {
       '<span style="color:' + (economia>=0?'var(--ok)':'var(--danger)') + ';">' +
       (economia>=0?'💚 Economizou ':'🔴 Excesso ') + fmt(economia) + '</span>';
 
-    // Tabela com as 13 colunas
-    tbody.innerHTML = rows.sort((a,b) => b.realPer - a.realPer).map(r => {
-      const varPerR  = r.realPer - r.metaPer;
-      const stCls    = r.metaPer <= 0 ? 'ok' : varPerR > r.metaPer*0.15 ? 'danger' : varPerR > 0 ? 'warn' : 'ok';
-      const stLbl    = r.metaPer <= 0 ? '—' : varPerR > r.metaPer*0.15 ? '<span style="color:var(--danger);font-weight:700;">🔴 Acima</span>'
-                       : varPerR > 0 ? '<span style="color:var(--warn);font-weight:700;">⚠️ Atenção</span>'
-                       : '<span style="color:var(--ok);font-weight:700;">✅ OK</span>';
-      // Semanal: só mostra dado real (0 se não há dados para a semana)
-      const realSemExib = periodo === 'semanal' ? r.realSemReal : r.realSemReal;
-      const semSufixo   = '';
+    // Tabela: Meta Mês | Real Mês | Var R$ | Var % | Meta Sem | Real Sem | Var R$ | Var % | Status
+    tbody.innerHTML = rows.sort(function(a,b) { return b.realMes - a.realMes; }).map(function(r) {
+      // Status baseado no mês (principal referência)
+      const varMesR  = r.realMes - r.metaMes;
+      const varMesP  = r.metaMes > 0 ? ((r.realMes/r.metaMes)-1)*100 : null;
+      // Status baseado na semana se período semanal
+      const varSemR  = r.realSemReal - r.metaSem;
+      const varSemP  = r.metaSem > 0 && r.realSemReal > 0 ? ((r.realSemReal/r.metaSem)-1)*100 : null;
+
+      // Status geral (usa mês como referência principal)
+      const stRef = r.metaMes > 0 ? varMesP : (r.metaSem > 0 ? varSemP : null);
+      const stLbl = stRef === null ? '<span style="color:var(--text-muted);">—</span>'
+        : stRef > 15 ? '<span style="color:var(--danger);font-weight:700;">🔴 Acima</span>'
+        : stRef > 0  ? '<span style="color:var(--warn);font-weight:700;">⚠️ Atenção</span>'
+        : '<span style="color:var(--ok);font-weight:700;">✅ OK</span>';
+
+      const realSemExib = r.realSemReal;
+      const realSemLabel = realSemExib > 0 ? fmt(realSemExib)
+        : (periodo === 'semanal' ? '<span style="color:var(--text-muted);font-size:11px;">Sem dados</span>' : '—');
+
       return '<tr>' +
         '<td style="font-weight:700;">' + r.cat.icon + ' ' + r.cat.nome + '</td>' +
-        '<td style="text-align:right;background:#1e3a5f11;">' + (r.metaPer > 0 ? fmt(r.metaPer) : '—') + '</td>' +
-        '<td style="text-align:right;font-weight:700;color:var(--lumen);background:#1e3a5f11;">' + fmt(r.realPer) + '</td>' +
-        '<td style="text-align:right;background:#1e3a5f11;">' + (r.metaPer > 0 ? fmtDif(r.realPer, r.metaPer) : '—') + '</td>' +
-        '<td style="text-align:right;background:#1e3a5f11;">' + (r.metaPer > 0 ? fmtV(r.realPer, r.metaPer) : '—') + '</td>' +
         '<td style="text-align:right;background:#22c55e08;">' + (r.metaMes > 0 ? fmt(r.metaMes) : '—') + '</td>' +
-        '<td style="text-align:right;font-weight:700;background:#22c55e08;">' + fmt(r.realMes) + '</td>' +
-        '<td style="text-align:right;background:#22c55e08;">' + (r.metaMes > 0 ? fmtDif(r.realMes, r.metaMes) : '—') + '</td>' +
-        '<td style="text-align:right;background:#22c55e08;">' + (r.metaMes > 0 ? fmtV(r.realMes, r.metaMes) : '—') + '</td>' +
+        '<td style="text-align:right;font-weight:700;color:var(--lumen);background:#22c55e08;">' + (r.realMes > 0 ? fmt(r.realMes) : '—') + '</td>' +
+        '<td style="text-align:right;background:#22c55e08;">' + (r.metaMes > 0 && r.realMes > 0 ? fmtDif(r.realMes, r.metaMes) : '—') + '</td>' +
+        '<td style="text-align:right;background:#22c55e08;">' + (varMesP !== null ? fmtV(r.realMes, r.metaMes) : '—') + '</td>' +
         '<td style="text-align:right;background:#3b82f608;">' + (r.metaSem > 0 ? fmt(r.metaSem) : '—') + '</td>' +
-        '<td style="text-align:right;font-weight:700;background:#3b82f608;">' + (r.realSemReal > 0 ? fmt(r.realSemReal) : (periodo === 'semanal' ? '<span style="color:var(--text-muted);font-size:12px;">Sem dados reais</span>' : '—')) + '</td>' +
-        '<td style="text-align:right;background:#3b82f608;">' + (r.metaSem > 0 && r.realSemReal > 0 ? fmtV(r.realSemReal, r.metaSem) : '—') + '</td>' +
+        '<td style="text-align:right;font-weight:700;background:#3b82f608;">' + realSemLabel + '</td>' +
+        '<td style="text-align:right;background:#3b82f608;">' + (r.metaSem > 0 && realSemExib > 0 ? fmtDif(realSemExib, r.metaSem) : '—') + '</td>' +
+        '<td style="text-align:right;background:#3b82f608;">' + (varSemP !== null ? fmtV(realSemExib, r.metaSem) : '—') + '</td>' +
         '<td style="text-align:center;">' + stLbl + '</td>' +
         '</tr>';
-    }).join('') || '<tr><td colspan="13" style="text-align:center;padding:24px;color:var(--text-muted);">Nenhum dado encontrado. Cadastre metas e importe histórico financeiro.</td></tr>';
+    }).join('') || '<tr><td colspan="10" style="text-align:center;padding:24px;color:var(--text-muted);">Nenhum dado encontrado. Cadastre metas e importe histórico financeiro.</td></tr>';
 
     // Gráfico
     const ctx = document.getElementById('chart-meta-cat').getContext('2d');
