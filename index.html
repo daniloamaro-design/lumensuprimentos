@@ -4496,7 +4496,8 @@ async function loadDynamicData() {
     casasSnap.docs.forEach(d => {
       const data = d.data();
       if (!data.isOverride && !CASAS.includes(data.nome)) CASAS.push(data.nome);
-      if (data.cidade) CASAS_CIDADES[data.nome] = data.cidade;
+      if (data.cidade)   CASAS_CIDADES[data.nome]   = data.cidade;
+      if (data.endereco) CASAS_ENDERECOS[data.nome]  = data.endereco;
     });
 
     // Adiciona cidades novas sem duplicar
@@ -6958,13 +6959,20 @@ function makePDF(house, items, meta, isPurchaseOnly) {
   doc.text(isPurchaseOnly ? 'Obra Lumen — Itens para COMPRA' : 'Obra Lumen — Solicitação de Compras', 14, 13);
   doc.setFontSize(9); doc.setFont('helvetica','normal');
   doc.text(`Casa: ${house}   |   Data: ${dateStr}${meta ? `   |   Código: ${meta.code}` : ''}`, 14, 22);
-  if (meta?.requesterName) doc.text(`Solicitante: ${meta.requesterName}`, 14, 29);
+  const endCasa = (typeof CASAS_ENDERECOS !== 'undefined' && CASAS_ENDERECOS[house]) || '';
+  let yBase = 29;
+  if (endCasa) {
+    doc.text(`End.: ${endCasa}`, 14, 28);
+    yBase = 34;
+  }
+  if (meta?.requesterName) { doc.text(`Solicitante: ${meta.requesterName}`, 14, yBase); yBase += 6; }
   if (isPurchaseOnly) {
     doc.setFontSize(8);
-    doc.text('⚠ Itens não disponíveis no estoque — necessário adquirir externamente', 14, 35);
+    doc.text('⚠ Itens não disponíveis no estoque — necessário adquirir externamente', 14, yBase);
+    yBase += 6;
   }
 
-  let y = isPurchaseOnly ? 48 : 44;
+  let y = yBase + 4;
   doc.setTextColor(0,0,0);
 
   Object.entries(items).forEach(([catKey, prods]) => {
@@ -7977,6 +7985,7 @@ setInterval(() => checkCriticalStock(false), 6 * 60 * 60 * 1000);
 // ─────────────────────────────────────────────
 // Global map casa → bloco (loaded from firebase)
 let CASAS_BLOCOS = {};
+window.CASAS_ENDERECOS = {};
 
 async function loadManageHouses() {
   const el = document.getElementById('custom-houses-list');
@@ -8072,9 +8081,10 @@ async function addNewHouse() {
   if (!cidade) { showToast('Selecione a cidade!'); return; }
   if (CASAS.includes(nome)) { showToast('Essa casa já existe no sistema!'); return; }
 
+  const endereco = document.getElementById('new-house-endereco').value.trim();
   try {
     await db.collection('casas_config').add({
-      nome, cidade,
+      nome, cidade, endereco,
       createdBy: currentUserData.name,
       createdAt: firebase.firestore.FieldValue.serverTimestamp()
     });
@@ -8083,12 +8093,14 @@ async function addNewHouse() {
       const hid = nome.replace(/[^a-zA-Z0-9]/g,'_');
       await db.collection('casas_blocos').doc(hid).set({ nome, bloco, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
     }
+    if (typeof CASAS_ENDERECOS !== 'undefined') CASAS_ENDERECOS[nome] = endereco;
     CASAS.push(nome);
     CASAS.sort((a, b) => a.localeCompare(b, 'pt-BR'));
     CASAS_CIDADES[nome] = cidade;
-    document.getElementById('new-house-name').value  = '';
-    document.getElementById('new-house-city').value  = '';
-    document.getElementById('new-house-bloco').value = '';
+    document.getElementById('new-house-name').value     = '';
+    document.getElementById('new-house-city').value     = '';
+    document.getElementById('new-house-bloco').value    = '';
+    document.getElementById('new-house-endereco').value = '';
     populateHouseSelects();
     showToast(`✅ Casa "${nome}" adicionada com sucesso!`);
     loadManageHouses();
@@ -8118,6 +8130,9 @@ function openEditHouse(nome, docId, tipo) {
   const bloco = CASAS_BLOCOS[nome] || '';
   document.getElementById('edit-house-bloco').value = bloco;
 
+  const endAtual = (typeof CASAS_ENDERECOS !== 'undefined' && CASAS_ENDERECOS[nome]) || '';
+  document.getElementById('edit-house-endereco').value = endAtual;
+
   document.getElementById('modal-edit-house').classList.remove('hidden');
 }
 
@@ -8128,6 +8143,7 @@ async function saveEditHouse() {
   const novoNome     = document.getElementById('edit-house-nome').value.trim();
   const novaCidade   = document.getElementById('edit-house-cidade').value;
   const novoBloco    = document.getElementById('edit-house-bloco').value;
+  const novoEndereco = document.getElementById('edit-house-endereco').value.trim();
 
   if (!novoNome)    { showToast('Digite o nome da casa!'); return; }
   if (!novaCidade)  { showToast('Selecione a cidade!'); return; }
@@ -8137,26 +8153,26 @@ async function saveEditHouse() {
     const ts = firebase.firestore.FieldValue.serverTimestamp();
 
     if (tipo === 'custom') {
-      // Casa manual: atualiza doc existente
       if (docId) {
-        await db.collection('casas_config').doc(docId).update({ nome: novoNome, cidade: novaCidade, updatedAt: ts });
+        await db.collection('casas_config').doc(docId).update({ nome: novoNome, cidade: novaCidade, endereco: novoEndereco, updatedAt: ts });
       }
     } else {
-      // Casa padrão: salva override
       const overrideSnap = await db.collection('casas_override')
         .where('originalNome', '==', originalNome).get();
       if (overrideSnap.empty) {
-        await db.collection('casas_override').add({ originalNome, novoNome, cidade: novaCidade, updatedAt: ts });
+        await db.collection('casas_override').add({ originalNome, novoNome, cidade: novaCidade, endereco: novoEndereco, updatedAt: ts });
       } else {
-        await db.collection('casas_override').doc(overrideSnap.docs[0].id).update({ novoNome, cidade: novaCidade, updatedAt: ts });
+        await db.collection('casas_override').doc(overrideSnap.docs[0].id).update({ novoNome, cidade: novaCidade, endereco: novoEndereco, updatedAt: ts });
       }
     }
 
-    // Salva bloco
     const hid = novoNome.replace(/[^a-zA-Z0-9]/g,'_');
     await db.collection('casas_blocos').doc(hid).set({ nome: novoNome, bloco: novoBloco, updatedAt: ts }, { merge: true });
 
-    // Atualiza memória local
+    if (typeof CASAS_ENDERECOS !== 'undefined') {
+      delete CASAS_ENDERECOS[originalNome];
+      CASAS_ENDERECOS[novoNome] = novoEndereco;
+    }
     const idx = CASAS.indexOf(originalNome);
     if (idx >= 0) CASAS[idx] = novoNome;
     delete CASAS_CIDADES[originalNome];
