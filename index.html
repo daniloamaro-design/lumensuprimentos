@@ -13736,8 +13736,7 @@ function exportHistoricoCSV() {
     return [dataHora, d.type||'', d.house||'', catLabel, produtos, qtdTotal, d.obs||'', d.registeredBy||'']
       .map(v => `"${String(v).replace(/"/g,'""')}"`).join(',');
   });
-  const csv = '﻿' + [header.join(','), ...rows].join('
-');
+  const csv = '\uFEFF' + [header.join(','), ...rows].join('\n');
   const a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' }));
   a.download = `historico_movimentacoes_${new Date().toISOString().slice(0,10)}.csv`;
