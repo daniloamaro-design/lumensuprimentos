@@ -4661,6 +4661,9 @@ async function showApp() {
 
   const role = currentUserData.role || 'usuario';
   const isAdmin     = role === 'admin';
+  const isDiretor   = role === 'diretor';
+  const isGerente   = role === 'gerente';
+  const isAdminLevel= isAdmin || isDiretor || isGerente; // mesmos acessos que admin
   const isFinanceiro= role === 'financeiro';
   const isCompras   = role === 'compras';
   const isEstoque   = role === 'estoque';
@@ -4669,10 +4672,10 @@ async function showApp() {
   document.getElementById('topbar-user').textContent = currentUserData.name;
 
   // Sidebar sections visibility
-  document.getElementById('sidebar-admin').style.display     = isAdmin ? 'block' : 'none';
-  document.getElementById('sidebar-financeiro').style.display= (isAdmin || isFinanceiro || isCompras) ? 'block' : 'none';
+  document.getElementById('sidebar-admin').style.display     = isAdminLevel ? 'block' : 'none';
+  document.getElementById('sidebar-financeiro').style.display= (isAdminLevel || isFinanceiro || isCompras) ? 'block' : 'none';
   document.getElementById('sidebar-compras').style.display   = isCompras ? 'block' : 'none';
-  document.getElementById('sidebar-estoque').style.display   = (!isAdmin && (isEstoque || isCompras)) ? 'block' : 'none';
+  document.getElementById('sidebar-estoque').style.display   = (!isAdminLevel && (isEstoque || isCompras)) ? 'block' : 'none';
   document.getElementById('sidebar-usuario').style.display   = isUsuario ? 'block' : 'none';
 
   // Carrega casas e cidades dinâmicas do Firebase antes de popular os selects
@@ -4681,7 +4684,7 @@ async function showApp() {
   // Populate house selects
   populateHouseSelects();
 
-  if (isAdmin) {
+  if (isAdminLevel) {
     goPage('dashboard');
     loadPendingCount();
     loadDashboard();
@@ -4776,7 +4779,8 @@ function goPage(page) {
   const usuarioPages   = ['movement','my-orders'];
   const sharedPages    = ['new-order']; // acessível a compras + usuario
 
-  if (role !== 'admin') {
+  const _isAdminLvl = ['admin','diretor','gerente'].includes(role);
+  if (!_isAdminLvl) {
     if (adminPages.includes(page)) { showToast('⛔ Acesso restrito ao administrador.'); return; }
   }
   if (role === 'usuario') {
@@ -5261,6 +5265,8 @@ async function loadUsers() {
               <select class="form-select" id="approve-role-${d.id}" style="font-size:13px;padding:7px 10px;" onchange="onApproveRoleChange('${d.id}')">
                 <option value="">Selecione o perfil...</option>
                 <option value="admin">👑 Admin</option>
+                <option value="diretor">🏅 Diretor</option>
+                <option value="gerente">⭐ Gerente</option>
                 <option value="financeiro">💰 Financeiro</option>
                 <option value="compras">🛒 Compras</option>
                 <option value="estoque">📦 Estoque</option>
@@ -5288,6 +5294,8 @@ async function loadUsers() {
   const roleBadge = (r) => {
     const map = {
       admin:      ['badge-info',   '👑 Admin'],
+      diretor:    ['badge-info',   '🏅 Diretor'],
+      gerente:    ['badge-info',   '⭐ Gerente'],
       financeiro: ['badge-purple', '💰 Financeiro'],
       compras:    ['badge-teal',   '🛒 Compras'],
       estoque:    ['badge-orange', '📦 Estoque'],
@@ -5789,7 +5797,7 @@ async function submitOrder() {
 
     clearOrder();
     showToast(`✅ Pedido ${code} enviado com sucesso!`);
-    if (currentUserData.role !== 'admin') goPage('my-orders');
+    if (!['admin','diretor','gerente'].includes(currentUserData.role)) goPage('my-orders');
     else { goPage('all-orders'); loadDashboard(); }
   } catch(e) {
     console.error(e);
@@ -6048,10 +6056,10 @@ async function showOrderDetail(docId) {
   const btnEval = document.getElementById('btn-eval-stock');
   const btnQuot = document.getElementById('btn-open-quotation');
   const btnNF   = document.getElementById('btn-attach-nf');
-  if (btnEval) btnEval.style.display = ['admin','estoque','compras'].includes(role) ? 'inline-flex' : 'none';
-  if (btnQuot) btnQuot.style.display = ['admin','compras'].includes(role) ? 'inline-flex' : 'none';
-  if (btnNF)   btnNF.style.display   = ['admin','compras'].includes(role) ? 'inline-flex' : 'none';
-  if (sel)     sel.style.display     = ['admin','compras','estoque'].includes(role) ? 'inline-flex' : 'none';
+  if (btnEval) btnEval.style.display = ['admin','diretor','gerente','estoque','compras'].includes(role) ? 'inline-flex' : 'none';
+  if (btnQuot) btnQuot.style.display = ['admin','diretor','gerente','compras'].includes(role) ? 'inline-flex' : 'none';
+  if (btnNF)   btnNF.style.display   = ['admin','diretor','gerente','compras'].includes(role) ? 'inline-flex' : 'none';
+  if (sel)     sel.style.display     = ['admin','diretor','gerente','compras','estoque'].includes(role) ? 'inline-flex' : 'none';
 
   // Show NF info if present
   if (o.nfNumero) {
@@ -6085,7 +6093,7 @@ let centralStockData = {}; // estoque central (casa = 'Central' ou todas somadas
 async function openStockEvalModal() {
   if (!detailOrderData) return;
   const role = currentUserData?.role || 'usuario';
-  if (!['admin','estoque','compras'].includes(role)) {
+  if (!['admin','diretor','gerente','estoque','compras'].includes(role)) {
     showToast('⛔ Apenas Estoque, Compras ou Admin podem avaliar.');
     return;
   }
@@ -8483,7 +8491,7 @@ async function initTransferencias() {
   document.getElementById('transf-data').value = new Date().toISOString().slice(0,10);
 
   // Mostra/esconde seção de nova transferência baseado em role
-  const isAdmin = currentUserData.role === 'admin';
+  const isAdmin = ['admin','diretor','gerente'].includes(currentUserData.role);
   document.getElementById('transf-nova-card').style.display = isAdmin ? 'block' : 'none';
 
   loadTransferencias();
@@ -11467,17 +11475,26 @@ async function opcGerenteDecisao(cotId, valor) {
           const valor2 = parseFloat(cotData.valor) || 0;
           if (valor2 > 0 && cotData.fornecedorId) {
             try {
+              // CORREÇÃO: incluir catKey e classificação correta para aparecer nas métricas por categoria
+              const _orderDataOpc = orderSnap.data();
+              const _catsOpc = (_orderDataOpc.categories || []);
+              const _classifOpc = _catsOpc.map(c => (typeof CATEGORIAS !== 'undefined' && CATEGORIAS[c]) ? CATEGORIAS[c].nome : c).join(', ') || 'Pedido';
+              const _refDateOpc = new Date();
               await db.collection('compras_financeiro').add({
                 fornecedor: cotData.fornecedorNome || '',
                 fornecedorId: cotData.fornecedorId || '',
-                classificacao: 'Pedido',
-                destinatario: orderSnap.data().house || '',
+                classificacao: _classifOpc,
+                catKey: _catsOpc[0] || '',
+                destinatario: _orderDataOpc.house || '',
                 valor: valor2,
                 vencimentoStr: boletoVencimento || '',
-                mes: new Date().toLocaleString('pt-BR',{month:'long'}).toUpperCase(),
-                ano: new Date().getFullYear(),
+                dataCompraSerial: _refDateOpc.getTime(),
+                mes: _refDateOpc.toLocaleString('pt-BR',{month:'long'}).toUpperCase(),
+                ano: _refDateOpc.getFullYear(),
                 pago: '',
-                pedidoRef: orderSnap.data().code || orderId,
+                pedidoRef: _orderDataOpc.code || orderId,
+                pedidoId: orderId,
+                lancadoSP: false,
                 createdAt: firebase.firestore.FieldValue.serverTimestamp(),
               });
               await db.collection('suppliers').doc(cotData.fornecedorId).update({
@@ -13606,7 +13623,7 @@ async function loadMovHistory() {
 
       const catLabel = d.catKey ? (window.CATEGORIAS?.[d.catKey]?.nome || d.catKey) : (d.category || '—');
 
-      const canDelete = currentUserData?.role === 'admin' || currentUserData?.role === 'compras' || currentUserData?.role === 'estoque';
+      const canDelete = ['admin','diretor','gerente','compras','estoque'].includes(currentUserData?.role);
 
       return `<tr>
         <td style="font-size:12px;white-space:nowrap;">${dataHora}</td>
@@ -14006,11 +14023,10 @@ async function carregarMetas() {
       const mesesComDados = Object.values(g.meses).filter(function(v) { return v > 0; });
       const realMesMedia  = mesesComDados.length > 0 ? g.total / mesesComDados.length : 0;
 
-      // Médias reais semanais (usa semanas reais ou estima)
-      const semanasComDados = Object.values(g.semanas || {}).filter(function(v) { return v > 0; });
-      const realSemMedia    = semanasComDados.length > 0
-        ? semanasComDados.reduce(function(s,v) { return s+v; }, 0) / semanasComDados.length
-        : (realMesMedia > 0 ? realMesMedia / 4.33 : 0);
+      // Médias reais semanais
+      // CORREÇÃO: fórmula anterior dividia soma parcial das semanas pelo count (registros sem data
+      // ficam de fora e distorcem o numerador). A média semanal correta é realMesMedia / 4.33.
+      const realSemMedia = realMesMedia > 0 ? realMesMedia / 4.33 : 0;
 
       const realAnual    = g.total;
       const metaAnoCalc  = parseFloat(m.metaAno) || (parseFloat(m.metaMes)||0) * 12;
@@ -14112,16 +14128,34 @@ async function buscarGastosReais(ano) {
     resultado[catKey].meses[mes] = (resultado[catKey].meses[mes] || 0) + val;
 
     // Agrupa por semana real usando dataCompraSerial ou vencimentoStr
+    // CORREÇÃO: dataCompraSerial pode ser serial Excel (~45000) ou timestamp JS (~1746700000000)
     let dataRef = null;
-    if (d.dataCompraSerial) {
-      dataRef = new Date(d.dataCompraSerial);
-    } else if (d.vencimentoStr) {
+    if (d.dataCompraSerial && d.dataCompraSerial > 0) {
+      if (d.dataCompraSerial > 1000000000) {
+        // Timestamp JS (milissegundos) — registros criados pelo sistema
+        dataRef = new Date(d.dataCompraSerial);
+      } else {
+        // Serial Excel (dias desde 01/01/1900) — registros importados via planilha
+        dataRef = excelSerialToDate(d.dataCompraSerial);
+      }
+    } else if (d.dataCompraStr) {
+      // Tenta usar a string de data armazenada (formato dd/mm/aaaa ou yyyy-mm-dd)
+      const parts = d.dataCompraStr.includes('/') ? d.dataCompraStr.split('/') : null;
+      if (parts && parts.length === 3) {
+        dataRef = new Date(`${parts[2]}-${parts[1]}-${parts[0]}T00:00:00`);
+      }
+    }
+    // Fallback: usa vencimentoStr apenas se não tiver data de compra
+    if ((!dataRef || isNaN(dataRef)) && d.vencimentoStr) {
       dataRef = new Date(d.vencimentoStr + 'T00:00:00');
-    } else if (d.createdAt && d.createdAt.toDate) {
+    }
+    // Último recurso: createdAt (data de registro no sistema)
+    if ((!dataRef || isNaN(dataRef)) && d.createdAt && d.createdAt.toDate) {
       dataRef = d.createdAt.toDate();
     }
 
-    if (dataRef && !isNaN(dataRef)) {
+    // Só adiciona à semana se a data pertencer ao ano correto
+    if (dataRef && !isNaN(dataRef) && dataRef.getFullYear() === parseInt(ano)) {
       const dia  = dataRef.getDate();
       const mesK = MESES_PT[dataRef.getMonth()];
       const sem  = dia <= 7 ? 1 : dia <= 14 ? 2 : dia <= 21 ? 3 : 4;
