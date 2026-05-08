@@ -1145,11 +1145,20 @@
         Produtividade
       </button>
     </div>
-    <div class="sidebar-section">
-      <div class="sidebar-section-title">Estoque</div>
+    <!-- SIDEBAR: ESTOQUE / COMPRAS (unificado) -->
+    <div class="sidebar-section" id="sidebar-estoque-compras" style="display:none;">
+      <div class="sidebar-section-title">Estoque / Compras</div>
+      <button class="sidebar-item" data-page="kanban" onclick="goPageMobile('kanban')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="5" height="18" rx="1"/><rect x="10" y="8" width="5" height="13" rx="1"/><rect x="17" y="5" width="5" height="16" rx="1"/></svg>
+        Kanban
+      </button>
       <button class="sidebar-item" data-page="new-order" onclick="goPageMobile('new-order')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
         Nova Solicitação
+      </button>
+      <button class="sidebar-item" data-page="all-orders" onclick="goPageMobile('all-orders')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/></svg>
+        Todos os Pedidos
       </button>
       <button class="sidebar-item" data-page="movement" onclick="goPageMobile('movement')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
@@ -1159,30 +1168,47 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
         Estoque Atual
       </button>
+      <button class="sidebar-item" data-page="transferencias" onclick="goPageMobile('transferencias')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
+        Transferências
+      </button>
+      <button class="sidebar-item" data-page="orcamento-financeiro" onclick="goPageMobile('orcamento-financeiro')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
+        Orçamento Financeiro
+      </button>
+      <button class="sidebar-item" data-page="orc-pendentes" onclick="goPageMobile('orc-pendentes')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><line x1="9" y1="12" x2="15" y2="12"/></svg>
+        Orç. Pendentes
+        <span class="sidebar-badge hidden" id="badge-orc-pendentes2">0</span>
+      </button>
+      <button class="sidebar-item" data-page="fornecedores" onclick="goPageMobile('fornecedores')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><rect x="9" y="12" width="6" height="10"/></svg>
+        Fornecedores
+      </button>
       <button class="sidebar-item" data-page="my-orders" onclick="goPageMobile('my-orders')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
         Meus Pedidos
-      </button>
-      <button class="sidebar-item" data-page="percapita" onclick="goPageMobile('percapita')">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
-        Per Capita por Casa
       </button>
       <button class="sidebar-item" data-page="prices" onclick="goPageMobile('prices')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
         Preços por Cidade
       </button>
+      <button class="sidebar-item" data-page="percapita" onclick="goPageMobile('percapita')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/></svg>
+        Per Capita por Casa
+      </button>
       <button class="sidebar-item" onclick="checkCriticalStock(true)">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-        Verificar Estoque Crítico
+        Estoque Crítico
       </button>
       <button class="sidebar-item" onclick="openAjusteModal()">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
         Solicitar Ajuste
       </button>
-
-      <button class="sidebar-item" data-page="transferencias" onclick="goPageMobile('transferencias')">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
-        Transferências
+      <button class="sidebar-item" data-page="previsao" onclick="goPageMobile('previsao')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a10 10 0 1 0 10 10"/><path d="M12 6v6l4 2"/></svg>
+        Previsão IA
+        <span class="sidebar-badge" style="background:var(--lumen);color:#fff;font-size:9px;padding:1px 5px;border-radius:8px;margin-left:4px;">IA</span>
       </button>
     </div>
 
@@ -1201,28 +1227,6 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
         Ind. dos Irmãos
       </button>
-    </div>
-
-    <!-- SIDEBAR: FINANCEIRO (visível para financeiro e compras) -->
-    <div class="sidebar-section" id="sidebar-financeiro" style="display:none;">
-      <div class="sidebar-section-title">Financeiro</div>
-      <button class="sidebar-item" data-page="orcamento-financeiro" onclick="goPageMobile('orcamento-financeiro')">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/><line x1="6" y1="15" x2="10" y2="15"/><line x1="14" y1="15" x2="18" y2="15"/></svg>
-        Orçamento Financeiro
-      </button>
-      <button class="sidebar-item" data-page="orc-pendentes" onclick="goPageMobile('orc-pendentes')">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="13" y2="16"/></svg>
-        Orç. Pendentes
-        <span class="sidebar-badge hidden" id="badge-orc-pendentes2">0</span>
-      </button>
-      <button class="sidebar-item" data-page="financeiro-compras" onclick="goPageMobile('financeiro-compras')">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
-        Financeiro
-      </button>
-      <button class="sidebar-item" data-page="fornecedores" onclick="goPageMobile('fornecedores')">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><rect x="9" y="12" width="6" height="10"/><path d="M9 9h6"/></svg>
-        Fornecedores
-      </button>
       <button class="sidebar-item" data-page="ind-fornecedores" onclick="goPageMobile('ind-fornecedores')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/><polyline points="2 20 22 20"/></svg>
         Indicadores Fornec.
@@ -1233,58 +1237,12 @@
       </button>
     </div>
 
-    <!-- SIDEBAR: COMPRAS (visível só para compras) -->
-    <div class="sidebar-section" id="sidebar-compras" style="display:none;">
-      <div class="sidebar-section-title">Compras</div>
+    <!-- SIDEBAR: FINANCEIRO -->
+    <div class="sidebar-section" id="sidebar-financeiro" style="display:none;">
+      <div class="sidebar-section-title">Financeiro</div>
       <button class="sidebar-item" data-page="financeiro-compras" onclick="goPageMobile('financeiro-compras')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
         Financeiro
-      </button>
-      <button class="sidebar-item" data-page="all-orders" onclick="goPageMobile('all-orders')">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-        Todos os Pedidos
-      </button>
-      <button class="sidebar-item" data-page="new-order" onclick="goPageMobile('new-order')">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
-        Nova Solicitação
-      </button>
-      <button class="sidebar-item" data-page="movement" onclick="goPageMobile('movement')">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
-        Entrada / Saída
-      </button>
-      <button class="sidebar-item" data-page="prices" onclick="goPageMobile('prices')">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
-        Preços por Cidade
-      </button>
-      <button class="sidebar-item" data-page="transferencias" onclick="goPageMobile('transferencias')">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
-        Transferências
-      </button>
-      <button class="sidebar-item" data-page="stock-view" onclick="goPageMobile('stock-view')">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
-        Estoque Atual
-      </button>
-      <button class="sidebar-item" data-page="previsao" onclick="goPageMobile('previsao')">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a10 10 0 1 0 10 10"/><path d="M12 6v6l4 2"/></svg>
-        Previsão IA
-        <span class="sidebar-badge" style="background:var(--lumen);color:#fff;font-size:9px;padding:1px 5px;border-radius:8px;margin-left:4px;">IA</span>
-      </button>
-    </div>
-
-    <!-- SIDEBAR: ESTOQUE (visível para estoque, compras, admin) -->
-    <div class="sidebar-section" id="sidebar-estoque" style="display:none;">
-      <div class="sidebar-section-title">Estoque</div>
-      <button class="sidebar-item" data-page="all-orders" onclick="goPageMobile('all-orders')">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
-        Todos os Pedidos
-      </button>
-      <button class="sidebar-item" data-page="stock-view" onclick="goPageMobile('stock-view')">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
-        Estoque Atual
-      </button>
-      <button class="sidebar-item" data-page="transferencias" onclick="goPageMobile('transferencias')">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
-        Transferências
       </button>
     </div>
 
@@ -1343,6 +1301,113 @@
     </div>
 
     <!-- PAGE: USERS (admin) -->
+
+
+    <!-- PAGE: KANBAN -->
+    <div class="page" id="page-kanban">
+      <div class="page-header" style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:12px;">
+        <div>
+          <div class="page-title">🗂️ Kanban da Equipe</div>
+          <div class="page-sub">Gerencie e acompanhe as atividades do time de Compras e Estoque</div>
+        </div>
+        <div id="kanban-btn-nova" style="display:none;">
+          <button class="btn btn-primary" onclick="abrirModalNovaTask()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Nova Atividade
+          </button>
+        </div>
+      </div>
+
+      <!-- Filtros -->
+      <div class="card" style="margin-bottom:16px;">
+        <div class="card-body" style="padding:10px 16px;">
+          <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+            <div id="kanban-filtro-role-wrap">
+              <select class="form-select" id="kanban-filtro-role" onchange="loadKanban()" style="font-size:12px;padding:5px 10px;width:160px;">
+                <option value="">Todos os times</option>
+                <option value="compras">🛒 Compras</option>
+                <option value="estoque">📦 Estoque</option>
+              </select>
+            </div>
+            <select class="form-select" id="kanban-filtro-urgencia" onchange="loadKanban()" style="font-size:12px;padding:5px 10px;width:150px;">
+              <option value="">Todas as urgências</option>
+              <option value="critica">🔴 Crítica</option>
+              <option value="alta">🟠 Alta</option>
+              <option value="media">🟡 Média</option>
+              <option value="baixa">🟢 Baixa</option>
+            </select>
+            <div id="kanban-count" style="font-size:12px;color:var(--text-muted);margin-left:auto;"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Board Kanban -->
+      <div id="kanban-board" style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;align-items:start;">
+        <div style="grid-column:1/-1;text-align:center;padding:40px;color:var(--text-muted);">
+          <div class="spinner spinner-dark" style="width:32px;height:32px;margin:0 auto 12px;"></div>Carregando...
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL: Nova / Editar Atividade Kanban -->
+    <div class="modal-overlay hidden" id="modal-kanban-task">
+      <div class="modal" style="max-width:520px;width:100%;">
+        <div class="modal-header">
+          <div class="modal-title" id="modal-kanban-title">Nova Atividade</div>
+          <button class="modal-close" onclick="closeModal('modal-kanban-task')">×</button>
+        </div>
+        <div class="modal-body" style="padding:20px;display:flex;flex-direction:column;gap:14px;">
+          <input type="hidden" id="ktask-id">
+          <div>
+            <label class="form-label">Título *</label>
+            <input type="text" class="form-input" id="ktask-titulo" placeholder="Descreva a atividade...">
+          </div>
+          <div>
+            <label class="form-label">Descrição / Instruções</label>
+            <textarea class="form-input" id="ktask-desc" rows="3" placeholder="Detalhes, referências, observações..." style="resize:vertical;"></textarea>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+            <div>
+              <label class="form-label">Time Responsável *</label>
+              <select class="form-select" id="ktask-role">
+                <option value="compras">🛒 Compras</option>
+                <option value="estoque">📦 Estoque</option>
+                <option value="ambos">🔄 Ambos</option>
+              </select>
+            </div>
+            <div>
+              <label class="form-label">Urgência *</label>
+              <select class="form-select" id="ktask-urgencia">
+                <option value="baixa">🟢 Baixa</option>
+                <option value="media">🟡 Média</option>
+                <option value="alta">🟠 Alta</option>
+                <option value="critica">🔴 Crítica</option>
+              </select>
+            </div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+            <div>
+              <label class="form-label">Prazo</label>
+              <input type="date" class="form-input" id="ktask-prazo">
+            </div>
+            <div>
+              <label class="form-label">Status</label>
+              <select class="form-select" id="ktask-status">
+                <option value="aguardando">📋 Aguardando</option>
+                <option value="em_execucao">⚡ Em Execução</option>
+                <option value="em_revisao">🔍 Em Revisão</option>
+                <option value="concluido">✅ Concluído</option>
+              </select>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer" style="display:flex;gap:10px;justify-content:flex-end;">
+          <button class="btn btn-outline" onclick="closeModal('modal-kanban-task')">Cancelar</button>
+          <button class="btn btn-primary" onclick="salvarKanbanTask()">💾 Salvar</button>
+        </div>
+      </div>
+    </div>
+
 
     <!-- PAGE: PRODUTIVIDADE DA EQUIPE -->
     <div class="page" id="page-produtividade">
@@ -4802,11 +4867,10 @@ async function showApp() {
   document.getElementById('topbar-user').textContent = currentUserData.name;
 
   // Sidebar sections visibility
-  document.getElementById('sidebar-admin').style.display     = isAdminLevel ? 'block' : 'none';
-  document.getElementById('sidebar-financeiro').style.display= (isAdminLevel || isFinanceiro || isCompras) ? 'block' : 'none';
-  document.getElementById('sidebar-compras').style.display   = isCompras ? 'block' : 'none';
-  document.getElementById('sidebar-estoque').style.display   = (!isAdminLevel && (isEstoque || isCompras)) ? 'block' : 'none';
-  document.getElementById('sidebar-usuario').style.display   = isUsuario ? 'block' : 'none';
+  document.getElementById('sidebar-admin').style.display              = isAdminLevel ? 'block' : 'none';
+  document.getElementById('sidebar-estoque-compras').style.display    = (isAdminLevel || isCompras || isEstoque) ? 'block' : 'none';
+  document.getElementById('sidebar-financeiro').style.display         = (isAdminLevel || isFinanceiro) ? 'block' : 'none';
+  document.getElementById('sidebar-usuario').style.display            = isUsuario ? 'block' : 'none';
 
   // Carrega casas e cidades dinâmicas do Firebase antes de popular os selects
   await loadDynamicData();
@@ -4903,11 +4967,11 @@ function goPage(page) {
   // ── Guarda de acesso por perfil ──
   const role = currentUserData?.role || 'usuario';
   const adminPages     = ['dashboard','users','houses','manage-houses','manage-cities','manage-products','manage-cats','percapita','indicadores','comparativo','previsao','calc-real','produtividade'];
-  const financeiroPages= ['orcamento-financeiro','orc-pendentes','fornecedores','ind-fornecedores','financeiro-compras'];
-  const comprasPages   = ['all-orders','prices'];
-  const estoquePages   = ['stock-view','transferencias'];
+  const financeiroPages= ['financeiro-compras'];
+  const comprasPages   = ['all-orders','prices','orcamento-financeiro','orc-pendentes','fornecedores','kanban'];
+  const estoquePages   = ['stock-view','transferencias','kanban'];
   const usuarioPages   = ['movement','my-orders'];
-  const sharedPages    = ['new-order']; // acessível a compras + usuario
+  const sharedPages    = ['new-order','movement','percapita','prices','indicadores','comparativo','metas','ind-fornecedores','previsao','fornecedores','orcamento-financeiro','orc-pendentes','all-orders','stock-view','transferencias','financeiro-compras','kanban'];
 
   const _isAdminLvl = ['admin','diretor','gerente'].includes(role);
   if (!_isAdminLvl) {
@@ -4918,16 +4982,14 @@ function goPage(page) {
     if (!allowed.includes(page)) { showToast('⛔ Você não tem permissão para esta página.'); return; }
   }
   if (role === 'estoque') {
-    const allowed = [...estoquePages, ...sharedPages, 'stock-view', 'all-orders'];
-    if (!allowed.includes(page)) { showToast('⛔ Você não tem permissão para esta página.'); return; }
+    if (!sharedPages.includes(page) && !estoquePages.includes(page)) { showToast('⛔ Você não tem permissão para esta página.'); return; }
   }
   if (role === 'financeiro') {
     const allowed = ['fornecedores','financeiro-compras'];
     if (!allowed.includes(page)) { showToast('⛔ Você não tem permissão para esta página.'); return; }
   }
   if (role === 'compras') {
-    const allowed = [...comprasPages, ...estoquePages, ...financeiroPages, ...sharedPages, 'stock-view','movement','percapita','indicadores','comparativo','manage-houses','manage-cities','manage-products','houses','financeiro-compras','previsao','calc-real'];
-    if (!allowed.includes(page)) { showToast('⛔ Você não tem permissão para esta página.'); return; }
+    if (!sharedPages.includes(page) && !comprasPages.includes(page)) { showToast('⛔ Você não tem permissão para esta página.'); return; }
   }
   // ── fim da guarda ──
 
@@ -4938,6 +5000,7 @@ function goPage(page) {
   pageEl.classList.add('active');
   // Inicializa páginas que precisam de carregamento ao abrir
   if (page === 'produtividade') setTimeout(loadProdutividade, 50);
+  if (page === 'kanban') setTimeout(loadKanban, 50);
   const activeBtn = document.querySelector(`.sidebar-item[data-page="${page}"]`);
   if (activeBtn) activeBtn.classList.add('active');
 
@@ -15420,6 +15483,285 @@ const _origInitOrcPendentes = typeof initOrcPendentes === 'function' ? initOrcPe
 
 
 <script>
+
+
+// ═══════════════════════════════════════════════════════════════
+// 🗂️ KANBAN DA EQUIPE
+// ═══════════════════════════════════════════════════════════════
+
+const KANBAN_STATUS = {
+  aguardando:  { label: '📋 Aguardando',  cor: '#64748b', bg: 'rgba(100,116,139,0.12)' },
+  em_execucao: { label: '⚡ Em Execução', cor: 'var(--lumen)', bg: 'rgba(79,140,255,0.12)' },
+  em_revisao:  { label: '🔍 Em Revisão',  cor: '#f59e0b', bg: 'rgba(245,158,11,0.12)' },
+  concluido:   { label: '✅ Concluído',   cor: 'var(--ok)', bg: 'rgba(34,197,94,0.12)' },
+};
+const KANBAN_URGENCIA = {
+  critica: { label: '🔴 Crítica', cor: '#ef4444', bg: 'rgba(239,68,68,0.12)' },
+  alta:    { label: '🟠 Alta',    cor: '#f97316', bg: 'rgba(249,115,22,0.10)' },
+  media:   { label: '🟡 Média',   cor: '#eab308', bg: 'rgba(234,179,8,0.10)' },
+  baixa:   { label: '🟢 Baixa',   cor: '#22c55e', bg: 'rgba(34,197,94,0.10)' },
+};
+const KANBAN_ROLE = {
+  compras: { label: '🛒 Compras', cor: '#14b8a6' },
+  estoque: { label: '📦 Estoque', cor: '#f59e0b' },
+  ambos:   { label: '🔄 Ambos',   cor: '#a78bfa' },
+};
+
+let _kanbanTasks = [];
+
+function kanbanPodeEditar() {
+  return ['admin','diretor','gerente'].includes(currentUserData?.role);
+}
+
+async function loadKanban() {
+  const board  = document.getElementById('kanban-board');
+  const countEl = document.getElementById('kanban-count');
+  const btnNova = document.getElementById('kanban-btn-nova');
+  const filtroRoleWrap = document.getElementById('kanban-filtro-role-wrap');
+  if (!board) return;
+
+  // Mostra botão Nova apenas para admin/gerente/diretor
+  if (btnNova) btnNova.style.display = kanbanPodeEditar() ? '' : 'none';
+
+  // Usuários compras/estoque não veem o filtro de role (só veem as deles)
+  const role = currentUserData?.role;
+  if (filtroRoleWrap) {
+    filtroRoleWrap.style.display = kanbanPodeEditar() ? '' : 'none';
+  }
+
+  board.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px;color:var(--text-muted);"><div class="spinner spinner-dark" style="width:32px;height:32px;margin:0 auto 12px;"></div>Carregando...</div>';
+
+  try {
+    let snap;
+    // Compras e Estoque veem apenas as tarefas do seu time
+    if (role === 'compras') {
+      snap = await db.collection('kanban_tasks')
+        .where('assignedRole', 'in', ['compras','ambos']).get();
+    } else if (role === 'estoque') {
+      snap = await db.collection('kanban_tasks')
+        .where('assignedRole', 'in', ['estoque','ambos']).get();
+    } else {
+      // admin/diretor/gerente veem tudo
+      snap = await db.collection('kanban_tasks').get();
+    }
+
+    _kanbanTasks = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+    // Filtros locais
+    const filtroRole     = document.getElementById('kanban-filtro-role')?.value || '';
+    const filtroUrgencia = document.getElementById('kanban-filtro-urgencia')?.value || '';
+
+    let tasks = _kanbanTasks;
+    if (filtroRole)     tasks = tasks.filter(t => t.assignedRole === filtroRole || t.assignedRole === 'ambos');
+    if (filtroUrgencia) tasks = tasks.filter(t => t.urgency === filtroUrgencia);
+
+    // Ordena: urgência decrescente, depois prazo
+    const urgOrd = { critica:0, alta:1, media:2, baixa:3 };
+    tasks.sort((a,b) => {
+      const u = (urgOrd[a.urgency]||3) - (urgOrd[b.urgency]||3);
+      if (u !== 0) return u;
+      return (a.deadline||'9999') < (b.deadline||'9999') ? -1 : 1;
+    });
+
+    if (countEl) countEl.textContent = `${tasks.length} atividade${tasks.length !== 1 ? 's' : ''}`;
+
+    // Agrupa por status
+    const cols = ['aguardando','em_execucao','em_revisao','concluido'];
+    const grupos = {};
+    cols.forEach(s => grupos[s] = []);
+    tasks.forEach(t => { (grupos[t.status] || grupos['aguardando']).push(t); });
+
+    board.style.gridTemplateColumns = 'repeat(4,1fr)';
+    board.innerHTML = cols.map(status => {
+      const st = KANBAN_STATUS[status];
+      const items = grupos[status];
+      const cards = items.length > 0
+        ? items.map(t => renderKanbanCard(t)).join('')
+        : `<div style="text-align:center;padding:20px 12px;color:var(--text-muted);font-size:12px;">Nenhuma atividade</div>`;
+
+      return `
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden;">
+          <div style="padding:12px 16px;border-bottom:1px solid var(--border);background:${st.bg};display:flex;align-items:center;justify-content:space-between;">
+            <span style="font-size:13px;font-weight:700;color:${st.cor};">${st.label}</span>
+            <span style="font-size:11px;font-weight:700;background:${st.bg};color:${st.cor};padding:2px 8px;border-radius:12px;border:1px solid ${st.cor}33;">${items.length}</span>
+          </div>
+          <div style="padding:10px;display:flex;flex-direction:column;gap:8px;min-height:120px;">
+            ${cards}
+          </div>
+        </div>`;
+    }).join('');
+
+  } catch(e) {
+    console.error('loadKanban error:', e);
+    board.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:32px;color:var(--danger);">Erro: ${e.message}</div>`;
+  }
+}
+
+function renderKanbanCard(t) {
+  const urg  = KANBAN_URGENCIA[t.urgency] || KANBAN_URGENCIA.baixa;
+  const role = KANBAN_ROLE[t.assignedRole] || { label: t.assignedRole, cor: 'var(--lumen)' };
+  const podEd = kanbanPodeEditar();
+
+  // Calcular prazo
+  let prazoHtml = '';
+  if (t.deadline) {
+    const hoje = new Date(); hoje.setHours(0,0,0,0);
+    const prazo = new Date(t.deadline + 'T00:00:00');
+    const dias  = Math.round((prazo - hoje) / 86400000);
+    const prazoLabel = t.deadline.split('-').reverse().join('/');
+    if (t.status !== 'concluido') {
+      if (dias < 0)      prazoHtml = `<span style="color:var(--danger);font-size:10px;font-weight:700;">⚠️ ${Math.abs(dias)}d atrasado</span>`;
+      else if (dias === 0) prazoHtml = `<span style="color:var(--danger);font-size:10px;font-weight:700;">🔥 Vence hoje</span>`;
+      else if (dias <= 2)  prazoHtml = `<span style="color:#f97316;font-size:10px;font-weight:700;">⏰ ${dias}d restante${dias>1?'s':''}</span>`;
+      else                 prazoHtml = `<span style="color:var(--text-muted);font-size:10px;">📅 ${prazoLabel}</span>`;
+    } else {
+      prazoHtml = `<span style="color:var(--text-muted);font-size:10px;">📅 ${prazoLabel}</span>`;
+    }
+  }
+
+  const editBtns = podEd ? `
+    <div style="display:flex;gap:4px;margin-top:8px;">
+      <button onclick="editarKanbanTask('${t.id}')"
+        style="flex:1;padding:4px;font-size:10px;font-weight:700;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text-muted);cursor:pointer;">
+        ✏️ Editar
+      </button>
+      <button onclick="moverKanbanTask('${t.id}')"
+        style="flex:1;padding:4px;font-size:10px;font-weight:700;border-radius:6px;border:1px solid var(--lumen);background:rgba(79,140,255,0.08);color:var(--lumen);cursor:pointer;">
+        ▶ Mover
+      </button>
+      <button onclick="excluirKanbanTask('${t.id}')"
+        style="padding:4px 8px;font-size:10px;border-radius:6px;border:1px solid var(--danger);background:var(--danger-bg);color:var(--danger);cursor:pointer;">
+        🗑
+      </button>
+    </div>` : `
+    <div style="margin-top:8px;">
+      <button onclick="atualizarStatusProprio('${t.id}')"
+        style="width:100%;padding:4px;font-size:10px;font-weight:700;border-radius:6px;border:1px solid var(--lumen);background:rgba(79,140,255,0.08);color:var(--lumen);cursor:pointer;">
+        ▶ Atualizar Status
+      </button>
+    </div>`;
+
+  return `
+    <div style="background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:12px;
+      border-left:3px solid ${urg.cor};">
+      <!-- Header do card -->
+      <div style="display:flex;align-items:flex-start;gap:6px;margin-bottom:8px;">
+        <span style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;background:${urg.bg};color:${urg.cor};white-space:nowrap;">${urg.label}</span>
+        <span style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;background:${role.cor}22;color:${role.cor};white-space:nowrap;margin-left:auto;">${role.label}</span>
+      </div>
+      <!-- Título -->
+      <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:4px;line-height:1.3;">${t.title}</div>
+      <!-- Descrição -->
+      ${t.description ? `<div style="font-size:11px;color:var(--text-muted);margin-bottom:6px;line-height:1.4;">${t.description}</div>` : ''}
+      <!-- Prazo -->
+      ${prazoHtml ? `<div style="margin-bottom:4px;">${prazoHtml}</div>` : ''}
+      <!-- Criado por -->
+      <div style="font-size:10px;color:var(--text-muted);">Por: ${t.createdBy || '—'}</div>
+      ${editBtns}
+    </div>`;
+}
+
+function abrirModalNovaTask() {
+  document.getElementById('ktask-id').value = '';
+  document.getElementById('ktask-titulo').value = '';
+  document.getElementById('ktask-desc').value = '';
+  document.getElementById('ktask-role').value = 'compras';
+  document.getElementById('ktask-urgencia').value = 'media';
+  document.getElementById('ktask-status').value = 'aguardando';
+  document.getElementById('ktask-prazo').value = '';
+  document.getElementById('modal-kanban-title').textContent = 'Nova Atividade';
+  document.getElementById('modal-kanban-task').classList.remove('hidden');
+}
+
+function editarKanbanTask(id) {
+  const t = _kanbanTasks.find(x => x.id === id);
+  if (!t) return;
+  document.getElementById('ktask-id').value = id;
+  document.getElementById('ktask-titulo').value = t.title || '';
+  document.getElementById('ktask-desc').value = t.description || '';
+  document.getElementById('ktask-role').value = t.assignedRole || 'compras';
+  document.getElementById('ktask-urgencia').value = t.urgency || 'media';
+  document.getElementById('ktask-status').value = t.status || 'aguardando';
+  document.getElementById('ktask-prazo').value = t.deadline || '';
+  document.getElementById('modal-kanban-title').textContent = 'Editar Atividade';
+  document.getElementById('modal-kanban-task').classList.remove('hidden');
+}
+
+async function salvarKanbanTask() {
+  const id     = document.getElementById('ktask-id').value;
+  const titulo = document.getElementById('ktask-titulo').value.trim();
+  if (!titulo) { showToast('Informe o título da atividade.'); return; }
+
+  const data = {
+    title:        titulo,
+    description:  document.getElementById('ktask-desc').value.trim(),
+    assignedRole: document.getElementById('ktask-role').value,
+    urgency:      document.getElementById('ktask-urgencia').value,
+    status:       document.getElementById('ktask-status').value,
+    deadline:     document.getElementById('ktask-prazo').value || '',
+    updatedAt:    firebase.firestore.FieldValue.serverTimestamp(),
+  };
+
+  try {
+    if (id) {
+      await db.collection('kanban_tasks').doc(id).update(data);
+      showToast('✅ Atividade atualizada!');
+    } else {
+      data.createdBy = currentUserData?.name || '';
+      data.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+      await db.collection('kanban_tasks').add(data);
+      showToast('✅ Atividade criada!');
+    }
+    closeModal('modal-kanban-task');
+    loadKanban();
+  } catch(e) {
+    showToast('❌ Erro: ' + e.message);
+  }
+}
+
+async function moverKanbanTask(id) {
+  const t = _kanbanTasks.find(x => x.id === id);
+  if (!t) return;
+  const ordem = ['aguardando','em_execucao','em_revisao','concluido'];
+  const idx   = ordem.indexOf(t.status);
+  if (idx >= ordem.length - 1) { showToast('Atividade já está em Concluído.'); return; }
+  const proximo = ordem[idx + 1];
+  try {
+    const upd = { status: proximo, updatedAt: firebase.firestore.FieldValue.serverTimestamp() };
+    if (proximo === 'concluido') upd.completedAt = firebase.firestore.FieldValue.serverTimestamp();
+    await db.collection('kanban_tasks').doc(id).update(upd);
+    showToast(`✅ Movido para: ${KANBAN_STATUS[proximo].label}`);
+    loadKanban();
+  } catch(e) { showToast('❌ Erro: ' + e.message); }
+}
+
+async function atualizarStatusProprio(id) {
+  const t = _kanbanTasks.find(x => x.id === id);
+  if (!t) return;
+  // Compras/Estoque só podem mover para frente (não podem criar ou excluir)
+  const ordem = ['aguardando','em_execucao','em_revisao','concluido'];
+  const idx   = ordem.indexOf(t.status);
+  if (idx >= ordem.length - 1) { showToast('Atividade já está concluída.'); return; }
+  const labels = ordem.slice(idx+1).map(s => KANBAN_STATUS[s].label);
+  const proximo = ordem[idx + 1];
+  if (!confirm(`Mover para "${KANBAN_STATUS[proximo].label}"?`)) return;
+  try {
+    const upd = { status: proximo, updatedAt: firebase.firestore.FieldValue.serverTimestamp() };
+    if (proximo === 'concluido') upd.completedAt = firebase.firestore.FieldValue.serverTimestamp();
+    await db.collection('kanban_tasks').doc(id).update(upd);
+    showToast(`✅ Status atualizado: ${KANBAN_STATUS[proximo].label}`);
+    loadKanban();
+  } catch(e) { showToast('❌ Erro: ' + e.message); }
+}
+
+async function excluirKanbanTask(id) {
+  if (!confirm('Excluir esta atividade permanentemente?')) return;
+  try {
+    await db.collection('kanban_tasks').doc(id).delete();
+    showToast('🗑️ Atividade excluída.');
+    loadKanban();
+  } catch(e) { showToast('❌ Erro: ' + e.message); }
+}
 
 // ═══════════════════════════════════════════════════════════════
 // 📊 PRODUTIVIDADE DA EQUIPE
