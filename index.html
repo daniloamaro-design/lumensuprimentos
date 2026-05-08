@@ -1628,11 +1628,13 @@
             </div>
           </div>
           <!-- Resumo de totais -->
-          <div id="hist-resumo" style="display:none;padding:10px 16px;background:rgba(255,255,255,0.03);border-bottom:1px solid var(--border);display:flex;gap:24px;flex-wrap:wrap;">
-            <div style="font-size:12px;">📥 <strong id="hist-total-ent">0</strong> entradas</div>
-            <div style="font-size:12px;">📤 <strong id="hist-total-sai">0</strong> saídas</div>
-            <div style="font-size:12px;">🏠 Casas: <strong id="hist-total-casas">—</strong></div>
-            <div style="font-size:12px;">👤 Usuários: <strong id="hist-total-users">—</strong></div>
+          <div id="hist-resumo" style="display:none;padding:10px 16px;background:rgba(255,255,255,0.03);border-bottom:1px solid var(--border);display:flex;gap:20px;align-items:center;">
+            <span style="display:inline-flex;align-items:center;gap:6px;font-size:12px;background:rgba(34,197,94,0.12);border:1px solid rgba(34,197,94,0.3);border-radius:20px;padding:4px 12px;">
+              📥 <strong id="hist-total-ent" style="color:var(--ok);">0</strong> <span style="color:var(--text-muted);">entradas</span>
+            </span>
+            <span style="display:inline-flex;align-items:center;gap:6px;font-size:12px;background:rgba(239,68,68,0.10);border:1px solid rgba(239,68,68,0.25);border-radius:20px;padding:4px 12px;">
+              📤 <strong id="hist-total-sai" style="color:var(--danger);">0</strong> <span style="color:var(--text-muted);">saídas</span>
+            </span>
           </div>
           <div class="card-body" style="padding:0;">
             <div class="table-wrap">
@@ -1642,16 +1644,15 @@
                     <th>Data / Hora</th>
                     <th>Tipo</th>
                     <th>Casa</th>
-                    <th>Categoria</th>
-                    <th>Produto</th>
-                    <th style="text-align:right;">Qtd</th>
+                    <th style="text-align:right;">Itens</th>
                     <th>Observação</th>
                     <th>Usuário</th>
+                    <th style="text-align:center;">Detalhes</th>
                     <th style="text-align:center;">Ação</th>
                   </tr>
                 </thead>
                 <tbody id="hist-tbody">
-                  <tr><td colspan="9" style="text-align:center;padding:32px;color:var(--text-muted);">Use os filtros acima para buscar movimentações</td></tr>
+                  <tr><td colspan="8" style="text-align:center;padding:32px;color:var(--text-muted);">Use os filtros acima para buscar movimentações</td></tr>
                 </tbody>
               </table>
             </div>
@@ -13655,16 +13656,14 @@ async function loadMovHistory() {
     const resumoEl = document.getElementById('hist-resumo');
     if (resumoEl) {
       resumoEl.style.display = 'flex';
-      document.getElementById('hist-total-ent').textContent   = totEnt;
-      document.getElementById('hist-total-sai').textContent   = totSai;
-      document.getElementById('hist-total-casas').textContent = casasSet.join(', ') || '—';
-      document.getElementById('hist-total-users').textContent = usersSet.join(', ') || '—';
+      document.getElementById('hist-total-ent').textContent = totEnt;
+      document.getElementById('hist-total-sai').textContent = totSai;
     }
     // Guarda docs para exportação CSV
     window._histDocs = docs;
 
     if (docs.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:32px;color:var(--text-muted);">Nenhuma movimentação encontrada</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:32px;color:var(--text-muted);">Nenhuma movimentação encontrada</td></tr>';
       return;
     }
 
@@ -13679,7 +13678,6 @@ async function loadMovHistory() {
       if (dt && !isNaN(dt)) {
         dataHora = dt.toLocaleString('pt-BR');
       } else if (d.dateStr) {
-        // dateStr formato YYYYMMDD → formata para dd/mm/aaaa
         const ds = d.dateStr;
         if (ds.length === 8) dataHora = ds.slice(6,8) + '/' + ds.slice(4,6) + '/' + ds.slice(0,4);
         else dataHora = d.dateStr;
@@ -13688,29 +13686,32 @@ async function loadMovHistory() {
         ? '<span style="color:var(--ok);font-weight:700;">📥 Entrada</span>'
         : '<span style="color:var(--danger);font-weight:700;">📤 Saída</span>';
 
-      // Monta lista de itens
       const itens = d.items || [];
-      const itensHtml = itens.length > 0
-        ? itens.map(it => `${it.prodName || it.productId}: ${it.qty} ${it.unit || ''}`).join('<br>')
-        : (d.prodName ? `${d.prodName}: ${d.qty}` : '—');
-
-      const catLabel = d.catKey ? (window.CATEGORIAS?.[d.catKey]?.nome || d.catKey) : (d.category || '—');
+      const totalItens = itens.length;
+      const qtdTotal   = itens.reduce((s,i) => s + (parseFloat(i.qty)||0), 0) || d.qty || 0;
 
       const canDelete = ['admin','diretor','gerente','compras','estoque'].includes(currentUserData?.role);
 
-      return `<tr>
+      // Escapa o id para uso inline
+      const eid = d.id.replace(/'/g, "\'");
+
+      return `<tr style="cursor:default;">
         <td style="font-size:12px;white-space:nowrap;">${dataHora}</td>
         <td>${tipo2}</td>
         <td style="font-size:12px;">${d.house || '—'}</td>
-        <td style="font-size:12px;">${catLabel}</td>
-        <td style="font-size:12px;">${itensHtml}</td>
-        <td style="text-align:right;font-weight:700;">${itens.reduce((s,i) => s + (parseFloat(i.qty)||0), 0) || d.qty || '—'}</td>
-        <td style="font-size:12px;color:var(--text-muted);max-width:180px;">${d.obs || '—'}</td>
+        <td style="text-align:right;font-weight:700;">${totalItens > 0 ? totalItens + ' produto' + (totalItens > 1 ? 's' : '') + ' · ' + qtdTotal + ' un.' : (qtdTotal ? qtdTotal + ' un.' : '—')}</td>
+        <td style="font-size:12px;color:var(--text-muted);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${(d.obs||'').replace(/"/g,'&quot;')}">${d.obs || '—'}</td>
         <td style="font-size:12px;color:var(--text-muted);">${d.registeredBy || '—'}</td>
         <td style="text-align:center;">
-          ${canDelete ? `<button onclick="deleteMovement('${d.id}')"
+          <button onclick="verMovimento('${eid}')"
+            style="background:rgba(var(--lumen-rgb,79,140,255),0.12);color:var(--lumen);border:1px solid rgba(var(--lumen-rgb,79,140,255),0.3);border-radius:6px;padding:3px 12px;font-size:11px;font-weight:700;cursor:pointer;">
+            🔍 Ver
+          </button>
+        </td>
+        <td style="text-align:center;">
+          ${canDelete ? `<button onclick="deleteMovement('${eid}')"
             style="background:var(--danger-bg);color:var(--danger);border:1px solid var(--danger);border-radius:6px;padding:3px 10px;font-size:11px;font-weight:700;cursor:pointer;">
-            🗑️ Excluir
+            🗑️
           </button>` : '—'}
         </td>
       </tr>`;
@@ -13718,7 +13719,7 @@ async function loadMovHistory() {
 
   } catch(e) {
     console.error('loadMovHistory error:', e);
-    tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;padding:32px;color:var(--danger);">Erro ao carregar: ${e.message}<br><small style="color:var(--text-muted);">Se aparecer "requires an index", crie o índice no Firebase Console (link no console do navegador)</small></td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:32px;color:var(--danger);">Erro ao carregar: ${e.message}<br><small style="color:var(--text-muted);">Se aparecer "requires an index", crie o índice no Firebase Console (link no console do navegador)</small></td></tr>`;
   }
 }
 
@@ -15243,7 +15244,114 @@ async function gerarSlidesMetas() {
     html += '<div class="subtitle">Obra Lumen · Sistema Lumen Estoque</div>';
     html += '<div style="font-size:13px;color:#3a6186;margin-top:32px;">Gerado em ' + new Date().toLocaleString('pt-BR') + '</div>';
     html += '</div>';
-    html += '</body></html>';
+    html += '
+<script>
+// ─────────────────────────────────────────────
+// 🔍 DETALHES DE MOVIMENTAÇÃO
+// ─────────────────────────────────────────────
+function verMovimento(id) {
+  const docs = window._histDocs || [];
+  const d = docs.find(x => x.id === id);
+  if (!d) { showToast('Movimentação não encontrada.'); return; }
+
+  const modal = document.getElementById('modal-mov-detalhe');
+  const body  = document.getElementById('modal-mov-body');
+  const title = document.getElementById('modal-mov-title');
+  if (!modal) return;
+
+  // Formata data/hora
+  let dt = null;
+  if (d.createdAt?.toDate) dt = d.createdAt.toDate();
+  else if (d.date) dt = new Date(d.date + 'T00:00:00');
+  const dataHora = dt && !isNaN(dt) ? dt.toLocaleString('pt-BR') : (d.dateStr || '—');
+
+  const tipoIcon  = d.type === 'entrada' ? '📥' : '📤';
+  const tipoCor   = d.type === 'entrada' ? 'var(--ok)' : 'var(--danger)';
+  const tipoLabel = d.type === 'entrada' ? 'Entrada' : 'Saída';
+
+  title.innerHTML = `${tipoIcon} ${tipoLabel} — ${d.house || ''}`;
+
+  // Monta itens agrupados por categoria
+  const itens = d.items || [];
+  // Agrupa por catKey
+  const porCat = {};
+  itens.forEach(it => {
+    const ck = it.catKey || 'outros';
+    if (!porCat[ck]) porCat[ck] = [];
+    porCat[ck].push(it);
+  });
+
+  const itensHtml = Object.entries(porCat).length > 0
+    ? Object.entries(porCat).map(([ck, items]) => {
+        const cat = window.CATEGORIAS?.[ck];
+        const catLabel = cat ? `${cat.icon || ''} ${cat.nome}` : ck;
+        const rows = items.map(it => {
+          const nome = it.prodNome || it.prodName || it.productId || it.prodId || '—';
+          const qty  = parseFloat(it.qty) || 0;
+          const un   = it.unidade || it.unit || '';
+          return `<tr>
+            <td style="padding:7px 10px;font-size:13px;">${nome}</td>
+            <td style="padding:7px 10px;text-align:right;font-weight:700;font-size:13px;color:${tipoCor};">${qty}</td>
+            <td style="padding:7px 10px;font-size:12px;color:var(--text-muted);">${un}</td>
+          </tr>`;
+        }).join('');
+        return `<div style="margin-bottom:14px;">
+          <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted);margin-bottom:6px;">${catLabel}</div>
+          <table style="width:100%;border-collapse:collapse;background:var(--surface-raised,var(--surface));border-radius:8px;overflow:hidden;border:1px solid var(--border);">
+            <thead><tr style="background:rgba(255,255,255,0.04);">
+              <th style="padding:6px 10px;text-align:left;font-size:11px;color:var(--text-muted);font-weight:600;">Produto</th>
+              <th style="padding:6px 10px;text-align:right;font-size:11px;color:var(--text-muted);font-weight:600;">Qtd</th>
+              <th style="padding:6px 10px;font-size:11px;color:var(--text-muted);font-weight:600;">Un.</th>
+            </tr></thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>`;
+      }).join('')
+    : '<div style="color:var(--text-muted);font-size:13px;padding:12px 0;">Nenhum produto registrado.</div>';
+
+  const infoRows = [
+    ['🗓️ Data / Hora', dataHora],
+    ['🏠 Casa', d.house || '—'],
+    ['👤 Registrado por', d.registeredBy || '—'],
+    ['🔖 Código', d.code || '—'],
+    d.isDonation ? ['🎁 Tipo', 'Doação'] : null,
+    d.obs ? ['📝 Observação', d.obs] : null,
+  ].filter(Boolean);
+
+  body.innerHTML = `
+    <!-- Info geral -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:18px;">
+      ${infoRows.map(([label, val]) => `
+        <div style="background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:8px;padding:8px 12px;">
+          <div style="font-size:10px;color:var(--text-muted);font-weight:700;margin-bottom:2px;">${label}</div>
+          <div style="font-size:13px;font-weight:600;">${val}</div>
+        </div>`).join('')}
+    </div>
+    <!-- Produtos -->
+    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--lumen);margin-bottom:10px;">Produtos</div>
+    ${itensHtml}
+  `;
+
+  modal.classList.remove('hidden');
+}
+</script>
+<!-- MODAL: Detalhes da Movimentação -->
+<div class="modal-overlay hidden" id="modal-mov-detalhe">
+  <div class="modal" style="max-width:560px;width:100%;">
+    <div class="modal-header">
+      <div class="modal-title" id="modal-mov-title">📋 Detalhes da Movimentação</div>
+      <button class="modal-close" onclick="closeModal('modal-mov-detalhe')">×</button>
+    </div>
+    <div class="modal-body" id="modal-mov-body" style="padding:20px;">
+      <div class="loading-state"><div class="spinner spinner-dark"></div> Carregando...</div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('modal-mov-detalhe')">Fechar</button>
+    </div>
+  </div>
+</div>
+
+</body></html>';
 
     w.document.write(html);
     w.document.close();
@@ -15292,6 +15400,113 @@ const _origInitOrcPendentes = typeof initOrcPendentes === 'function' ? initOrcPe
     <input type="text" id="chat-ia-input" placeholder="Digite sua pergunta..." onkeydown="if(event.key==='Enter')enviarMsgIA()"
       style="flex:1;padding:8px 12px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:13px;outline:none;">
     <button onclick="enviarMsgIA()" style="padding:8px 14px;background:var(--lumen);color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;">➤</button>
+  </div>
+</div>
+
+
+<script>
+// ─────────────────────────────────────────────
+// 🔍 DETALHES DE MOVIMENTAÇÃO
+// ─────────────────────────────────────────────
+function verMovimento(id) {
+  const docs = window._histDocs || [];
+  const d = docs.find(x => x.id === id);
+  if (!d) { showToast('Movimentação não encontrada.'); return; }
+
+  const modal = document.getElementById('modal-mov-detalhe');
+  const body  = document.getElementById('modal-mov-body');
+  const title = document.getElementById('modal-mov-title');
+  if (!modal) return;
+
+  // Formata data/hora
+  let dt = null;
+  if (d.createdAt?.toDate) dt = d.createdAt.toDate();
+  else if (d.date) dt = new Date(d.date + 'T00:00:00');
+  const dataHora = dt && !isNaN(dt) ? dt.toLocaleString('pt-BR') : (d.dateStr || '—');
+
+  const tipoIcon  = d.type === 'entrada' ? '📥' : '📤';
+  const tipoCor   = d.type === 'entrada' ? 'var(--ok)' : 'var(--danger)';
+  const tipoLabel = d.type === 'entrada' ? 'Entrada' : 'Saída';
+
+  title.innerHTML = `${tipoIcon} ${tipoLabel} — ${d.house || ''}`;
+
+  // Monta itens agrupados por categoria
+  const itens = d.items || [];
+  // Agrupa por catKey
+  const porCat = {};
+  itens.forEach(it => {
+    const ck = it.catKey || 'outros';
+    if (!porCat[ck]) porCat[ck] = [];
+    porCat[ck].push(it);
+  });
+
+  const itensHtml = Object.entries(porCat).length > 0
+    ? Object.entries(porCat).map(([ck, items]) => {
+        const cat = window.CATEGORIAS?.[ck];
+        const catLabel = cat ? `${cat.icon || ''} ${cat.nome}` : ck;
+        const rows = items.map(it => {
+          const nome = it.prodNome || it.prodName || it.productId || it.prodId || '—';
+          const qty  = parseFloat(it.qty) || 0;
+          const un   = it.unidade || it.unit || '';
+          return `<tr>
+            <td style="padding:7px 10px;font-size:13px;">${nome}</td>
+            <td style="padding:7px 10px;text-align:right;font-weight:700;font-size:13px;color:${tipoCor};">${qty}</td>
+            <td style="padding:7px 10px;font-size:12px;color:var(--text-muted);">${un}</td>
+          </tr>`;
+        }).join('');
+        return `<div style="margin-bottom:14px;">
+          <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted);margin-bottom:6px;">${catLabel}</div>
+          <table style="width:100%;border-collapse:collapse;background:var(--surface-raised,var(--surface));border-radius:8px;overflow:hidden;border:1px solid var(--border);">
+            <thead><tr style="background:rgba(255,255,255,0.04);">
+              <th style="padding:6px 10px;text-align:left;font-size:11px;color:var(--text-muted);font-weight:600;">Produto</th>
+              <th style="padding:6px 10px;text-align:right;font-size:11px;color:var(--text-muted);font-weight:600;">Qtd</th>
+              <th style="padding:6px 10px;font-size:11px;color:var(--text-muted);font-weight:600;">Un.</th>
+            </tr></thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>`;
+      }).join('')
+    : '<div style="color:var(--text-muted);font-size:13px;padding:12px 0;">Nenhum produto registrado.</div>';
+
+  const infoRows = [
+    ['🗓️ Data / Hora', dataHora],
+    ['🏠 Casa', d.house || '—'],
+    ['👤 Registrado por', d.registeredBy || '—'],
+    ['🔖 Código', d.code || '—'],
+    d.isDonation ? ['🎁 Tipo', 'Doação'] : null,
+    d.obs ? ['📝 Observação', d.obs] : null,
+  ].filter(Boolean);
+
+  body.innerHTML = `
+    <!-- Info geral -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:18px;">
+      ${infoRows.map(([label, val]) => `
+        <div style="background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:8px;padding:8px 12px;">
+          <div style="font-size:10px;color:var(--text-muted);font-weight:700;margin-bottom:2px;">${label}</div>
+          <div style="font-size:13px;font-weight:600;">${val}</div>
+        </div>`).join('')}
+    </div>
+    <!-- Produtos -->
+    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--lumen);margin-bottom:10px;">Produtos</div>
+    ${itensHtml}
+  `;
+
+  modal.classList.remove('hidden');
+}
+</script>
+<!-- MODAL: Detalhes da Movimentação -->
+<div class="modal-overlay hidden" id="modal-mov-detalhe">
+  <div class="modal" style="max-width:560px;width:100%;">
+    <div class="modal-header">
+      <div class="modal-title" id="modal-mov-title">📋 Detalhes da Movimentação</div>
+      <button class="modal-close" onclick="closeModal('modal-mov-detalhe')">×</button>
+    </div>
+    <div class="modal-body" id="modal-mov-body" style="padding:20px;">
+      <div class="loading-state"><div class="spinner spinner-dark"></div> Carregando...</div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('modal-mov-detalhe')">Fechar</button>
+    </div>
   </div>
 </div>
 
