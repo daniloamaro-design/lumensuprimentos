@@ -1210,6 +1210,34 @@
         Previsão IA
         <span class="sidebar-badge" style="background:var(--lumen);color:#fff;font-size:9px;padding:1px 5px;border-radius:8px;margin-left:4px;">IA</span>
       </button>
+      <!-- Itens visíveis apenas para Compras -->
+      <div class="compras-only" style="display:none;">
+        <div style="margin:10px 10px 4px;font-size:9px;font-weight:800;color:#14b8a6;text-transform:uppercase;letter-spacing:1px;opacity:0.8;">Gestão</div>
+        <button class="sidebar-item" data-page="financeiro-compras" onclick="goPageMobile('financeiro-compras')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
+          Financeiro
+        </button>
+        <button class="sidebar-item" data-page="houses" onclick="goPageMobile('houses')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+          Casas e Pessoas
+        </button>
+        <button class="sidebar-item" data-page="manage-houses" onclick="goPageMobile('manage-houses')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><line x1="12" y1="2" x2="12" y2="7"/><line x1="9" y1="22" x2="15" y2="22"/><line x1="12" y1="17" x2="12" y2="22"/></svg>
+          Gerenciar Casas
+        </button>
+        <button class="sidebar-item" data-page="manage-cities" onclick="goPageMobile('manage-cities')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="10" r="3"/><path d="M12 2a8 8 0 0 0-8 8c0 5.25 8 14 8 14s8-8.75 8-14a8 8 0 0 0-8-8z"/></svg>
+          Gerenciar Cidades
+        </button>
+        <button class="sidebar-item" data-page="manage-products" onclick="goPageMobile('manage-products')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 7H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/><line x1="12" y1="12" x2="12" y2="12"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+          Gerenciar Produtos
+        </button>
+        <button class="sidebar-item" data-page="manage-cats" onclick="goPageMobile('manage-cats')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="7" height="7" rx="1"/><rect x="15" y="3" width="7" height="7" rx="1"/><rect x="2" y="14" width="7" height="7" rx="1"/><rect x="15" y="14" width="7" height="7" rx="1"/></svg>
+          Gerenciar Categorias
+        </button>
+      </div>
     </div>
 
     <!-- SIDEBAR: INDICADORES -->
@@ -4876,6 +4904,10 @@ async function showApp() {
   document.getElementById('sidebar-estoque-compras').style.display    = (isAdminLevel || isCompras || isEstoque) ? 'block' : 'none';
   document.getElementById('sidebar-financeiro').style.display         = (isAdminLevel || isFinanceiro) ? 'block' : 'none';
   document.getElementById('sidebar-usuario').style.display            = isUsuario ? 'block' : 'none';
+  // Itens extras visíveis apenas para Compras (e admin)
+  document.querySelectorAll('.compras-only').forEach(el => {
+    el.style.display = (isCompras || isAdminLevel) ? 'block' : 'none';
+  });
 
   // Carrega casas e cidades dinâmicas do Firebase antes de popular os selects
   await loadDynamicData();
@@ -4971,12 +5003,18 @@ function populateHouseSelects() {
 function goPage(page) {
   // ── Guarda de acesso por perfil ──
   const role = currentUserData?.role || 'usuario';
-  const adminPages     = ['dashboard','users','houses','manage-houses','manage-cities','manage-products','manage-cats','percapita','indicadores','comparativo','previsao','calc-real','produtividade'];
+  const adminPages     = ['dashboard','users','produtividade'];
   const financeiroPages= ['financeiro-compras'];
-  const comprasPages   = ['all-orders','prices','orcamento-financeiro','orc-pendentes','fornecedores','kanban'];
-  const estoquePages   = ['stock-view','transferencias','kanban'];
+  // Páginas exclusivas de compras (além das shared)
+  const comprasPages   = ['all-orders','prices','orcamento-financeiro','orc-pendentes','fornecedores','kanban',
+                          'houses','manage-houses','manage-cities','manage-products','manage-cats','financeiro-compras',
+                          'percapita','indicadores','comparativo','metas','ind-fornecedores','previsao','calc-real'];
+  // Páginas de estoque (além das shared)
+  const estoquePages   = ['stock-view','transferencias','kanban',
+                          'all-orders','prices','orcamento-financeiro','orc-pendentes','fornecedores',
+                          'percapita','indicadores','comparativo','metas','ind-fornecedores','previsao'];
   const usuarioPages   = ['movement','my-orders'];
-  const sharedPages    = ['new-order','movement','percapita','prices','indicadores','comparativo','metas','ind-fornecedores','previsao','fornecedores','orcamento-financeiro','orc-pendentes','all-orders','stock-view','transferencias','financeiro-compras','kanban'];
+  const sharedPages    = ['new-order','movement'];
 
   const _isAdminLvl = ['admin','diretor','gerente'].includes(role);
   if (!_isAdminLvl) {
@@ -4987,14 +5025,20 @@ function goPage(page) {
     if (!allowed.includes(page)) { showToast('⛔ Você não tem permissão para esta página.'); return; }
   }
   if (role === 'estoque') {
-    if (!sharedPages.includes(page) && !estoquePages.includes(page)) { showToast('⛔ Você não tem permissão para esta página.'); return; }
+    if (!sharedPages.includes(page) && !estoquePages.includes(page)) {
+      showToast('⛔ Você não tem permissão para esta página.');
+      return;
+    }
   }
   if (role === 'financeiro') {
     const allowed = ['fornecedores','financeiro-compras'];
     if (!allowed.includes(page)) { showToast('⛔ Você não tem permissão para esta página.'); return; }
   }
   if (role === 'compras') {
-    if (!sharedPages.includes(page) && !comprasPages.includes(page)) { showToast('⛔ Você não tem permissão para esta página.'); return; }
+    if (!sharedPages.includes(page) && !comprasPages.includes(page)) {
+      showToast('⛔ Você não tem permissão para esta página.');
+      return;
+    }
   }
   // ── fim da guarda ──
 
