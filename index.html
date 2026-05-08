@@ -5944,6 +5944,30 @@ function previewOrder() {
   openModal('modal-preview');
 }
 
+
+// Gera sigla da casa para o código do pedido
+// Estratégia: iniciais de todas as palavras (sem artigos/preposições curtas)
+// Palavra única: 4 primeiras letras. 2+ palavras: iniciais, máx 4 chars.
+function siglaCasa(nome) {
+  if (!nome) return 'XX';
+  const norm = s => s.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
+  const normU = s => norm(s).toUpperCase();
+  // Remove sufixos geográficos somente se 3 letras maiúsculas após hífen: "- SP", "- SSA"
+  const semSufixo = nome.replace(/\s*-\s*[A-Z]{2,3}\s*$/,'').trim();
+  // Filtra apenas artigos/preposições de até 2 letras
+  const skip = new Set(['de','da','do','e','a','o']);
+  const palavras = semSufixo.split(/[\s.]+/).filter(p => p.length >= 1 && !skip.has(norm(p)));
+  let sigla;
+  if (palavras.length === 0) {
+    sigla = normU(semSufixo.replace(/\s/g,'')).slice(0,4);
+  } else if (palavras.length === 1) {
+    sigla = normU(palavras[0]).slice(0,4);
+  } else {
+    sigla = palavras.map(p => normU(p)[0]).join('').slice(0,4);
+  }
+  return sigla;
+}
+
 async function submitOrder() {
   closeModal('modal-preview');
   const house = v('order-house');
@@ -5963,8 +5987,9 @@ async function submitOrder() {
   // Get next sequence for today
   const todayOrders = await db.collection('orders')
     .where('dateStr','==',dateStr).get();
-  const seq = String(todayOrders.size + 1).padStart(3,'0');
-  const code = `LM-${catType}-${dateStr}-${seq}`;
+  const seq    = String(todayOrders.size + 1).padStart(3,'0');
+  const prefix = siglaCasa(house); // sigla da casa substitui "LM"
+  const code   = `${prefix}-${catType}-${dateStr}-${seq}`;
 
   const orderData = {
     code,
@@ -7526,13 +7551,14 @@ async function submitMovement() {
     });
   });
 
-  // Gera código da movimentação
+  // Gera código da movimentação — prefixo = sigla da casa
   const dateStr = date.replace(/-/g,'');
   const todaySnap = await db.collection('movements').where('dateStr','==',dateStr).get();
   const seq = String(todaySnap.size + 1).padStart(3,'0');
   const typeCode = type === 'entrada' ? 'ENT' : 'SAI';
   const donCode  = isDonation ? '-DOA' : '';
-  const code = `LM-${typeCode}${donCode}-${dateStr}-${seq}`;
+  const prefixMov = siglaCasa(house); // sigla da casa no lugar de "LM"
+  const code = `${prefixMov}-${typeCode}${donCode}-${dateStr}-${seq}`;
 
   const movData = {
     code, house, type, date, dateStr, obs,
@@ -12611,17 +12637,74 @@ function finRenderizarNFs(dados) {
 
 function finExportarNFsExcel() {
   if (!finNFsData.length) { showToast('Nenhum dado para exportar!'); return; }
-  const rows = [['Pedido','Casa','Data','Fornecedor','Valor NF','Nº NF','Vencimento Boleto','Arquivo NF','Boleto','Status']];
+
+  // Cabeçalho — "Link NF" e "Link Boleto" serão células com hyperlink clicável
+  const header = ['Pedido','Casa','Data','Fornecedor','Valor NF (R$)','Nº NF','Venc. Boleto',
+                  'Arquivo NF','Link NF (clique para baixar)','Arquivo Boleto','Link Boleto (clique para baixar)','Status'];
+  const rows = [header];
+
   finNFsData.forEach(d => {
     const dataP = d.createdAt?.toDate ? d.createdAt.toDate().toLocaleDateString('pt-BR') : '';
-    rows.push([d.code||d.id, d.house||'', dataP, d.fornecedorNome||'', d.nfValor||0, d.nfNumero||'', d.boletoVencimento||'', d.nfFileName||'', d.boletoFileName||'', d.status||'']);
+    rows.push([
+      d.code||d.id,
+      d.house||'',
+      dataP,
+      d.fornecedorNome||'',
+      d.nfValor||0,
+      d.nfNumero||'',
+      d.boletoVencimento||'',
+      d.nfFileName||'',
+      d.nfFileURL ? '⬇ Baixar NF' : '—',        // texto da célula linkada
+      d.boletoFileName||'',
+      d.boletoFileURL ? '⬇ Baixar Boleto' : '—', // texto da célula linkada
+      d.status||''
+    ]);
   });
+
   const ws = XLSX.utils.aoa_to_sheet(rows);
-  ws['!cols'] = rows[0].map(() => ({ wch: 20 }));
+
+  // ── Adicionar hyperlinks clicáveis nas colunas de link (I=col 8, K=col 10) ──
+  finNFsData.forEach((d, i) => {
+    const rowIdx = i + 1; // +1 porque linha 0 é o cabeçalho
+    // Link NF — coluna I (índice 8)
+    if (d.nfFileURL) {
+      const cellNF = XLSX.utils.encode_cell({ r: rowIdx, c: 8 });
+      ws[cellNF] = {
+        v: '⬇ Baixar NF',
+        t: 's',
+        l: { Target: d.nfFileURL, Tooltip: d.nfFileName || 'Baixar NF' }
+      };
+    }
+    // Link Boleto — coluna K (índice 10)
+    if (d.boletoFileURL) {
+      const cellBol = XLSX.utils.encode_cell({ r: rowIdx, c: 10 });
+      ws[cellBol] = {
+        v: '⬇ Baixar Boleto',
+        t: 's',
+        l: { Target: d.boletoFileURL, Tooltip: d.boletoFileName || 'Baixar Boleto' }
+      };
+    }
+  });
+
+  ws['!cols'] = [
+    { wch: 24 }, // Pedido
+    { wch: 22 }, // Casa
+    { wch: 12 }, // Data
+    { wch: 26 }, // Fornecedor
+    { wch: 14 }, // Valor NF
+    { wch: 14 }, // Nº NF
+    { wch: 14 }, // Venc. Boleto
+    { wch: 26 }, // Arquivo NF
+    { wch: 24 }, // Link NF
+    { wch: 26 }, // Arquivo Boleto
+    { wch: 24 }, // Link Boleto
+    { wch: 18 }, // Status
+  ];
+
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'NFs e Boletos');
-  XLSX.writeFile(wb, 'LM-NFs-Boletos-' + new Date().toISOString().slice(0,10) + '.xlsx');
-  showToast('✅ Excel de NFs exportado!');
+  XLSX.writeFile(wb, 'NFs-Boletos-' + new Date().toISOString().slice(0,10) + '.xlsx');
+  showToast('✅ Excel de NFs exportado com links clicáveis!');
 }
 
 // ── EXPORTAÇÃO FORMATO SP ─────────────────────────────────
