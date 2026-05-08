@@ -15533,19 +15533,19 @@ async function loadKanban() {
 
   try {
     let snap;
-    // Compras e Estoque veem apenas as tarefas do seu time
-    if (role === 'compras') {
-      snap = await db.collection('kanban_tasks')
-        .where('assignedRole', 'in', ['compras','ambos']).get();
-    } else if (role === 'estoque') {
-      snap = await db.collection('kanban_tasks')
-        .where('assignedRole', 'in', ['estoque','ambos']).get();
-    } else {
-      // admin/diretor/gerente veem tudo
-      snap = await db.collection('kanban_tasks').get();
-    }
+    // Busca todos os documentos e filtra localmente (evita index composto no Firestore)
+    snap = await db.collection('kanban_tasks').get();
+    let allTasks = snap.docs.map(d => ({ id: d.id, ...d.data() }));
 
-    _kanbanTasks = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    // Filtra por role: compras/estoque veem só as do seu time + ambos
+    if (role === 'compras') {
+      allTasks = allTasks.filter(t => t.assignedRole === 'compras' || t.assignedRole === 'ambos');
+    } else if (role === 'estoque') {
+      allTasks = allTasks.filter(t => t.assignedRole === 'estoque' || t.assignedRole === 'ambos');
+    }
+    // admin/diretor/gerente veem tudo sem filtro adicional
+
+    _kanbanTasks = allTasks;
 
     // Filtros locais
     const filtroRole     = document.getElementById('kanban-filtro-role')?.value || '';
