@@ -1304,7 +1304,7 @@
         <div class="stat-card"><div class="stat-label">Total de Pessoas</div><div class="stat-value ok" id="s-people">—</div></div>
         <div class="stat-card"><div class="stat-label">Pedidos Este Mês</div><div class="stat-value" id="s-orders">—</div></div>
         <div class="stat-card stat-card-danger"><div class="stat-label">⚠️ Estoque Crítico</div><div class="stat-value danger" id="s-low-stock">—</div><div class="stat-sub" id="s-low-stock-sub">casas com estoque baixo</div></div>
-        <div class="stat-card stat-card-warn"><div class="stat-label">🛒 Em Compra Agora</div><div class="stat-value warn" id="s-in-purchase">—</div><div class="stat-sub">pedidos em andamento</div></div>
+        <div class="stat-card stat-card-warn"><div class="stat-label">🛒 Em Compra Agora</div><div class="stat-value warn" id="s-in-purchase">—</div><div class="stat-sub">pedidos em orçamento</div></div>
         <div class="stat-card stat-card-ok"><div class="stat-label">✅ Concluídos Hoje</div><div class="stat-value ok" id="s-done-today">—</div><div class="stat-sub">pedidos finalizados hoje</div></div>
       </div>
       <div class="card" style="margin-bottom:16px;">
@@ -1532,15 +1532,13 @@
       <!-- Status filter tabs -->
       <div class="status-filter-wrap" id="order-status-filters">
         <button class="status-filter-btn active" data-status="" onclick="setOrderStatusFilter(this,'')">Todos <span class="count" id="cnt-all">—</span></button>
-        <button class="status-filter-btn" data-status="aberto" onclick="setOrderStatusFilter(this,'aberto')">🔵 Em aberto <span class="count" id="cnt-aberto">—</span></button>
-        <button class="status-filter-btn" data-status="aguardando_estoque" onclick="setOrderStatusFilter(this,'aguardando_estoque')">🟣 Aguard. Estoque <span class="count" id="cnt-aguardando_estoque">—</span></button>
+        <button class="status-filter-btn" data-status="aguardando_estoque" onclick="setOrderStatusFilter(this,'aguardando_estoque')">🏪 Análise Estoque <span class="count" id="cnt-aguardando_estoque">—</span></button>
         <button class="status-filter-btn" data-status="estoque_avaliado" onclick="setOrderStatusFilter(this,'estoque_avaliado')">🟤 Estoque Avaliado <span class="count" id="cnt-estoque_avaliado">—</span></button>
-        <button class="status-filter-btn" data-status="aguardando_compra" onclick="setOrderStatusFilter(this,'aguardando_compra')">🟡 Aguard. Compra <span class="count" id="cnt-aguardando_compra">—</span></button>
-        <button class="status-filter-btn" data-status="andamento" onclick="setOrderStatusFilter(this,'andamento')">🟡 Em andamento <span class="count" id="cnt-andamento">—</span></button>
+        <button class="status-filter-btn" data-status="aguardando_compra" onclick="setOrderStatusFilter(this,'aguardando_compra')">🛒 Orçamentos <span class="count" id="cnt-aguardando_compra">—</span></button>
+        <button class="status-filter-btn" data-status="andamento" onclick="setOrderStatusFilter(this,'andamento')">📊 Análise Orçam. <span class="count" id="cnt-andamento">—</span></button>
         <button class="status-filter-btn" data-status="concluido" onclick="setOrderStatusFilter(this,'concluido')">🟢 Concluído <span class="count" id="cnt-concluido">—</span></button>
         <button class="status-filter-btn" data-status="cancelado" onclick="setOrderStatusFilter(this,'cancelado')">⚫ Cancelado <span class="count" id="cnt-cancelado">—</span></button>
-        <button class="status-filter-btn" data-status="aguardando_nf" onclick="setOrderStatusFilter(this,'aguardando_nf')">🟠 Aguardando NF <span class="count" id="cnt-aguardando_nf">—</span></button>
-        <button class="status-filter-btn" data-status="pendente_pag" onclick="setOrderStatusFilter(this,'pendente_pag')">🔴 Pend. Pagamento <span class="count" id="cnt-pendente_pag">—</span></button>
+
         <button class="status-filter-btn" data-status="pedido_liberado" onclick="setOrderStatusFilter(this,'pedido_liberado')" style="border-color:#4CAF50;color:#1B5E20;">🟩 Pedido Liberado <span class="count" id="cnt-pedido_liberado">—</span></button>
       </div>
 
@@ -1592,7 +1590,7 @@
       </div>
       <div class="card">
         <div class="table-wrap"><table>
-          <thead><tr><th>Código</th><th>Casa</th><th>Categorias</th><th>Itens</th><th>Solicitante</th><th>Data</th><th>Status</th><th>Valor Est.</th><th style="text-align:center;">Entrega</th><th>Ações</th></tr></thead>
+          <thead><tr><th>Código</th><th>Casa</th><th>Categorias</th><th>Itens</th><th>Solicitante</th><th>Data</th><th>Status</th><th>NF</th><th style="text-align:center;">Entrega</th><th>Ações</th></tr></thead>
           <tbody id="all-orders-tbody"><tr><td colspan="10" class="text-muted" style="text-align:center;padding:24px;">Carregando...</td></tr></tbody>
         </table></div>
       </div>
@@ -3339,7 +3337,7 @@ document.querySelector('.main-content').insertAdjacentHTML('beforeend', `
 <div class="page" id="page-orc-pendentes">
   <div class="page-header">
     <div class="page-title">Orçamentos Pendentes</div>
-    <div class="page-sub">Todos os pedidos em andamento com suas cotações por fornecedor — autorize ou recuse diretamente aqui</div>
+    <div class="page-sub">Todos os pedidos em orçamento com suas cotações por fornecedor — autorize ou recuse diretamente aqui</div>
   </div>
 
   <!-- Cards de totais -->
@@ -4101,15 +4099,13 @@ document.querySelector('.main-content').insertAdjacentHTML('beforeend', `
       <button class="btn btn-secondary" id="btn-attach-nf" onclick="openAttachModal()">📎 Anexar NF/Boleto</button>
       <button class="btn btn-secondary" id="btn-eval-stock" onclick="openStockEvalModal()" style="background:var(--ok-bg);color:var(--ok);border:1px solid rgba(26,122,68,0.3);">🏪 Avaliar Estoque</button>
       <select class="form-select" id="order-status-select" style="width:auto;font-size:12px;" onchange="updateOrderStatus()">
-        <option value="aberto">🔵 Em aberto</option>
-        <option value="aguardando_estoque">🟣 Aguardando Estoque</option>
+        <option value="aguardando_estoque">🏪 Análise de Estoque</option>
         <option value="estoque_avaliado">🟤 Estoque Avaliado</option>
-        <option value="aguardando_compra">🟡 Aguardando Compra</option>
-        <option value="andamento">🟡 Em andamento</option>
+        <option value="aguardando_compra">🛒 Orçamentos</option>
+        <option value="andamento">📊 Análise de Orçamento</option>
         <option value="concluido">🟢 Concluído</option>
         <option value="cancelado">⚫ Cancelado</option>
-        <option value="aguardando_nf">🟠 Aguardando NF</option>
-        <option value="pendente_pag">🔴 Pendente Pagamento</option>
+
         <option value="pedido_liberado">🟩 Pedido Liberado</option>
       </select>
     </div>
@@ -5234,7 +5230,7 @@ async function loadDashboard() {
       const ts = d.data().createdAt?.toDate();
       return ts && ts.getMonth() === thisMonth && ts.getFullYear() === thisYear;
     }).length;
-    const openOrders      = ordersSnap.docs.filter(d => (d.data().status || 'aberto') === 'aberto').length;
+    const openOrders      = ordersSnap.docs.filter(d => ['aberto','aguardando_estoque'].includes(d.data().status || 'aguardando_estoque')).length;
     const awaitingNF      = ordersSnap.docs.filter(d => d.data().status === 'aguardando_nf').length;
     const pendingPay      = ordersSnap.docs.filter(d => d.data().status === 'pendente_pag').length;
 
@@ -5288,7 +5284,7 @@ async function loadDashboard() {
     if (flowEl) {
       const flowStages = [
         { key: 'aberto',            label: '🔵 Em Aberto',          color: '#3B82F6' },
-        { key: 'aguardando_estoque',label: '🟣 Aguard. Estoque',    color: '#8B5CF6' },
+        { key: 'aguardando_estoque',label: '🏪 Análise Estoque',    color: '#8B5CF6' },
         { key: 'estoque_avaliado',  label: '🟤 Estoque Avaliado',   color: '#92400E' },
         { key: 'aguardando_compra', label: '🟡 Aguard. Compra',     color: '#D97706' },
         { key: 'andamento',         label: '🟡 Em Andamento',       color: '#F59E0B' },
@@ -6089,16 +6085,16 @@ function setOrderStatusFilter(btn, status) {
 
 function getStatusBadge(status) {
   const map = {
-    'aberto':              ['badge-status-open',        '🔵 Em aberto'],
-    'aguardando_estoque':  ['badge-status-estoque',     '🟣 Aguard. Estoque'],
-    'estoque_avaliado':    ['badge-status-stk-ok',      '🟤 Estoque Avaliado'],
-    'aguardando_compra':   ['badge-status-comp',        '🟡 Aguard. Compra'],
-    'andamento':           ['badge-status-progress',    '🟡 Em andamento'],
+    'aberto':              ['badge-status-estoque',     '🏪 Análise Estoque'],
+    'aguardando_estoque':  ['badge-status-estoque',     '🏪 Análise Estoque'],
+    'estoque_avaliado':    ['badge-status-stk-ok',      '✅ Estoque Avaliado'],
+    'aguardando_compra':   ['badge-status-comp',        '🛒 Orçamentos'],
+    'andamento':           ['badge-status-progress',    '📊 Análise Orçam.'],
     'concluido':           ['badge-status-done',        '🟢 Concluído'],
     'cancelado':           ['badge-status-cancelled',   '⚫ Cancelado'],
-    'aguardando_nf':       ['badge-status-awaiting-nf', '🟠 Aguard. NF'],
+    'aguardando_nf':       ['badge-status-estoque',     '🏪 Análise Estoque'],
     'pendente_pag':        ['badge-status-pending-pay', '🔴 Pend. Pag.'],
-    'pedido_liberado':     ['badge-status-liberado',     '🟩 Pedido Liberado'],
+    'pedido_liberado':     ['badge-status-liberado',    '🟩 Pedido Liberado'],
   };
   const [cls, label] = map[status] || ['badge-gray','🔵 Em aberto'];
   return `<span class="badge ${cls}">${label}</span>`;
@@ -6106,23 +6102,23 @@ function getStatusBadge(status) {
 
 // ─── Pipeline de status (para exibir barra de progresso) ───
 const ORDER_PIPELINE = [
-  { key: 'aberto',             label: 'Solicitação',     icon: '📋' },
-  { key: 'aguardando_estoque', label: 'Estoque',         icon: '🏪' },
+  { key: 'aguardando_estoque', label: 'Análise Estoque', icon: '🏪' },
   { key: 'estoque_avaliado',   label: 'Avaliado',        icon: '✅' },
-  { key: 'aguardando_compra',  label: 'Compras',         icon: '🛒' },
-  { key: 'andamento',          label: 'Em andamento',    icon: '⚙️' },
+  { key: 'aguardando_compra',  label: 'Orçamentos',      icon: '🛒' },
+  { key: 'andamento',          label: 'Análise Orçam.',  icon: '📊' },
   { key: 'pedido_liberado',    label: 'Ped. Liberado',   icon: '🟩' },
-  { key: 'aguardando_nf',      label: 'Aguard. NF',      icon: '🟠' },
   { key: 'concluido',          label: 'Concluído',       icon: '🟢' },
 ];
 
 function buildPipelineBar(currentStatus) {
-  const skip = ['cancelado','pendente_pag'];
-  if (skip.includes(currentStatus)) {
+  if (currentStatus === 'cancelado') {
     return `<div style="padding:8px 0;text-align:center;">
-      <span class="badge badge-status-cancelled">⚫ ${currentStatus === 'cancelado' ? 'Cancelado' : 'Pendente Pagamento'}</span>
+      <span class="badge badge-status-cancelled">⚫ Cancelado</span>
     </div>`;
   }
+  // Mapeia status legados para o pipeline atual
+  if (currentStatus === 'aberto' || currentStatus === 'pendente_pag') currentStatus = 'aguardando_estoque';
+  if (currentStatus === 'aguardando_nf') currentStatus = 'pedido_liberado';
   const steps = ORDER_PIPELINE;
   const curIdx = steps.findIndex(s => s.key === currentStatus);
   return `<div class="pipeline-bar">
@@ -6185,7 +6181,7 @@ async function loadAllOrders() {
 
   // Update status counts
   const allDocs = snap.docs;
-  const statuses = ['aberto','aguardando_estoque','estoque_avaliado','aguardando_compra','andamento','pedido_liberado','concluido','cancelado','aguardando_nf','pendente_pag'];
+  const statuses = ['aguardando_estoque','estoque_avaliado','aguardando_compra','andamento','pedido_liberado','concluido','cancelado'];
   document.getElementById('cnt-all').textContent = allDocs.length;
   statuses.forEach(s => {
     const el = document.getElementById(`cnt-${s}`);
@@ -6210,8 +6206,10 @@ async function loadAllOrders() {
         if (p) estimatedTotal += parseFloat(qty) * p;
       });
     });
-    const estStr = estimatedTotal > 0 ? `R$ ${estimatedTotal.toFixed(2)}` : '—';
-    const hasAttach = o.nfNumero ? '📎' : '';
+    const nfStr = o.nfNumero
+      ? `<span style="font-size:11px;font-weight:700;color:var(--ok);">📎 NF ${o.nfNumero}</span><br><span style="font-size:11px;color:var(--text-muted);">R$ ${parseFloat(o.nfValor||0).toLocaleString('pt-BR',{minimumFractionDigits:2})}</span>`
+      : '<span style="font-size:11px;color:var(--text-muted);">—</span>';
+    const hasAttach = ''; // incorporado na coluna NF
     const entregue = o.entregue === true;
     const entregaBtn = entregue
       ? `<button class="btn btn-sm delivery-btn delivered" onclick="toggleDelivery('${d.id}', true)" title="Clique para marcar como não entregue" style="background:var(--ok-bg);color:var(--ok);border:1.5px solid var(--ok);min-width:100px;">✅ Entregue</button>`
@@ -6224,7 +6222,7 @@ async function loadAllOrders() {
       <td>${o.requesterName || '—'}</td>
       <td>${formatDate(o.createdAt)}</td>
       <td>${getStatusBadge(status)}</td>
-      <td style="font-weight:600;color:var(--lumen);">${estStr}</td>
+      <td>${nfStr}</td>
       <td style="text-align:center;">${entregaBtn}</td>
       <td>
         <button class="btn btn-secondary btn-sm" onclick="showOrderDetail('${d.id}')">Ver</button>
@@ -6885,7 +6883,6 @@ async function saveAttachment() {
     nfNumero, nfValor: parseFloat(nfValor)||0,
     boletoVencimento: boletoVenc,
     fornecedorId, fornecedorNome, attachObs,
-    status: 'aguardando_nf',
     updatedAt: firebase.firestore.FieldValue.serverTimestamp()
   };
 
@@ -10951,7 +10948,7 @@ function exportOrdersExcel() {
   // Build CSV with order data
   const tbody = document.getElementById('all-orders-tbody');
   if (!tbody) return;
-  const rows = [['Código','Casa','Categorias','Itens','Solicitante','Data','Status','Valor Est.','NF','Boleto Venc.']];
+  const rows = [['Código','Casa','Categorias','Itens','Solicitante','Data','Status','NF / Valor','Arquivo NF','Boleto Venc.']];
   tbody.querySelectorAll('tr').forEach(tr => {
     const cells = tr.querySelectorAll('td');
     if (cells.length < 2) return;
@@ -11564,7 +11561,7 @@ async function initOrcPendentes() {
     '<div class="empty-state-title">Buscando orçamentos em andamento...</div></div>';
 
   try {
-    // 1. Busca pedidos em andamento
+    // 1. Busca pedidos em orçamento
     const pedidosSnap = await db.collection('orders')
       .where('status', '==', 'andamento')
       .orderBy('createdAt', 'desc')
