@@ -13575,13 +13575,18 @@ function movSetTab(tab, btn) {
         sel.appendChild(opt);
       });
     }
-    // Define datas padrão (últimos 30 dias)
+    // Reseta filtros ao abrir a aba
+    const tipoSel = document.getElementById('hist-filtro-tipo');
+    if (tipoSel) tipoSel.value = ''; // garante "Todos"
+    const userFilt = document.getElementById('hist-filtro-user');
+    if (userFilt) userFilt.value = '';
+    // Define datas padrão: início do ano atual até hoje
     const hoje = new Date();
-    const trinta = new Date(hoje); trinta.setDate(hoje.getDate() - 30);
+    const inicioAno = new Date(hoje.getFullYear(), 0, 1); // 01/01/ano
     const de  = document.getElementById('hist-filtro-de');
     const ate = document.getElementById('hist-filtro-ate');
-    if (de && !de.value)  de.value  = trinta.toISOString().slice(0,10);
-    if (ate && !ate.value) ate.value = hoje.toISOString().slice(0,10);
+    if (de)  de.value  = inicioAno.toISOString().slice(0,10);
+    if (ate) ate.value = hoje.toISOString().slice(0,10);
     loadMovHistory();
   }
 }
@@ -13598,12 +13603,32 @@ async function loadMovHistory() {
     const ate     = document.getElementById('hist-filtro-ate')?.value  || '';
     const usuario = (document.getElementById('hist-filtro-user')?.value || '').toLowerCase();
 
-    // Busca sem índice composto — filtra localmente
-    let query = db.collection('movements').orderBy('createdAt', 'desc').limit(1000);
-    if (casa) query = db.collection('movements').where('house', '==', casa).orderBy('createdAt', 'desc').limit(1000);
-
-    const snap = await query.get();
-    let docs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    // Busca com fallback: tenta orderBy createdAt, se falhar (índice ausente) busca sem ordem
+    let docs = [];
+    try {
+      let query = db.collection('movements').orderBy('createdAt', 'desc').limit(1000);
+      if (casa) query = db.collection('movements').where('house', '==', casa).orderBy('createdAt', 'desc').limit(1000);
+      const snap = await query.get();
+      docs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    } catch(e1) {
+      // Fallback sem orderBy (evita erro de índice composto)
+      console.warn('Histórico: orderBy falhou, tentando sem ordenação.', e1.message);
+      try {
+        let q2 = casa
+          ? db.collection('movements').where('house', '==', casa).limit(1000)
+          : db.collection('movements').limit(1000);
+        const snap2 = await q2.get();
+        docs = snap2.docs.map(d => ({ id: d.id, ...d.data() }));
+      } catch(e2) {
+        throw e2; // propaga para o catch externo
+      }
+    }
+    // Ordena localmente por data (mais recente primeiro)
+    docs.sort((a, b) => {
+      const ta = a.createdAt?.toDate ? a.createdAt.toDate().getTime() : (a.dateStr ? parseInt(a.dateStr) : 0);
+      const tb = b.createdAt?.toDate ? b.createdAt.toDate().getTime() : (b.dateStr ? parseInt(b.dateStr) : 0);
+      return tb - ta;
+    });
 
     // Filtros locais (sem índice composto)
     // dateStr é salvo como "20260508" (YYYYMMDD sem hífen) — converte filtro para o mesmo formato
