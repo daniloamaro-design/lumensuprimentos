@@ -4444,8 +4444,8 @@ const EMAILJS_TEMPLATE_ID = "template_p1hszi8";
 const EMAILJS_PUBLIC_KEY  = "UHnFUf7wjvrxJa2d2";
 
 // Gemini AI — para leitura automática dos formulários físicos
-const GEMINI_API_KEY = "AIzaSyA0aNhueUqE5qVEDLqyeGa5FaGb02cAjGs";
-const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+// GEMINI_API_KEY removida — agora é variável de ambiente no Vercel
+const GEMINI_URL = "/api/gemini"; // chave segura no servidor Vercel
 
 // E-mail do administrador geral
 const ADMIN_EMAIL = "daniloamaro@lumenserfeliz.org";
@@ -11739,23 +11739,36 @@ async function opcSalvarDecisao(cotId, valor) {
 async function opcGerenteDecisao(cotId, valor) {
   try {
     const novoStatus = valor === true ? 'aprovado' : 'recusado';
+    const role = currentUserData?.role || '';
 
     // Busca cotação atual
     const cotSnap = await db.collection('quotations').doc(cotId).get();
     const cotData = cotSnap.data() || {};
 
-    // Só pode aprovar se coordenador também aprovou
-    if (valor === true && cotData.statusCoordenador !== 'aprovado') {
+    // Gerente/admin/diretor podem aprovar diretamente sem depender do coordenador
+    // Coordenadores sem nível de gerente precisam que o coordenador tenha aprovado antes
+    const isGerentePlus = ['admin', 'diretor', 'gerente'].includes(role);
+
+    if (valor === true && !isGerentePlus && cotData.statusCoordenador !== 'aprovado') {
       showToast('⚠️ O coordenador ainda não aprovou esta cotação!');
       return;
     }
 
-    await db.collection('quotations').doc(cotId).update({
+    // Se gerente aprova direto, marca coordenador como aprovado também (para consistência)
+    const updateData = {
       statusGerente: novoStatus,
       gerenteNome: currentUserData?.name || '',
       gerenteEm: firebase.firestore.FieldValue.serverTimestamp(),
       status: novoStatus, // atualiza status final
-    });
+    };
+
+    if (valor === true && isGerentePlus && cotData.statusCoordenador !== 'aprovado') {
+      updateData.statusCoordenador = 'aprovado';
+      updateData.coordenadorNome = currentUserData?.name || '';
+      updateData.coordenadorEm = firebase.firestore.FieldValue.serverTimestamp();
+    }
+
+    await db.collection('quotations').doc(cotId).update(updateData);
 
     // Se gerente aprovou, libera o pedido e salva dados financeiros
     if (valor === true) {
@@ -14416,7 +14429,8 @@ async function opcAprovarLoteCasa(casaNome, tipo) {
   cotIds.forEach(id => {
     const ref = db.collection('quotations').doc(id);
     if (tipo === 'gerente') {
-      batch.update(ref, { statusGerente: 'aprovado', gerenteNome: currentUserData?.name || '', status: 'aprovado' });
+      // Gerente aprova: marca também coordenador como aprovado para consistência
+      batch.update(ref, { statusGerente: 'aprovado', gerenteNome: currentUserData?.name || '', statusCoordenador: 'aprovado', coordenadorNome: currentUserData?.name || '', status: 'aprovado' });
     } else {
       batch.update(ref, { statusCoordenador: 'aprovado', coordenadorNome: currentUserData?.name || '', statusGerente: 'aguardando' });
     }
@@ -15191,6 +15205,7 @@ async function lancarPedidoNoFinanceiro(orderId, orderData) {
 // 🤖 CHAT IA ASSISTENTE
 // ═══════════════════════════════════════════════════════════════
 let chatIAAberto = false;
+let chatMessages = [];
 
 function toggleChatIA() {
   chatIAAberto = !chatIAAberto;
@@ -15216,7 +15231,7 @@ async function enviarMsgIA() {
   const msg   = input.value.trim();
   if (!msg) return;
   input.value = '';
-
+  chatMessages.push({ role: 'user', text: msg });
   addChatMsg(msg, 'user');
   const loadingDiv = addChatMsg('⏳ Pensando...', 'ia');
 
@@ -15240,20 +15255,51 @@ Contexto atual: ${JSON.stringify(ctx)}
 
 Responda em português brasileiro. Seja direto e útil. Se o usuário perguntar onde encontrar algo, indique o menu e a seção exata. Se pedir análises de dados, forneça insights baseados no contexto. Máximo 200 palavras por resposta.`;
 
+  // Monta contents: inclui histórico + msg atual
+  // Gemini exige alternância user/model e nunca dois seguidos do mesmo role
+  const rawHistory = chatMessages
+    .filter(m => m.text && (m.role === 'user' || m.role === 'model'))
+    .slice(-18); // últimas 18 entradas (9 pares)
+
+  // Garante alternância correta
+  const contents = [];
+  let lastRole = null;
+  rawHistory.forEach(m => {
+    if (m.role !== lastRole) {
+      contents.push({ role: m.role, parts: [{ text: m.text }] });
+      lastRole = m.role;
+    }
+  });
+
+  // Adiciona msg atual (sempre role user)
+  if (lastRole !== 'user') {
+    contents.push({ role: 'user', parts: [{ text: msg }] });
+  }
+
+  // Garante que começa com user
+  while (contents.length > 0 && contents[0].role !== 'user') contents.shift();
+
   try {
-    const resp = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' + GEMINI_API_KEY, {
+    const resp = await fetch(GEMINI_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        systemInstruction: { parts: [{ text: systemPrompt }] },
-        contents: [{ role: 'user', parts: [{ text: msg }] }]
+        systemInstruction: { parts: [{ text: systemPrompt }] }, // camelCase: correto para REST API Gemini
+        contents: contents.length ? contents : [{ role: 'user', parts: [{ text: msg }] }]
       })
     });
+    if (!resp.ok) {
+      const errData = await resp.json().catch(() => ({}));
+      const errMsg = errData?.error?.message || resp.statusText;
+      throw new Error(`${resp.status}: ${errMsg}`);
+    }
     const data = await resp.json();
     const resposta = data.candidates?.[0]?.content?.parts?.[0]?.text || 'Desculpe, não consegui processar sua solicitação.';
     loadingDiv.innerHTML = resposta;
+    chatMessages.push({ role: 'model', text: resposta });
   } catch(e) {
-    loadingDiv.innerHTML = '❌ Erro ao conectar com a IA: ' + e.message;
+    loadingDiv.innerHTML = '❌ Erro: ' + e.message;
+    console.error('Gemini error:', e);
   }
 }
 
