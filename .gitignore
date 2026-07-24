@@ -68,3 +68,8 @@ node_modules/
 # dataconnect generated files
 .dataconnect
 env.js
+.vercel
+.env*.local
+
+# Backups locais (não versionar)
+backup/

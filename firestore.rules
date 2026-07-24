@@ -1,77 +1,83 @@
-// ═══════════════════════════════════════════════════════════════════
-//  LUMEN ESTOQUE — REGRAS DE SEGURANÇA DO FIRESTORE
-//  Arquivo: firestore.rules
-//
-//  COMO APLICAR:
-//  1. Acesse: https://console.firebase.google.com
-//  2. Clique no seu projeto
-//  3. Vá em Firestore Database → Regras (aba "Rules")
-//  4. Apague o conteúdo atual e cole TODO o conteúdo abaixo
-//  5. Clique em "Publicar"
-// ═══════════════════════════════════════════════════════════════════
-
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // ── FUNÇÃO AUXILIAR: verifica se o usuário está logado
+    // ══════════════════════════════════════════════
+    //  FUNÇÕES AUXILIARES — COMPARTILHADAS
+    // ══════════════════════════════════════════════
+
     function estaLogado() {
       return request.auth != null;
     }
 
-    // ── FUNÇÃO AUXILIAR: busca o perfil do usuário
+
+    // ══════════════════════════════════════════════
+    //  FUNÇÕES AUXILIARES — LUMEN ESTOQUE
+    // ══════════════════════════════════════════════
+
     function perfilUsuario() {
-      return get(/databases/$(database)/documents/usuarios_perfis/$(request.auth.uid)).data.perfil;
+      let path = /databases/$(database)/documents/usuarios_perfis/$(request.auth.uid);
+      return exists(path) ? get(path).data.perfil : 'guest';
     }
 
-    // ── FUNÇÃO AUXILIAR: verifica se é admin
     function ehAdmin() {
       return estaLogado() && perfilUsuario() == 'admin';
     }
 
-    // ── FUNÇÃO AUXILIAR: verifica se é comprador ou admin
     function ehCompradorOuAdmin() {
       return estaLogado() && perfilUsuario() in ['admin', 'comprador'];
     }
 
-    // ── FUNÇÃO AUXILIAR: verifica se pode ver (qualquer logado)
     function podeVer() {
       return estaLogado();
     }
 
-    // ── FUNÇÃO AUXILIAR: verifica se pode escrever (não é viewer)
     function podeEscrever() {
       return estaLogado() && perfilUsuario() in ['admin', 'comprador', 'gestor', 'solicitante'];
     }
 
-    // ──────────────────────────────────────────────
-    // USUÁRIOS — cada um lê/edita apenas o próprio
-    // ──────────────────────────────────────────────
+
+    // ══════════════════════════════════════════════
+    //  FUNÇÕES AUXILIARES — LUMEN FRETES
+    //  (usa uma única leitura para evitar duplo get)
+    // ══════════════════════════════════════════════
+
+    function dadosFretes() {
+      let path = /databases/$(database)/documents/fretes_users/$(request.auth.uid);
+      return exists(path) ? get(path).data : null;
+    }
+
+    function ehUsuarioFretesAprovado() {
+      return estaLogado() && dadosFretes() != null && dadosFretes().status == 'approved';
+    }
+
+    function ehAdminFretes() {
+      return estaLogado() && dadosFretes() != null
+          && dadosFretes().status == 'approved'
+          && dadosFretes().role == 'admin';
+    }
+
+
+    // ══════════════════════════════════════════════
+    //  COLEÇÕES — LUMEN ESTOQUE
+    // ══════════════════════════════════════════════
+
     match /users/{userId} {
-      allow read: if estaLogado() && (request.auth.uid == userId || ehAdmin());
+      allow read:  if estaLogado() && (request.auth.uid == userId || ehAdmin());
       allow write: if estaLogado() && (request.auth.uid == userId || ehAdmin());
     }
 
-    // ──────────────────────────────────────────────
-    // PERFIS DE USUÁRIO — só admin altera
-    // ──────────────────────────────────────────────
     match /usuarios_perfis/{userId} {
-      allow read: if estaLogado();
+      allow read:  if estaLogado();
       allow write: if ehAdmin();
     }
 
-    // ──────────────────────────────────────────────
-    // AUDIT LOG — qualquer logado cria, só admin lê
-    // ──────────────────────────────────────────────
     match /audit_log/{logId} {
-      allow create: if estaLogado();
-      allow read:   if ehAdmin();
-      allow update, delete: if false; // NUNCA permite alterar ou apagar logs
+      allow create:         if estaLogado();
+      allow read:           if ehAdmin();
+      allow update, delete: if false;
     }
 
-    // ──────────────────────────────────────────────
-    // PEDIDOS (orders) — solicitante cria os próprios
-    // ──────────────────────────────────────────────
     match /orders/{orderId} {
       allow read:   if podeVer();
       allow create: if podeEscrever();
@@ -79,9 +85,6 @@ service cloud.firestore {
       allow delete: if ehAdmin();
     }
 
-    // ──────────────────────────────────────────────
-    // MOVIMENTAÇÕES DE ESTOQUE
-    // ──────────────────────────────────────────────
     match /movements/{movId} {
       allow read:   if podeVer();
       allow create: if podeEscrever();
@@ -89,25 +92,16 @@ service cloud.firestore {
       allow delete: if ehAdmin();
     }
 
-    // ──────────────────────────────────────────────
-    // FINANCEIRO — apenas comprador e admin
-    // ──────────────────────────────────────────────
     match /compras_financeiro/{docId} {
-      allow read:   if ehCompradorOuAdmin();
-      allow write:  if ehCompradorOuAdmin();
+      allow read:  if ehCompradorOuAdmin();
+      allow write: if ehCompradorOuAdmin();
     }
 
-    // ──────────────────────────────────────────────
-    // FORNECEDORES
-    // ──────────────────────────────────────────────
     match /suppliers/{supId} {
-      allow read:   if podeVer();
-      allow write:  if ehCompradorOuAdmin();
+      allow read:  if podeVer();
+      allow write: if ehCompradorOuAdmin();
     }
 
-    // ──────────────────────────────────────────────
-    // COTAÇÕES
-    // ──────────────────────────────────────────────
     match /quotations/{quotId} {
       allow read:   if podeVer();
       allow create: if podeEscrever();
@@ -115,68 +109,222 @@ service cloud.firestore {
       allow delete: if ehCompradorOuAdmin();
     }
 
-    // ──────────────────────────────────────────────
-    // CONFIGURAÇÕES (casas, categorias, preços)
-    // ──────────────────────────────────────────────
     match /houses/{houseId} {
-      allow read:   if podeVer();
-      allow write:  if ehCompradorOuAdmin();
+      allow read:  if podeVer();
+      allow write: if ehCompradorOuAdmin();
     }
 
     match /casas_config/{docId} {
-      allow read:   if podeVer();
-      allow write:  if ehAdmin();
+      allow read:  if podeVer();
+      allow write: if ehAdmin();
+    }
+
+    match /casas_override/{docId} {
+      allow read:  if podeVer();
+      allow write: if ehAdmin();
+    }
+
+    match /casas_removidas/{docId} {
+      allow read:  if podeVer();
+      allow write: if ehAdmin();
     }
 
     match /casas_blocos/{docId} {
-      allow read:   if podeVer();
-      allow write:  if ehCompradorOuAdmin();
+      allow read:  if podeVer();
+      allow write: if ehCompradorOuAdmin();
     }
 
     match /casas_tipo_compra/{docId} {
-      allow read:   if podeVer();
-      allow write:  if ehCompradorOuAdmin();
+      allow read:  if podeVer();
+      allow write: if ehCompradorOuAdmin();
+    }
+
+    match /cidades_config/{docId} {
+      allow read:  if podeVer();
+      allow write: if ehAdmin();
+    }
+
+    match /cidades_override/{docId} {
+      allow read:  if podeVer();
+      allow write: if ehAdmin();
+    }
+
+    match /cidades_removidas/{docId} {
+      allow read:  if podeVer();
+      allow write: if ehAdmin();
     }
 
     match /categorias_config/{docId} {
-      allow read:   if podeVer();
-      allow write:  if ehAdmin();
+      allow read:  if podeVer();
+      allow write: if ehAdmin();
     }
 
     match /produtos_config/{docId} {
-      allow read:   if podeVer();
-      allow write:  if ehCompradorOuAdmin();
+      allow read:  if podeVer();
+      allow write: if ehCompradorOuAdmin();
     }
 
     match /produtos_removidos/{docId} {
-      allow read:   if podeVer();
-      allow write:  if ehCompradorOuAdmin();
+      allow read:  if podeVer();
+      allow write: if ehCompradorOuAdmin();
     }
 
     match /prices/{docId} {
-      allow read:   if podeVer();
-      allow write:  if ehCompradorOuAdmin();
+      allow read:  if podeVer();
+      allow write: if ehCompradorOuAdmin();
     }
 
     match /percapitas/{docId} {
-      allow read:   if podeVer();
-      allow write:  if ehCompradorOuAdmin();
+      allow read:  if podeVer();
+      allow write: if ehCompradorOuAdmin();
     }
 
-    // ──────────────────────────────────────────────
-    // TRANSFERÊNCIAS
-    // ──────────────────────────────────────────────
     match /transferencias/{docId} {
-      allow read:   if podeVer();
-      allow write:  if podeEscrever();
+      allow read:  if podeVer();
+      allow write: if podeEscrever();
     }
 
-    // ──────────────────────────────────────────────
-    // DEMAIS COLEÇÕES — acesso logado padrão
-    // ──────────────────────────────────────────────
-    match /{document=**} {
-      allow read:   if podeVer();
-      allow write:  if podeEscrever();
+    match /transferencias_financeiras/{docId} {
+      allow read:  if ehCompradorOuAdmin();
+      allow write: if ehCompradorOuAdmin();
     }
+
+    match /kanban_tasks/{docId} {
+      allow read:  if podeVer();
+      allow write: if podeEscrever();
+    }
+
+    match /metas/{docId} {
+      allow read:  if podeVer();
+      allow write: if ehCompradorOuAdmin();
+    }
+
+    match /metas_historico/{docId} {
+      allow read:  if podeVer();
+      allow write: if ehCompradorOuAdmin();
+    }
+
+    match /ajustes/{docId} {
+      allow read:  if podeVer();
+      allow write: if ehCompradorOuAdmin();
+    }
+
+    // ⚠️ CONFIRMADO sem coleção correspondente no Firestore (checado no console em
+    // 07/07/2026) e sem nenhum código atual do app gravando nesses nomes. Fechado
+    // com `if false` em vez de removido — reversível, e se algo ainda depender
+    // disso o erro aparece na hora (permission-denied), visível, em vez de ficar
+    // uma porta aberta sem ninguém vigiando.
+    match /variedades/{docId} {
+      allow read, write: if false;
+    }
+
+    match /variedades_propostas/{docId} {
+      allow read, write: if false;
+    }
+
+    // ══════════════════════════════════════════════
+    //  COLEÇÕES — MÓDULO VARIEDADES (nomes reais usados pelo app)
+    //  var_solicitacoes / var_setores / var_counters
+    // ══════════════════════════════════════════════
+
+    match /var_solicitacoes/{docId} {
+      allow read:   if podeVer();
+      allow create: if estaLogado();   // inclui sessão anônima (modo convidado)
+      allow update: if podeEscrever();
+      allow delete: if ehAdmin();
+    }
+
+    match /var_setores/{docId} {
+      allow read:  if podeVer();
+      allow write: if podeEscrever();
+    }
+
+    // var_orcamentos e var_propostas: confirmadas em uso ativo e pesado no código,
+    // sem regra nenhuma até agora — caíam no bloqueio geral (só admin). Espelha o
+    // mesmo padrão já usado em /quotations, a coleção financeiramente equivalente
+    // no módulo de Estoque.
+    match /var_orcamentos/{docId} {
+      allow read:   if podeVer();
+      allow create: if podeEscrever();
+      allow update: if ehCompradorOuAdmin();
+      allow delete: if ehCompradorOuAdmin();
+    }
+
+    match /var_propostas/{docId} {
+      allow read:   if podeVer();
+      allow create: if podeEscrever();
+      allow update: if ehCompradorOuAdmin();
+      allow delete: if ehCompradorOuAdmin();
+    }
+
+    match /var_counters/{doc} {
+      allow read:   if estaLogado();
+      allow create: if estaLogado();
+      // Só aceita incrementar o contador, nunca sobrescrever com qualquer valor —
+      // sem isso, uma sessão anônima poderia zerar/corromper a sequência de códigos.
+      allow update: if estaLogado()
+                    && request.resource.data.ultimo is int
+                    && request.resource.data.ultimo > resource.data.ultimo;
+    }
+
+
+    // ══════════════════════════════════════════════
+    //  COLEÇÕES — LUMEN FRETES
+    // ══════════════════════════════════════════════
+
+    match /fretes_users/{uid} {
+      // CORREÇÃO: separado em get (doc único) e list (coleção inteira)
+      // Sem isso, o admin não conseguia ver a lista de usuários pendentes
+      allow get:    if estaLogado() && (request.auth.uid == uid || ehAdminFretes());
+      allow list:   if ehAdminFretes();
+      allow create: if estaLogado() && request.auth.uid == uid;
+      allow update: if estaLogado() && (request.auth.uid == uid || ehAdminFretes());
+      allow delete: if ehAdminFretes();
+    }
+
+    match /fretes/{freteId} {
+      allow read:   if ehUsuarioFretesAprovado() && (
+                      ehAdminFretes() ||
+                      resource.data.createdByUid == request.auth.uid
+                    );
+      allow create: if ehUsuarioFretesAprovado();
+      allow update: if ehUsuarioFretesAprovado() && (
+                      ehAdminFretes() ||
+                      resource.data.createdByUid == request.auth.uid
+                    );
+      allow delete: if ehAdminFretes();
+    }
+
+    match /fretes_counters/{doc} {
+      allow read, write: if ehUsuarioFretesAprovado();
+    }
+
+    match /freteiros/{fretId} {
+      allow read:                   if ehUsuarioFretesAprovado();
+      allow create, update, delete: if ehAdminFretes();
+    }
+
+    match /casas_lumen/{casaId} {
+      allow read:                   if ehUsuarioFretesAprovado();
+      allow create, update, delete: if ehAdminFretes();
+    }
+
+    match /passagens_solicitacoes/{docId} {
+      allow create: if true;
+    }
+
+    match /passagens_counters/{docId} {
+      allow read, write: if true;
+    }
+
+
+    // ══════════════════════════════════════════════
+    //  BLOQUEIO GERAL
+    // ══════════════════════════════════════════════
+
+    match /{document=**} {
+      allow read, write: if ehAdmin();
+    }
+
   }
 }

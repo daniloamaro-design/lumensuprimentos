@@ -5,14 +5,23 @@
       "maxDuration": 30
     }
   },
-  "routes": [
-    { "src": "/api/gemini", "dest": "/api/gemini.js" },
-    { "src": "/(.*\\.js)",   "dest": "/$1" },
-    { "src": "/(.*\\.css)",  "dest": "/$1" },
-    { "src": "/(.*\\.html)", "dest": "/$1" },
-    { "src": "/(.*\\.pdf)",  "dest": "/$1" },
-    { "src": "/(.*\\.png)",  "dest": "/$1" },
-    { "src": "/(.*\\.ico)",  "dest": "/$1" },
-    { "src": "/(.*)",        "dest": "/index.html" }
+  "headers": [
+    {
+      "source": "/(.*).html",
+      "headers": [
+        { "key": "Content-Type", "value": "text/html; charset=utf-8" }
+      ]
+    },
+    {
+      "source": "/",
+      "headers": [
+        { "key": "Content-Type", "value": "text/html; charset=utf-8" }
+      ]
+    }
+  ],
+  "rewrites": [
+    { "source": "/api/gemini", "destination": "/api/gemini.js" },
+    { "source": "/assistente", "destination": "/lumisassistente.html" },
+    { "source": "/(.*)", "destination": "/index.html" }
   ]
 }
