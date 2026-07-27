@@ -1002,3 +1002,160 @@ async function deleteCity(docId, nome, tipo) {
   }
 }
 
+
+// ─────────────────────────────────────────────
+// 📊  CALCULADO × REAL — CONSUMO POR CASA
+// (implementado em 2026-07-27; página já existia no HTML mas as funções
+//  crHouseChange/loadCalcReal nunca haviam sido criadas)
+// ─────────────────────────────────────────────
+let _crHousesData = null; // nome da casa → total de pessoas
+
+async function _crCarregarCasas() {
+  if (_crHousesData) return _crHousesData;
+  const snap = await db.collection('houses').get();
+  _crHousesData = {};
+  snap.docs.forEach(d => {
+    const h = d.data();
+    const nome = h.name || d.id;
+    const total = (h.acolhidos || h.currentPeople || 0) + (h.coordenadores || 0) + (h.extra || 0);
+    _crHousesData[nome] = total || 1;
+  });
+  const sel = document.getElementById('cr-house');
+  if (sel && sel.options.length <= 1) {
+    Object.keys(_crHousesData).sort().forEach(nome => {
+      const opt = document.createElement('option');
+      opt.value = nome; opt.textContent = nome;
+      sel.appendChild(opt);
+    });
+  }
+  return _crHousesData;
+}
+
+async function crHouseChange() {
+  const casas = await _crCarregarCasas();
+  const casa = document.getElementById('cr-house').value;
+  const inp  = document.getElementById('cr-pessoas-sim');
+  inp.value = '';
+  inp.placeholder = (casa && casas[casa]) ? ('Atual: ' + casas[casa]) : 'Qtd. pessoas';
+}
+
+async function loadCalcReal() {
+  const tbody = document.getElementById('cr-tbody');
+  const kpis  = document.getElementById('cr-kpis');
+  if (!tbody) return;
+  tbody.innerHTML = '<tr><td colspan="11" class="text-muted" style="text-align:center;padding:40px;">Analisando movimentações…</td></tr>';
+
+  try {
+    const casas    = await _crCarregarCasas();
+    const casaSel  = document.getElementById('cr-house').value;
+    const catSel   = document.getElementById('cr-cat').value;
+    const dias     = Math.max(1, parseInt(document.getElementById('cr-dias').value, 10) || 30);
+    const pessoasSim = parseInt(document.getElementById('cr-pessoas-sim').value, 10) || 0;
+
+    const movSnap = await db.collection('movements').get();
+    const iniDate = new Date();
+    iniDate.setDate(iniDate.getDate() - dias);
+
+    // Agrega por casa+categoria+produto: saídas no período, entradas/saídas totais (p/ estoque)
+    const dados = {};
+    movSnap.docs.forEach(d => {
+      const m = d.data();
+      if (!m.house || !m.items) return;
+      if (casaSel && m.house !== casaSel) return;
+      const dt = m.date && m.date.toDate ? m.date.toDate() : (m.date ? new Date(m.date) : null);
+      m.items.forEach(item => {
+        if (!item.catKey || !item.prodId) return;
+        if (catSel && item.catKey !== catSel) return;
+        const k = m.house + '|' + item.catKey + '|' + item.prodId;
+        if (!dados[k]) dados[k] = {
+          casa: m.house, catKey: item.catKey, prodId: item.prodId,
+          nome: nomeProdutoAtual(item.catKey, item.prodId, item.prodNome),
+          unidade: item.unidade || '',
+          saidasPeriodo: 0, entradasTot: 0, saidasTot: 0
+        };
+        const q = item.qty || 0;
+        if (m.type === 'entrada') dados[k].entradasTot += q;
+        else {
+          dados[k].saidasTot += q;
+          if (dt && dt >= iniDate) dados[k].saidasPeriodo += q;
+        }
+      });
+    });
+
+    // Per capita personalizado das casas envolvidas (fallback: padrão)
+    const casasEnvolvidas = casaSel ? [casaSel] : [...new Set(Object.values(dados).map(p => p.casa))];
+    await Promise.all(casasEnvolvidas.map(async c => {
+      if (housePercapitas[c]) return;
+      try {
+        const s = await db.collection('percapitas').where('house', '==', c).get();
+        housePercapitas[c] = !s.empty ? (s.docs[0].data().values || PERCAPITAS_PADRAO) : PERCAPITAS_PADRAO;
+      } catch (e) {
+        housePercapitas[c] = PERCAPITAS_PADRAO;
+      }
+    }));
+
+    const linhas = Object.values(dados).map(p => {
+      const pessoas = pessoasSim || casas[p.casa] || 1;
+      const pc      = housePercapitas[p.casa] || PERCAPITAS_PADRAO;
+      const pcVal   = (pc[p.catKey] && pc[p.catKey][p.prodId]) || 0;
+      const calcDia = pcVal * pessoas;
+      const realDia = p.saidasPeriodo / dias;
+      const estoque = Math.max(0, p.entradasTot - p.saidasTot);
+      const base    = realDia > 0 ? realDia : calcDia;
+      const diasRest = base > 0 ? estoque / base : null;
+      const diff    = realDia - calcDia;
+      const varPct  = calcDia > 0 ? (diff / calcDia) * 100 : (realDia > 0 ? null : 0);
+      return Object.assign({}, p, { pessoas, calcDia, realDia, estoque, diasRest, diff, varPct });
+    })
+    .filter(p => p.calcDia > 0 || p.realDia > 0 || p.estoque > 0)
+    .sort((a, b) => a.casa.localeCompare(b.casa) ||
+      ((b.varPct === null ? 999 : b.varPct) - (a.varPct === null ? 999 : a.varPct)));
+
+    const f = (n, dec) => (n == null ? '—' : n.toLocaleString('pt-BR', { maximumFractionDigits: (dec == null ? 2 : dec) }));
+
+    // KPIs
+    const nOk      = linhas.filter(p => p.varPct !== null && p.varPct <= 0).length;
+    const nAtencao = linhas.filter(p => p.varPct !== null && p.varPct > 0 && p.varPct <= 20).length;
+    const nCritico = linhas.filter(p => p.varPct === null || p.varPct > 20).length;
+    const tile = (label, valor, cor) =>
+      '<div class="card"><div class="card-body" style="padding:14px;">' +
+      '<div style="font-size:11px;color:var(--text-muted);font-weight:700;text-transform:uppercase;">' + label + '</div>' +
+      '<div style="font-size:24px;font-weight:800;color:' + cor + ';margin-top:4px;">' + valor + '</div>' +
+      '</div></div>';
+    kpis.innerHTML =
+      tile('Produtos analisados', linhas.length, 'var(--text)') +
+      tile('🟢 Dentro do calculado', nOk, 'var(--ok)') +
+      tile('🟡 Até 20% acima', nAtencao, 'var(--warn)') +
+      tile('🔴 Acima de 20%', nCritico, 'var(--danger)');
+
+    if (!linhas.length) {
+      tbody.innerHTML = '<tr><td colspan="11" class="text-muted" style="text-align:center;padding:40px;">Nenhuma movimentação encontrada para os filtros escolhidos.</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = linhas.map(p => {
+      let badge, corVar;
+      if (p.varPct === null)   { badge = '🔴 s/ per capita';          corVar = 'var(--danger)'; }
+      else if (p.varPct <= 0)  { badge = '🟢 ' + f(p.varPct, 0) + '%';  corVar = 'var(--ok)'; }
+      else if (p.varPct <= 20) { badge = '🟡 +' + f(p.varPct, 0) + '%'; corVar = 'var(--warn)'; }
+      else                     { badge = '🔴 +' + f(p.varPct, 0) + '%'; corVar = 'var(--danger)'; }
+      const catDef = CATEGORIAS[p.catKey];
+      return '<tr>' +
+        '<td>' + p.casa + '</td>' +
+        '<td>' + (catDef ? catDef.icon + ' ' + catDef.nome : p.catKey) + '</td>' +
+        '<td>' + p.nome + '</td>' +
+        '<td>' + p.unidade + '</td>' +
+        '<td style="text-align:right;">' + p.pessoas + '</td>' +
+        '<td style="text-align:right;font-family:monospace;">' + f(p.calcDia, 3) + '</td>' +
+        '<td style="text-align:right;font-family:monospace;">' + f(p.realDia, 3) + '</td>' +
+        '<td style="text-align:right;font-family:monospace;color:' + corVar + ';">' + (p.diff > 0 ? '+' : '') + f(p.diff, 3) + '</td>' +
+        '<td style="text-align:center;font-weight:700;color:' + corVar + ';">' + badge + '</td>' +
+        '<td style="text-align:right;font-family:monospace;">' + f(p.estoque) + '</td>' +
+        '<td style="text-align:right;font-weight:700;">' + (p.diasRest == null ? '—' : f(p.diasRest, 0) + ' dias') + '</td>' +
+        '</tr>';
+    }).join('');
+  } catch (e) {
+    console.error('Erro em loadCalcReal:', e);
+    tbody.innerHTML = '<tr><td colspan="11" style="text-align:center;padding:40px;color:var(--danger);">Erro ao analisar: ' + e.message + '</td></tr>';
+  }
+}
