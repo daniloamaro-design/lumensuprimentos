@@ -58,7 +58,14 @@ free tiers). Orçamento com alertas 50/90/100% será criado junto com o billing.
 
 - [x] **1. Reautenticar o gcloud**: FEITO em 2026-07-27 (medições executadas).
 - [x] **2. Billing GCP**: CANCELADO — destino mudou para Supabase (custo zero, sem cartão).
-- [ ] **2-NOVO. Criar o projeto no Supabase** (grátis, sem cartão):
+- [x] **2-NOVO. Criar o projeto no Supabase: FEITO em 2026-07-27.** ✅
+      - Project URL: `https://saalwqfjhnvleltqfftr.supabase.co`
+      - Publishable key (pública por design): `sb_publishable_N23E2SHI9SBehB8-f-OF3g_W_8T2JEk`
+      - Anonymous sign-ins: HABILITADO (validado via /auth/v1/settings)
+      - Auth API: saudável (GoTrue v2.194.0). REST responde (401 no endpoint de schema é
+        esperado com chave publishable — restrito a secret keys).
+      - service_role/secret key e senha do banco: guardadas pelo usuário fora do repo.
+      Passo a passo original (referência):
       (a) https://supabase.com → "Start your project" → entrar com a conta GitHub
           (daniloamaro-design);
       (b) New project → nome `lumen-suprimentos` → região **South America (São Paulo)**
