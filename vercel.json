@@ -21,7 +21,6 @@
   ],
   "rewrites": [
     { "source": "/api/gemini", "destination": "/api/gemini.js" },
-    { "source": "/assistente", "destination": "/lumisassistente.html" },
     { "source": "/(.*)", "destination": "/index.html" }
   ]
 }
