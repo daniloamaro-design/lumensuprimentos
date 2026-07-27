@@ -44,12 +44,11 @@ free tiers). Orçamento com alertas 50/90/100% será criado junto com o billing.
 - [ ] **2. Billing**: criar/vincular conta de faturamento no console GCP
       (https://console.cloud.google.com/billing) — cartão necessário. NÃO vincular ao
       projeto antigo `automacao-logistica2040` (ele continua gratuito).
-- [ ] **3. Checkpoint Fretes/Passagens (bloqueante)**: responder por escrito —
-      (a) O site do Lumen Fretes está no ar? Onde (URL)?
-      (b) Ele usa o projeto `lumen-fretes` próprio ou ainda aponta para `automacao-logistica2040`?
-          (verificar no código-fonte dele o `FIREBASE_CONFIG.projectId`)
-      (c) Mesmo para o Passagens.
-      (d) Quem mantém esses sistemas?
+- [x] **3. Checkpoint Fretes/Passagens: RESOLVIDO em 2026-07-27.** Confirmação do usuário:
+      todos os sistemas (Fretes, Passagens, Almoxarifado) rodam em PROJETOS SEPARADOS.
+      As regras deles no firestore.rules do `automacao-logistica2040` ficaram por descuido
+      e são SOBRAS — podem ser limpas sem risco. ⇒ O risco nº 1 do plano está eliminado.
+      NOTA FUTURA: o usuário quer avaliar, após a migração, juntar os 3 projetos em 1.
 - [ ] **4. Parâmetros de hash de senha** (para migrar usuários SEM trocar senhas):
       Console Firebase → Authentication → aba Users → menu ⋮ (três pontos) →
       "Password hash parameters" → copiar e guardar em local seguro (NÃO colar no chat,
