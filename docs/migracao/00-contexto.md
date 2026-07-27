@@ -1,7 +1,24 @@
-# FASE 0 — Contexto e preparação da migração Firebase → Google Cloud
+# FASE 0 — Contexto e preparação da migração Firebase → Supabase
 
-> Migração total: Firestore/Auth/Storage → Cloud SQL (Postgres) + Cloud Run + Identity Platform + BigQuery.
-> Estratégia: versão paralela + virada única. Plano completo aprovado em 2026-07-27.
+> **MUDANÇA DE DESTINO (2026-07-27):** o plano Google Cloud foi substituído por **Supabase
+> (plano gratuito)** quando o usuário definiu o requisito de custo zero — o Cloud SQL
+> (~US$12–30/mês) inviabilizou a stack GCP. O Supabase entrega Postgres/SQL (análise),
+> RLS (segurança), Auth com import de senhas e Storage, tudo sem cartão.
+> Estratégia mantida: versão paralela + virada única, aprovação por fase.
+
+## Medições oficiais (2026-07-27)
+
+**3.730 documentos** no Firestore (maiores: compras_financeiro 1.493, movements 800,
+quotations 318, orders 278, transferencias 225) + **34,43 MB** no Storage
+(`gs://automacao-logistica2040.firebasestorage.app`). Cabe com folga no free tier do
+Supabase (500 MB banco / 1 GB storage / 50k MAU). Contagem por coleção: rodar
+`TOKEN=$(gcloud auth print-access-token) node tools/migracao/00-contagem.mjs`.
+
+Achados extras da contagem: existe `audit_log` (101 docs, nome antigo) além de
+`audit_logs` (23) — unificar na migração; `usuarios_perfis` tem só 3 docs (modelo
+fantasma das rules, será abandonado); coleções `cidades_*` e `casas_tipo_compra`/
+`casas_removidas`/`transferencias_financeiras`/`ajustes` estão VAZIAS (verificar se
+entram no schema novo ou morrem).
 
 ## Apurado em 2026-07-27
 
@@ -39,11 +56,19 @@ free tiers). Orçamento com alertas 50/90/100% será criado junto com o billing.
 
 ## Checklist de ações do USUÁRIO (bloqueiam o restante da FASE 0)
 
-- [ ] **1. Reautenticar o gcloud**: rodar `gcloud auth login` no terminal (abre o navegador).
-      Depois disso o Claude roda as medições (contagem das 37 coleções + tamanho do Storage).
-- [ ] **2. Billing**: criar/vincular conta de faturamento no console GCP
-      (https://console.cloud.google.com/billing) — cartão necessário. NÃO vincular ao
-      projeto antigo `automacao-logistica2040` (ele continua gratuito).
+- [x] **1. Reautenticar o gcloud**: FEITO em 2026-07-27 (medições executadas).
+- [x] **2. Billing GCP**: CANCELADO — destino mudou para Supabase (custo zero, sem cartão).
+- [ ] **2-NOVO. Criar o projeto no Supabase** (grátis, sem cartão):
+      (a) https://supabase.com → "Start your project" → entrar com a conta GitHub
+          (daniloamaro-design);
+      (b) New project → nome `lumen-suprimentos` → região **South America (São Paulo)**
+          → gerar/guardar a senha do banco (Database Password) em local seguro;
+      (c) Depois de criado: Settings → API → copiar a **Project URL** e a **anon public key**
+          e enviar no chat (a anon key é pública por design, pode enviar);
+      (d) A **service_role key** (mesma tela): guardar em local seguro FORA da pasta do
+          projeto — será usada só nos scripts locais de migração, nunca no site;
+      (e) Authentication → Sign In / Providers → habilitar **Anonymous sign-ins**
+          (para o modo convidado do sistema).
 - [x] **3. Checkpoint Fretes/Passagens: RESOLVIDO em 2026-07-27.** Confirmação do usuário:
       todos os sistemas (Fretes, Passagens, Almoxarifado) rodam em PROJETOS SEPARADOS.
       As regras deles no firestore.rules do `automacao-logistica2040` ficaram por descuido
@@ -54,8 +79,8 @@ free tiers). Orçamento com alertas 50/90/100% será criado junto com o billing.
       "Password hash parameters" → copiar e guardar em local seguro (NÃO colar no chat,
       NÃO commitar — guardar num arquivo local fora da pasta do projeto).
 
-## Pendências da FASE 0 executadas pelo Claude (após o item 1 acima)
-- [ ] Medir: contagem de documentos por coleção (`tools/migracao/00-contagem.mjs`)
-- [ ] Medir: tamanho do bucket de Storage (`gsutil du -sh`)
-- [ ] Criar projeto `lumen-suprimentos-prod` + habilitar APIs (após billing existir)
-- [ ] Registrar as respostas do checkpoint Fretes neste documento
+## Pendências da FASE 0 executadas pelo Claude
+- [x] Medir: contagem de documentos por coleção — 3.730 docs (2026-07-27)
+- [x] Medir: tamanho do Storage — 34,43 MB (2026-07-27)
+- [x] Registrar checkpoint Fretes — resolvido, projetos separados
+- [ ] Validar acesso ao projeto Supabase quando o usuário criar (item 2-NOVO acima)
