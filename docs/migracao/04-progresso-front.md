@@ -29,13 +29,19 @@ EMULA a API do Firebase sobre o Supabase. Assim os módulos mudam pouquíssimo. 
 | manage-products (10) | ✅ | 25 produtos, após alias categoria→categoria_key |
 | indicadores / metas / financeiro-compras / var-solicitacoes | 🟡 | navegação sem erro; funções profundas a validar |
 | **Escrita com itens** | ✅ | round-trip TESTADO: add movimentação → split em movement_items → read reconstrói |
-| 06-pedidos (Storage NF/boleto) | ⏳ | falta shim de `firebase.storage()` → signed URL |
+| 06-pedidos (Storage NF/boleto) | ✅ | shim `firebase.storage()` + `verArquivoPedido()` (URL assinada 1h); NF baixa 200/pdf; write de pedido com items map testado |
 | 14-gestao (escrita casas/produtos) | ⏳ | escrever nas tabelas consolidadas com `ativo` |
 | batches / runTransaction / aprovar_cotacao | ⏳ | ver pendências |
 
-## Aliases de campo já mapeados (shim, por tabela)
-`produtos.categoria → categoria_key` · `prices.cat → cat_key` · `prices_historico.cat → cat_key`.
-Novos renames que aparecerem: adicionar em `ALIAS` no 00-db.js.
+## Conversão snake↔camel: RASA (só nível de topo)
+Corrigida para NÃO recursar em valores → campos JSONB (percapitas.values, stockEval,
+cotacoes, peopleHistory) mantêm as chaves internas exatamente como o app gravou. Itens de
+tabelas-filhas têm conversão própria.
+
+## Aliases de campo já mapeados (shim `ALIAS`, por tabela)
+`produtos.categoria→categoria_key` · `prices.cat→cat_key` · `prices_historico.cat→cat_key` ·
+`orders.nfFileURL→nf_file_url` · `orders.boletoFileURL→boleto_file_url` · `movements.leituraIA→leitura_ia`.
+Regra: campos com sigla (URL/IA) ou renomeados → adicionar em `ALIAS` (chave = nome exato no app).
 
 ## Pontos de conversão já identificados (a resolver por módulo)
 1. **Itens normalizados**: `movements.items` (array) e `orders.items` (map {cat:{prod:qty}}) foram
