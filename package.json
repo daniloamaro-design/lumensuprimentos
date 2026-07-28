@@ -8,6 +8,7 @@
   "devDependencies": {
     "@supabase/supabase-js": "^2.110.9",
     "firebase-admin": "^14.2.0",
+    "firebase-scrypt": "^2.2.0",
     "pg": "^8.22.0"
   }
 }

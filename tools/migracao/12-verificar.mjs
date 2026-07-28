@@ -42,7 +42,7 @@ try {
   console.log('── Contagens (documento → linha) ──');
   // coleção Firestore → tabela: casos 1:1
   const map1 = {
-    users:'users', movements:'movements', orders:'orders', quotations:'quotations',
+    movements:'movements', orders:'orders', quotations:'quotations',
     compras_financeiro:'compras_financeiro', transferencias:'transferencias',
     transferencias_financeiras:'transferencias_financeiras', prices:'prices', prices_historico:'prices_historico',
     percapitas:'percapitas', ajustes:'ajustes', var_solicitacoes:'var_solicitacoes', var_orcamentos:'var_orcamentos',
@@ -54,6 +54,10 @@ try {
   for (const [col, tab] of Object.entries(map1)) linha(col, conta(col), await n(`select count(*) n from ${tab}`));
   // auditoria unificada
   linha('audit_logs+audit_log', conta('audit_logs') + conta('audit_log'), await n('select count(*) n from audit_logs'));
+  // users: perfis do Firestore + perfis 'pending' criados p/ contas de login sem perfil
+  const usersFire = conta('users'), usersBanco = await n('select count(*) n from users');
+  console.log(`  ${usersBanco >= usersFire ? '✅' : '❌'} users (perfis)               firestore=${String(usersFire).padStart(6)}  banco=${String(usersBanco).padStart(8)} (+pendentes de contas sem perfil)`);
+  if (usersBanco < usersFire) falhas++;
   // categorias: tabela consolidada (base do código + config + referenciadas) — deve ser >= config
   const catCfg = conta('categorias_config'), catBanco = await n('select count(*) n from categorias');
   console.log(`  ${catBanco >= catCfg ? '✅' : '❌'} categorias (consolidada)         config=${String(catCfg).padStart(7)}  banco=${String(catBanco).padStart(8)} (base+config+referenciadas)`);

@@ -35,13 +35,34 @@ teste quando necessário — mas idealmente a FASE 5 usa os usuários REAIS migr
 O carregador roda com UPSERT (ON CONFLICT). Rodou 6 vezes durante os ajustes, sem duplicar —
 requisito para o sync final da virada (FASE 6).
 
-## Ainda pendente na FASE 3
-- **Import de usuários com senha (scrypt)** — os 6 usuários reais estão como PERFIL na tabela
-  `users`, mas ainda SEM conta de login no Supabase Auth (com senha preservada). Próximo passo:
-  exportar o Firebase Auth (`firebase auth:export`) + hash params e importar no GoTrue. Se o
-  scrypt não importar, plano B = reset de senha para os 6 (indolor).
-- **Cópia dos arquivos do Storage** (NF/boleto, 34 MB) → download do Firebase, upload no bucket
-  `pedidos`, reescrever `nf_file_url`/`boleto_file_url`.
+## Arquivos do Storage — CONCLUÍDO ✅
+320 arquivos (NF/boleto, 34 MB) copiados do Firebase Storage para o bucket `pedidos` do
+Supabase (`13-storage-copy.mjs`), com nomes higienizados (Supabase rejeita acentos/`$`/espaços),
+links `nf_file_url`/`boleto_file_url` religados e órfãos limpos. Verificado: signed URL baixa o
+PDF (HTTP 200), 0 pedidos ainda apontando para o Firebase.
+
+## Import de usuários com senha (scrypt) — CONCLUÍDO ✅
+**As senhas foram PRESERVADAS** — ninguém precisa trocar de senha.
+- **Mecanismo provado** (`14-teste-scrypt.mjs`): usuário fictício com hash no esquema Firebase
+  logou com a senha correta e rejeitou a errada. Obstáculos resolvidos: (a) formato exato do
+  GoTrue `$fbscrypt$v=1,n=<memCost>,r=<rounds>,p=1,ss=<saltSep>,sk=<signerKey>$<salt>$<hash>`
+  (obtido do código-fonte do supabase/auth); (b) colunas de token de `auth.users`
+  (confirmation_token etc.) precisam ser `''`, não NULL, senão o GoTrue dá erro 500.
+- **Parâmetros de hash** obtidos programaticamente via conta de serviço (Identity Toolkit
+  admin config) — o usuário não precisou colar segredos (`hashconfig.mjs`).
+- **Import real** (`15-usuarios-auth.mjs`): 11 contas com senha importadas, 3 anônimas ignoradas.
+  Como `auth.users.id` é UUID e o Firebase usa id de texto, geramos UUID v5 determinístico do
+  uid e reescrevemos `users.id` + 1.259 referências `*_uid` (movements/orders/ajustes/variedades/
+  audit). 5 contas antigas sem perfil ganharam perfil `pending` (logam, acesso de convidado até
+  aprovação). Verificado: 0 perfis sem login, 0 uid no formato antigo, papéis corretos.
+
+**Verificação final: `12-verificar.mjs` = tudo confere** (users banco=11 = 6 do Firestore + 5
+pendentes criados; diferença intencional).
+
+### Único ponto que só o usuário confirma
+A prova de senha usou um hash gerado por `firebase-scrypt` (emulação fiel do Firebase). A
+confirmação 100% end-to-end é um usuário REAL logar com a senha real no staging (FASE 5) —
+altíssima confiança de que funciona, mas essa é a validação final.
 
 ## Reproduzir
 ```
