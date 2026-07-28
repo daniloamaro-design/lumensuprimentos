@@ -53,11 +53,15 @@ async function seedRole(role) {
   console.log('perfil ok');
 }
 
-try {
+export async function seed() {
   console.log('Semeando usuários de teste (um por papel)…');
   for (const role of ROLES) await seedRole(role);
   console.log('\n✅ Seed concluído. Senhas: Teste!<papel>123 (ex.: Teste!admin123).');
-} catch (e) {
-  console.error('\n❌ Erro no seed:', e.message);
-  process.exitCode = 1;
+}
+
+// Só executa o seed quando rodado diretamente (não ao ser importado pelo teste).
+import { argv } from 'node:process';
+if (import.meta.url === new URL(`file://${argv[1].replace(/\\/g, '/')}`).href
+    || argv[1]?.endsWith('03-seed-teste.mjs')) {
+  seed().catch(e => { console.error('\n❌ Erro no seed:', e.message); process.exitCode = 1; });
 }
