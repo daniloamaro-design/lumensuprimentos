@@ -18,16 +18,24 @@ EMULA a API do Firebase sobre o Supabase. Assim os módulos mudam pouquíssimo. 
 ## Status por módulo
 | Módulo | Status | Observação |
 |---|---|---|
-| `js/00-db.js` (novo) | ✅ | Camada de compatibilidade |
+| `js/00-db.js` (novo) | ✅ | Shim: db/auth/firebase + itens normalizados + aliases de campo |
 | index.html | ✅ | CDNs Firebase → supabase-js + 00-db.js |
-| 01-core | ✅ | Init via shim; `loadDynamicData` lê tabelas consolidadas (houses/cidades/produtos/categorias) |
-| 02-auth | ✅ | Funciona sem alteração (via shim) — login ponta a ponta TESTADO |
-| 03-navegacao | ⏳ | |
-| 04-percapita | 🟡 | dashboard testado OK; resto do módulo a validar |
-| 05-cadastros | ⏳ | |
-| 06-pedidos | ⏳ | precisa: normalização de `order.items` (map) + Storage (NF/boleto via signed URL) |
-| 07-estoque-ia-form | ⏳ | precisa: normalização de `movement.items` (array) |
-| 08–17, periféricos | ⏳ | |
+| 01-core | ✅ | Init via shim; `loadDynamicData` lê tabelas consolidadas |
+| 02-auth | ✅ | Login ponta a ponta TESTADO |
+| all-orders (04) | ✅ | 282 linhas, itens reconstruídos ("7 itens"), 0 erros |
+| movement / stock-view / new-order | ✅ | Leitura OK (navegação sem erro) |
+| transferencias / fornecedores | ✅ | Leitura OK |
+| prices | ✅ | após alias cat→cat_key |
+| manage-products (10) | ✅ | 25 produtos, após alias categoria→categoria_key |
+| indicadores / metas / financeiro-compras / var-solicitacoes | 🟡 | navegação sem erro; funções profundas a validar |
+| **Escrita com itens** | ✅ | round-trip TESTADO: add movimentação → split em movement_items → read reconstrói |
+| 06-pedidos (Storage NF/boleto) | ⏳ | falta shim de `firebase.storage()` → signed URL |
+| 14-gestao (escrita casas/produtos) | ⏳ | escrever nas tabelas consolidadas com `ativo` |
+| batches / runTransaction / aprovar_cotacao | ⏳ | ver pendências |
+
+## Aliases de campo já mapeados (shim, por tabela)
+`produtos.categoria → categoria_key` · `prices.cat → cat_key` · `prices_historico.cat → cat_key`.
+Novos renames que aparecerem: adicionar em `ALIAS` no 00-db.js.
 
 ## Pontos de conversão já identificados (a resolver por módulo)
 1. **Itens normalizados**: `movements.items` (array) e `orders.items` (map {cat:{prod:qty}}) foram
