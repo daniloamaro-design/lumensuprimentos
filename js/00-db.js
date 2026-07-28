@@ -67,15 +67,94 @@
   };
   const tabelaDe = (col) => TABELA[col] || col;
 
+  // Aliases de campo por coleção: campo do app (snake) → coluna real do banco.
+  // Ex.: produtos usava "categoria"; a tabela tem "categoria_key".
+  const ALIAS = {
+    produtos:         { categoria: 'categoria_key' },
+    prices:           { cat: 'cat_key' },
+    prices_historico: { cat: 'cat_key' },
+  };
+  const aliasDe = (col) => ALIAS[tabelaDe(col)];
+  const aliasCampo = (col, snakeKey) => { const a = aliasDe(col); return (a && a[snakeKey]) || snakeKey; };
+  function aplicarAliasEscrita(col, obj) {
+    const a = aliasDe(col); if (!a) return obj;
+    const o = {};
+    for (const [k, v] of Object.entries(obj)) o[a[k] || k] = v;
+    return o;
+  }
+  function aplicarAliasLeitura(col, data) {
+    const a = aliasDe(col); if (!a) return data;
+    for (const [appKey, dbCol] of Object.entries(a)) data[appKey] = data[toCamelKey(dbCol)];
+    return data;
+  }
+
   // Operadores Firestore → Supabase (PostgREST)
   const OP = { '==': 'eq', '!=': 'neq', '>': 'gt', '>=': 'gte', '<': 'lt', '<=': 'lte', 'in': 'in', 'array-contains': 'cs' };
 
+  // ── Coleções cujos "itens" foram normalizados em tabela-filha ──────
+  // O shim reconstrói o campo na leitura e desmembra na escrita.
+  const CHILDREN = {
+    movements:      { table: 'movement_items',      fk: 'movement_id',      field: 'items', shape: 'array' },
+    orders:         { table: 'order_items',         fk: 'order_id',         field: 'items', shape: 'orderMap' },
+    transferencias: { table: 'transferencia_items', fk: 'transferencia_id', field: 'items', shape: 'array' },
+    var_propostas:  { table: 'var_proposta_itens',  fk: 'proposta_id',      field: 'itens', shape: 'array' },
+  };
+  const selectClause = (col) => (CHILDREN[col] ? `*, ${CHILDREN[col].table}(*)` : '*');
+
+  // Linha do banco → objeto que o app espera (camelCase + itens reconstruídos).
+  function rowToData(col, row) {
+    const cfg = CHILDREN[col];
+    if (!cfg) return aplicarAliasLeitura(col, toCamel(row));
+    const filhos = row[cfg.table] || [];
+    const parent = { ...row }; delete parent[cfg.table];
+    const data = toCamel(parent);
+    if (cfg.shape === 'array') {
+      data[cfg.field] = filhos.map((f) => { const c = toCamel(f); delete c.id; delete c[toCamelKey(cfg.fk)]; return c; });
+    } else if (cfg.shape === 'orderMap') {
+      const m = {};
+      for (const f of filhos) { (m[f.cat_key] = m[f.cat_key] || {})[f.prod_id] = f.qty; }
+      data[cfg.field] = m;
+    }
+    return aplicarAliasLeitura(col, data);
+  }
+
+  // Prepara dados de escrita: snake_case + resolve serverTimestamp + aplica aliases.
+  const prepEscrita = (col, dados) => aplicarAliasEscrita(col, resolverSentinelas(toSnake(dados)));
+
+  // Dados de escrita → { parent (sem itens), itens (linhas p/ tabela-filha) }
+  function splitItens(col, dados) {
+    const cfg = CHILDREN[col];
+    if (!cfg || dados[cfg.field] === undefined) return { parent: dados, itens: null };
+    const parent = { ...dados }; const bruto = parent[cfg.field]; delete parent[cfg.field];
+    let itens = [];
+    if (cfg.shape === 'array') {
+      itens = (bruto || []).map((it) => toSnake(it));
+    } else if (cfg.shape === 'orderMap') {
+      for (const [catKey, prods] of Object.entries(bruto || {})) {
+        for (const [prodId, qty] of Object.entries(prods || {})) {
+          if (typeof qty === 'number' || typeof qty === 'string') itens.push({ cat_key: catKey, prod_id: prodId, qty: Number(qty) || 0 });
+        }
+      }
+    }
+    return { parent, itens };
+  }
+  async function gravarFilhos(col, id, itens) {
+    const cfg = CHILDREN[col];
+    if (!cfg || itens == null) return;
+    await _sb.from(cfg.table).delete().eq(cfg.fk, id);
+    if (itens.length) {
+      const linhas = itens.map((it) => ({ ...it, [cfg.fk]: id }));
+      const { error } = await _sb.from(cfg.table).insert(linhas);
+      if (error) throw traduzErro(error);
+    }
+  }
+
   // ── Snapshot (resultado de .get()) ─────────────────────────────────
-  function fazerSnapshot(rows) {
+  function fazerSnapshot(col, rows) {
     const docs = rows.map((r) => ({
-      id: r._id_original ?? r.id,
+      id: r.id,
       exists: true,
-      data: () => { const c = toCamel(r); delete c.Id_original; delete c._idOriginal; return c; },
+      data: () => rowToData(col, r),
     }));
     return {
       docs, empty: docs.length === 0, size: docs.length,
@@ -89,18 +168,23 @@
     return {
       id,
       async get() {
-        const { data, error } = await _sb.from(tab).select('*').eq('id', id).maybeSingle();
+        const { data, error } = await _sb.from(tab).select(selectClause(col)).eq('id', id).maybeSingle();
         if (error) throw traduzErro(error);
-        return { exists: !!data, id, data: () => (data ? toCamel(data) : undefined) };
+        return { exists: !!data, id, data: () => (data ? rowToData(col, data) : undefined) };
       },
       async set(dados, opts) {
-        const row = { ...resolverSentinelas(toSnake(dados)), id };
-        const { error } = await _sb.from(tab).upsert(row, { onConflict: 'id' });
+        const { parent, itens } = splitItens(col, prepEscrita(col, dados));
+        const { error } = await _sb.from(tab).upsert({ ...parent, id }, { onConflict: 'id' });
         if (error) throw traduzErro(error);
+        await gravarFilhos(col, id, itens);
       },
       async update(dados) {
-        const { error } = await _sb.from(tab).update(resolverSentinelas(toSnake(dados))).eq('id', id);
-        if (error) throw traduzErro(error);
+        const { parent, itens } = splitItens(col, prepEscrita(col, dados));
+        if (Object.keys(parent).length) {
+          const { error } = await _sb.from(tab).update(parent).eq('id', id);
+          if (error) throw traduzErro(error);
+        }
+        await gravarFilhos(col, id, itens);
       },
       async delete() {
         const { error } = await _sb.from(tab).delete().eq('id', id);
@@ -116,24 +200,25 @@
     const ordens = [];
     let _limit = null;
     const b = {
-      where(campo, op, val) { filtros.push([toSnakeKey(campo), OP[op] || 'eq', val]); return b; },
-      orderBy(campo, dir = 'asc') { ordens.push([toSnakeKey(campo), dir]); return b; },
+      where(campo, op, val) { filtros.push([aliasCampo(col, toSnakeKey(campo)), OP[op] || 'eq', val]); return b; },
+      orderBy(campo, dir = 'asc') { ordens.push([aliasCampo(col, toSnakeKey(campo)), dir]); return b; },
       limit(n) { _limit = n; return b; },
       doc(id) { return docRef(col, id); },
       async add(dados) {
-        const row = resolverSentinelas(toSnake(dados));
-        const { data, error } = await _sb.from(tab).insert(row).select('id').single();
+        const { parent, itens } = splitItens(col, prepEscrita(col, dados));
+        const { data, error } = await _sb.from(tab).insert(parent).select('id').single();
         if (error) throw traduzErro(error);
+        await gravarFilhos(col, data.id, itens);
         return { id: data.id };
       },
       async get() {
-        let q = _sb.from(tab).select('*');
+        let q = _sb.from(tab).select(selectClause(col));
         for (const [c, op, val] of filtros) q = q[op](c, val);
         for (const [c, dir] of ordens) q = q.order(c, { ascending: dir === 'asc' });
         if (_limit != null) q = q.limit(_limit);
         const { data, error } = await q;
         if (error) throw traduzErro(error);
-        return fazerSnapshot(data || []);
+        return fazerSnapshot(col, data || []);
       },
       // onSnapshot: implementado por polling leve (30s) — os listeners do app são,
       // na prática, detectores de mudança. Retorna função de cancelamento.
