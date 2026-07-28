@@ -47,20 +47,26 @@ try {
     transferencias_financeiras:'transferencias_financeiras', prices:'prices', prices_historico:'prices_historico',
     percapitas:'percapitas', ajustes:'ajustes', var_solicitacoes:'var_solicitacoes', var_orcamentos:'var_orcamentos',
     var_propostas:'var_propostas', var_setores:'var_setores', kanban_tasks:'kanban_tasks',
-    suppliers:'suppliers', categorias_config:'categorias', produtos_config:'produtos',
+    suppliers:'suppliers', produtos_config:'produtos',
     centros_custo:'centros_custo', centro_custo_categorias:'centro_custo_categorias',
     metas_historico:'metas_historico', cardapioPlanos:'cardapio_planos', houses:'houses',
   };
   for (const [col, tab] of Object.entries(map1)) linha(col, conta(col), await n(`select count(*) n from ${tab}`));
   // auditoria unificada
   linha('audit_logs+audit_log', conta('audit_logs') + conta('audit_log'), await n('select count(*) n from audit_logs'));
+  // categorias: tabela consolidada (base do código + config + referenciadas) — deve ser >= config
+  const catCfg = conta('categorias_config'), catBanco = await n('select count(*) n from categorias');
+  console.log(`  ${catBanco >= catCfg ? '✅' : '❌'} categorias (consolidada)         config=${String(catCfg).padStart(7)}  banco=${String(catBanco).padStart(8)} (base+config+referenciadas)`);
+  if (catBanco < catCfg) falhas++;
 
   console.log('\n── Somas de controle ──');
-  // itens de movimentação
+  // itens de movimentação — conta só itens VÁLIDOS (com catKey e prodId), pois o
+  // carregador pula os malformados de propósito.
   let qtdItens = 0;
   for (const l of readFileSync(join(DATA, 'movements.ndjson'), 'utf8').split('\n').filter(Boolean))
-    qtdItens += (JSON.parse(l).items || []).length;
-  linha('movement_items (qtd linhas)', qtdItens, await n('select count(*) n from movement_items'));
+    for (const it of (JSON.parse(l).items || []))
+      if (it && it.catKey != null && it.prodId != null) qtdItens++;
+  linha('movement_items (válidos)', qtdItens, await n('select count(*) n from movement_items'));
   linha('compras_financeiro Σ valor', somaCampo('compras_financeiro', 'valor'),
         Math.round(await n('select coalesce(sum(valor),0) n from compras_financeiro') * 100) / 100);
   linha('quotations Σ valor', somaCampo('quotations', 'valor'),

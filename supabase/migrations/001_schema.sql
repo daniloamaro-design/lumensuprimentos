@@ -345,7 +345,7 @@ create table var_solicitacoes (
   prioridade          text not null default 'normal',
   status              text not null default 'pendente'
                       check (status in ('pendente','em_proposta','pedido_liberado',
-                                        'compra_realizada','concluido','cancelado')),
+                                        'compra_realizada','comprada','concluido','cancelado')),
   data_limite         date,
   valor_estimado      numeric not null default 0,
   obs                 text,

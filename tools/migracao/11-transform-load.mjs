@@ -44,13 +44,18 @@ const client = new pg.Client({ connectionString: DATABASE_URL, ssl: { rejectUnau
 let totalLinhas = 0;
 
 // upsert genérico: cols = {coluna: valor}. conflito por `conflito` (array de colunas).
+// Campos com valor null/undefined são OMITIDOS → o banco aplica o DEFAULT da coluna
+// (ex.: created_at → now()), evitando violar NOT NULL com colunas que têm default.
 async function upsert(tabela, cols, conflito = ['id']) {
-  const nomes = Object.keys(cols);
+  const nomes = Object.keys(cols).filter(n => cols[n] !== null && cols[n] !== undefined);
   const vals = nomes.map(n => cols[n]);
   const ph = nomes.map((_, i) => `$${i + 1}`);
   const set = nomes.filter(n => !conflito.includes(n)).map(n => `${n}=excluded.${n}`);
-  const sql = `insert into ${tabela} (${nomes.join(',')}) values (${ph.join(',')})
-               on conflict (${conflito.join(',')}) do update set ${set.join(',') || nomes[0] + '=excluded.' + nomes[0]}`;
+  const sql = set.length
+    ? `insert into ${tabela} (${nomes.join(',')}) values (${ph.join(',')})
+       on conflict (${conflito.join(',')}) do update set ${set.join(',')}`
+    : `insert into ${tabela} (${nomes.join(',')}) values (${ph.join(',')})
+       on conflict (${conflito.join(',')}) do nothing`;
   await client.query(sql, vals);
   totalLinhas++;
 }
@@ -69,17 +74,6 @@ async function main() {
   }
   console.log('users');
 
-  // ── cidades (config/override/removidas – geralmente vazias) ──
-  const cidadesVistas = new Set();
-  for (const d of [...ler('cidades_config'), ...ler('cidades_override')]) {
-    const nome = S(d.nome || d.novoNome || d.originalNome);
-    if (nome && !cidadesVistas.has(nome)) { cidadesVistas.add(nome); await upsert('cidades', { nome, ativo: true }, ['nome']); }
-  }
-  // cidades citadas por casas (garante FK)
-  for (const d of ler('casas_config')) if (d.cidade) cidadesVistas.add(S(d.cidade));
-  for (const nome of cidadesVistas) await upsert('cidades', { nome, ativo: true }, ['nome']);
-  console.log('cidades');
-
   // ── houses (base) + enriquecimento casas_* ──
   const overridePorNome = {};
   for (const d of ler('casas_override')) overridePorNome[S(d.originalNome || d.novoNome)] = d;
@@ -91,12 +85,17 @@ async function main() {
   for (const d of ler('casas_tipo_compra')) tipoPorNome[S(d.nome)] = S(d.tipo || d.tipoCompra);
   const removidas = new Set(ler('casas_removidas').map(d => S(d.nome)));
 
+  // Monta as linhas de casas em memória e coleta TODAS as cidades usadas.
+  const casasRows = [];
+  const cidadesUsadas = new Set();
   for (const d of ler('houses')) {
     const nome = S(d.name);
     const ov = overridePorNome[nome] || {};
     const cfg = configPorNome[nome] || {};
-    await upsert('houses', {
-      id: d._id, nome, cidade: S(ov.cidade || cfg.cidade),
+    const cidade = S(ov.cidade || cfg.cidade);
+    if (cidade) cidadesUsadas.add(cidade);
+    casasRows.push({
+      id: d._id, nome, cidade,
       endereco: S(ov.endereco || cfg.endereco), bloco: blocoPorNome[nome] || null,
       tipo_compra: tipoPorNome[nome] || null,
       acolhidos: N(d.acolhidos) || 0, coordenadores: N(d.coordenadores) || 0,
@@ -104,13 +103,32 @@ async function main() {
       people_history: JSON.stringify(d.peopleHistory || []),
       ativo: !removidas.has(nome),
       created_at: TS(d.createdAt), updated_at: TS(d.updatedAt) || TS(d.createdAt),
-    }, ['nome']);
+    });
   }
+  // também cidades declaradas em cidades_config/override e casas_config
+  for (const d of [...ler('cidades_config'), ...ler('cidades_override')]) {
+    const nm = S(d.nome || d.novoNome || d.originalNome); if (nm) cidadesUsadas.add(nm);
+  }
+  for (const d of ler('casas_config')) if (d.cidade) cidadesUsadas.add(S(d.cidade));
+  for (const nome of cidadesUsadas) await upsert('cidades', { nome, ativo: true }, ['nome']);
+  console.log('cidades');
+
+  for (const row of casasRows) await upsert('houses', row, ['nome']);
   console.log('houses');
 
-  // ── categorias ──
-  for (const d of ler('categorias_config')) {
-    await upsert('categorias', { key: d._id, nome: S(d.nome), icon: S(d.icon), ordem: N(d.ordem) || 0, ativo: true }, ['key']);
+  // ── categorias: base do código + customizadas + referenciadas por produtos ──
+  const CORE_CAT = {
+    cereal: { nome: 'Cereal', icon: '🌾' }, higiene: { nome: 'Higiene', icon: '🧴' },
+    proteina: { nome: 'Proteína', icon: '🥩' }, missa_sf: { nome: 'Missa Ser Feliz', icon: '⛪' },
+    lanches_csl: { nome: 'Lanches - CSL', icon: '🥪' },
+  };
+  const catVistas = new Set();
+  for (const [key, v] of Object.entries(CORE_CAT)) { await upsert('categorias', { key, nome: v.nome, icon: v.icon, ordem: 0, ativo: true }, ['key']); catVistas.add(key); }
+  for (const d of ler('categorias_config')) { await upsert('categorias', { key: d._id, nome: S(d.nome), icon: S(d.icon), ordem: N(d.ordem) || 0, ativo: true }, ['key']); catVistas.add(d._id); }
+  // qualquer categoria referenciada por produtos que ainda falte
+  for (const d of ler('produtos_config')) {
+    const k = S(d.categoria);
+    if (k && !catVistas.has(k)) { await upsert('categorias', { key: k, nome: k, icon: '📦', ordem: 99, ativo: true }, ['key']); catVistas.add(k); }
   }
   console.log('categorias');
 
@@ -158,6 +176,7 @@ async function main() {
     });
     await client.query('delete from movement_items where movement_id=$1', [d._id]);
     for (const it of (d.items || [])) {
+      if (!it || it.catKey == null || it.prodId == null) continue; // pula item malformado
       await client.query(
         'insert into movement_items (movement_id,cat_key,prod_id,prod_nome,unidade,qty) values ($1,$2,$3,$4,$5,$6)',
         [d._id, S(it.catKey), S(it.prodId), S(it.prodNome), S(it.unidade), N(it.qty) || 0]);
@@ -220,6 +239,7 @@ async function main() {
     });
     await client.query('delete from transferencia_items where transferencia_id=$1', [d._id]);
     for (const it of (d.items || [])) {
+      if (!it || it.catKey == null || it.prodId == null) continue;
       await client.query(
         'insert into transferencia_items (transferencia_id,cat_key,prod_id,prod_nome,unidade,qty) values ($1,$2,$3,$4,$5,$6)',
         [d._id, S(it.catKey), S(it.prodId), S(it.prodNome), S(it.unidade), N(it.qty) || 0]);

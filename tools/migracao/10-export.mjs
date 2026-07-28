@@ -8,10 +8,11 @@
  *
  * Requer FIREBASE_SA_PATH em tools/migracao/.env apontando para o JSON da conta de serviço.
  */
-import { mkdirSync, writeFileSync, existsSync } from 'node:fs';
+import { mkdirSync, writeFileSync, existsSync, statSync, readdirSync } from 'node:fs';
 import { dirname, join, isAbsolute } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import admin from 'firebase-admin';
+import { initializeApp, cert } from 'firebase-admin/app';
+import { getFirestore } from 'firebase-admin/firestore';
 
 const AQUI = dirname(fileURLToPath(import.meta.url));
 const DATA = join(AQUI, 'data');
@@ -30,9 +31,17 @@ if (!saPath && existsSync(envFile)) {
 if (!saPath) { console.error('❌ Falta FIREBASE_SA_PATH no tools/migracao/.env'); process.exit(1); }
 if (!isAbsolute(saPath)) saPath = join(AQUI, saPath);
 if (!existsSync(saPath)) { console.error('❌ Chave de serviço não encontrada em:', saPath); process.exit(1); }
+// Se apontar para uma PASTA, encontra o JSON da conta de serviço dentro dela.
+if (statSync(saPath).isDirectory()) {
+  const jsons = readdirSync(saPath).filter(f => f.endsWith('.json'));
+  const escolha = jsons.find(f => /adminsdk|firebase|service/i.test(f)) || jsons[0];
+  if (!escolha) { console.error('❌ Nenhum .json de conta de serviço em:', saPath); process.exit(1); }
+  saPath = join(saPath, escolha);
+  console.log('ℹ️  Usando chave:', escolha);
+}
 
-admin.initializeApp({ credential: admin.credential.cert(JSON.parse(readFileSync(saPath, 'utf8'))) });
-const db = admin.firestore();
+initializeApp({ credential: cert(JSON.parse(readFileSync(saPath, 'utf8'))) });
+const db = getFirestore();
 
 const COLECOES = [
   'movements','orders','quotations','compras_financeiro','transferencias','transferencias_financeiras',
