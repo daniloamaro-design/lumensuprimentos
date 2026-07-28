@@ -28,24 +28,22 @@
     s.seconds = Math.floor(new Date(iso).getTime() / 1000);
     return s;
   }
-  function toCamel(v) {
-    if (typeof v === 'string' && RE_ISO.test(v)) return wrapData(v);
-    if (Array.isArray(v)) return v.map(toCamel);
-    if (v && typeof v === 'object' && v.constructor === Object) {
-      const o = {};
-      for (const [k, val] of Object.entries(v)) o[toCamelKey(k)] = toCamel(val);
-      return o;
+  // Conversão RASA (só o nível de cima). Valores de colunas JSONB (stockEval,
+  // percapitas, cotações, peopleHistory…) passam intactos — preservando as chaves
+  // internas exatamente como o app as gravou. Strings ISO de topo viram objeto data.
+  function toCamel(row) {
+    if (!row || typeof row !== 'object' || Array.isArray(row)) return row;
+    const o = {};
+    for (const [k, v] of Object.entries(row)) {
+      o[toCamelKey(k)] = (typeof v === 'string' && RE_ISO.test(v)) ? wrapData(v) : v;
     }
-    return v;
+    return o;
   }
-  function toSnake(v) {
-    if (Array.isArray(v)) return v.map(toSnake);
-    if (v && typeof v === 'object' && v.constructor === Object) {
-      const o = {};
-      for (const [k, val] of Object.entries(v)) o[toSnakeKey(k)] = toSnake(val);
-      return o;
-    }
-    return v;
+  function toSnake(obj) {
+    if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return obj;
+    const o = {};
+    for (const [k, v] of Object.entries(obj)) o[toSnakeKey(k)] = v;
+    return o;
   }
 
   // Sentinela de serverTimestamp → data atual em ISO (timestamptz aceita).
@@ -67,23 +65,29 @@
   };
   const tabelaDe = (col) => TABELA[col] || col;
 
-  // Aliases de campo por coleção: campo do app (snake) → coluna real do banco.
-  // Ex.: produtos usava "categoria"; a tabela tem "categoria_key".
+  // Aliases: nome EXATO do campo no app (camelCase) → coluna real do banco (snake).
+  // Necessário para renomeações (categoria→categoria_key) e siglas que a conversão
+  // genérica não acerta (nfFileURL→nf_file_url, leituraIA→leitura_ia).
   const ALIAS = {
     produtos:         { categoria: 'categoria_key' },
     prices:           { cat: 'cat_key' },
     prices_historico: { cat: 'cat_key' },
+    orders:           { nfFileURL: 'nf_file_url', boletoFileURL: 'boleto_file_url' },
+    movements:        { leituraIA: 'leitura_ia' },
   };
-  const aliasDe = (col) => ALIAS[tabelaDe(col)];
-  const aliasCampo = (col, snakeKey) => { const a = aliasDe(col); return (a && a[snakeKey]) || snakeKey; };
-  function aplicarAliasEscrita(col, obj) {
-    const a = aliasDe(col); if (!a) return obj;
+  const aliasDe = (col) => ALIAS[tabelaDe(col)] || {};
+  // campo do app → coluna do banco (where/orderBy)
+  const campoParaColuna = (col, campo) => aliasDe(col)[campo] || toSnakeKey(campo);
+  // objeto do app → objeto p/ o banco (chaves via alias/snake; valores intactos)
+  function objParaBanco(col, obj) {
+    const a = aliasDe(col);
     const o = {};
-    for (const [k, v] of Object.entries(obj)) o[a[k] || k] = v;
+    for (const [k, v] of Object.entries(obj)) o[a[k] || toSnakeKey(k)] = v;
     return o;
   }
+  // linha do banco → adiciona os nomes que o app espera (ex.: data.nfFileURL)
   function aplicarAliasLeitura(col, data) {
-    const a = aliasDe(col); if (!a) return data;
+    const a = aliasDe(col);
     for (const [appKey, dbCol] of Object.entries(a)) data[appKey] = data[toCamelKey(dbCol)];
     return data;
   }
@@ -118,8 +122,8 @@
     return aplicarAliasLeitura(col, data);
   }
 
-  // Prepara dados de escrita: snake_case + resolve serverTimestamp + aplica aliases.
-  const prepEscrita = (col, dados) => aplicarAliasEscrita(col, resolverSentinelas(toSnake(dados)));
+  // Prepara dados de escrita: alias + snake nas chaves de topo + resolve serverTimestamp.
+  const prepEscrita = (col, dados) => resolverSentinelas(objParaBanco(col, dados));
 
   // Dados de escrita → { parent (sem itens), itens (linhas p/ tabela-filha) }
   function splitItens(col, dados) {
@@ -200,8 +204,8 @@
     const ordens = [];
     let _limit = null;
     const b = {
-      where(campo, op, val) { filtros.push([aliasCampo(col, toSnakeKey(campo)), OP[op] || 'eq', val]); return b; },
-      orderBy(campo, dir = 'asc') { ordens.push([aliasCampo(col, toSnakeKey(campo)), dir]); return b; },
+      where(campo, op, val) { filtros.push([campoParaColuna(col, campo), OP[op] || 'eq', val]); return b; },
+      orderBy(campo, dir = 'asc') { ordens.push([campoParaColuna(col, campo), dir]); return b; },
       limit(n) { _limit = n; return b; },
       doc(id) { return docRef(col, id); },
       async add(dados) {
@@ -297,6 +301,46 @@
     },
   };
 
+  // ── Shim de Storage (firebase.storage) → bucket 'pedidos' do Supabase ─
+  // Emula storage.ref(path).put(file) → getDownloadURL(). O bucket é PRIVADO;
+  // getDownloadURL() devolve o CAMINHO no bucket (não uma URL pública). A
+  // visualização gera URL assinada sob demanda via window.urlArquivoPedido().
+  function storageShim() {
+    return {
+      ref(path) {
+        const key = String(path).replace(/^pedidos\//, '');
+        return {
+          fullPath: key,
+          put: async (file) => {
+            const { error } = await _sb.storage.from('pedidos').upload(key, file, { upsert: true, contentType: file.type || undefined });
+            if (error) throw error;
+            return { ref: { fullPath: key, getDownloadURL: async () => key } };
+          },
+          getDownloadURL: async () => key,
+        };
+      },
+    };
+  }
+  // Gera URL assinada (1h) para um caminho do bucket; repassa URLs http legadas.
+  window.urlArquivoPedido = async function (pathOrUrl) {
+    if (!pathOrUrl) return null;
+    if (/^https?:\/\//.test(pathOrUrl)) return pathOrUrl;
+    const key = String(pathOrUrl).replace(/^pedidos\//, '');
+    const { data } = await _sb.storage.from('pedidos').createSignedUrl(key, 3600);
+    return data?.signedUrl || null;
+  };
+  // Abre (ou baixa) um arquivo de pedido a partir do caminho salvo no banco.
+  window.verArquivoPedido = async function (path, nome, download) {
+    const url = await window.urlArquivoPedido(path);
+    if (!url) { if (window.showToast) showToast('Arquivo indisponível.'); return; }
+    if (download) {
+      const a = document.createElement('a'); a.href = url; a.download = nome || ''; a.target = '_blank';
+      document.body.appendChild(a); a.click(); a.remove();
+    } else {
+      window.open(url, '_blank', 'noopener');
+    }
+  };
+
   // ── Globais que o restante do app espera ───────────────────────────
   window.db = { collection };
   window.auth = authShim;
@@ -308,6 +352,6 @@
       },
     }),
     auth: function () { return authShim; },
-    // storage: definido quando o módulo de pedidos for convertido
+    storage: storageShim,
   };
 })();

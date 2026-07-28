@@ -940,17 +940,18 @@ async function showOrderDetail(docId) {
 
   // Show NF info if present
   if (o.nfNumero || o.nfFileURL || o.boletoFileURL || o.boletoVencimento) {
+    const _esc = (s) => String(s || '').replace(/'/g, "\\'");
     const btnNFVer = o.nfFileURL
-      ? `<a href="${o.nfFileURL}" target="_blank" rel="noopener" class="btn btn-secondary btn-sm" style="text-decoration:none;">👁 Ver NF</a>`
+      ? `<button type="button" onclick="verArquivoPedido('${_esc(o.nfFileURL)}')" class="btn btn-secondary btn-sm">👁 Ver NF</button>`
       : '';
     const btnNFBaixar = o.nfFileURL
-      ? `<a href="${o.nfFileURL}" download="${o.nfFileName||'nota-fiscal'}" class="btn btn-outline btn-sm" style="text-decoration:none;">⬇ Baixar</a>`
+      ? `<button type="button" onclick="verArquivoPedido('${_esc(o.nfFileURL)}','${_esc(o.nfFileName||'nota-fiscal')}',true)" class="btn btn-outline btn-sm">⬇ Baixar</button>`
       : '';
     const btnBoletoVer = o.boletoFileURL
-      ? `<a href="${o.boletoFileURL}" target="_blank" rel="noopener" class="btn btn-secondary btn-sm" style="text-decoration:none;">👁 Ver Boleto</a>`
+      ? `<button type="button" onclick="verArquivoPedido('${_esc(o.boletoFileURL)}')" class="btn btn-secondary btn-sm">👁 Ver Boleto</button>`
       : '';
     const btnBoletoBaixar = o.boletoFileURL
-      ? `<a href="${o.boletoFileURL}" download="${o.boletoFileName||'boleto'}" class="btn btn-outline btn-sm" style="text-decoration:none;">⬇ Baixar</a>`
+      ? `<button type="button" onclick="verArquivoPedido('${_esc(o.boletoFileURL)}','${_esc(o.boletoFileName||'boleto')}',true)" class="btn btn-outline btn-sm">⬇ Baixar</button>`
       : '';
 
     const attachInfo = `
@@ -1516,7 +1517,8 @@ function openAttachModal() {
   if (detailOrderData?.nfFileURL) {
     nfExisting.style.display = 'flex';
     document.getElementById('attach-nf-existing-name').textContent  = detailOrderData.nfFileName || 'nota-fiscal';
-    document.getElementById('attach-nf-existing-link').href         = detailOrderData.nfFileURL;
+    { const _l = document.getElementById('attach-nf-existing-link'); const _p = detailOrderData.nfFileURL;
+      _l.href = '#'; _l.onclick = (e) => { e.preventDefault(); verArquivoPedido(_p); }; }
     document.getElementById('attach-nf-label').textContent = 'Substituir arquivo';
   } else {
     nfExisting.style.display = 'none';
@@ -1526,7 +1528,8 @@ function openAttachModal() {
   if (detailOrderData?.boletoFileURL) {
     boletoExisting.style.display = 'flex';
     document.getElementById('attach-boleto-existing-name').textContent = detailOrderData.boletoFileName || 'boleto';
-    document.getElementById('attach-boleto-existing-link').href        = detailOrderData.boletoFileURL;
+    { const _l = document.getElementById('attach-boleto-existing-link'); const _p = detailOrderData.boletoFileURL;
+      _l.href = '#'; _l.onclick = (e) => { e.preventDefault(); verArquivoPedido(_p); }; }
     document.getElementById('attach-boleto-label').textContent = 'Substituir arquivo';
   } else {
     boletoExisting.style.display = 'none';
