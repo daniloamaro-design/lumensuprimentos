@@ -73,3 +73,11 @@ env.js
 
 # Backups locais (não versionar)
 backup/
+
+# Segredos e dados da migração (NUNCA versionar)
+.env
+*.env
+!*.env.exemplo
+tools/migracao/.env
+tools/migracao/data/
+node_modules/
