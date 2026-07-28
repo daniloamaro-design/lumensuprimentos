@@ -72,87 +72,66 @@ let CASAS_CIDADES = {
 async function loadDynamicData() {
   // ── Coleções principais (já existem no Firestore) ──
   // ── Carrega categorias customizadas antes de tudo ──
+  // No Supabase, casas/cidades/produtos foram consolidados nas tabelas houses/cidades/
+  // produtos (com coluna `ativo` no lugar das antigas *_removidas/override/blocos).
   try {
-    const catsSnap = await db.collection('categorias_config').orderBy('ordem').get();
+    const catsSnap = await db.collection('categorias').orderBy('ordem').get();
     catsSnap.docs.forEach(d => {
       const c = d.data();
+      if (c.ativo === false) return;
       if (!CATEGORIAS[c.key]) {
         CATEGORIAS[c.key] = { nome: c.nome, icon: c.icon || '📦', produtos: [], _custom: true };
       } else {
-        // Atualiza nome/icon mesmo para categorias nativas
         CATEGORIAS[c.key].nome = c.nome;
         CATEGORIAS[c.key].icon = c.icon || CATEGORIAS[c.key].icon;
       }
     });
-  } catch(e) { console.info('[loadDynamicData] categorias_config sem acesso:', e.code); }
+  } catch(e) { console.info('[loadDynamicData] categorias sem acesso:', e.code); }
 
   try {
-    const [casasSnap, cidadesSnap, prodsSnap, blocosSnap] = await Promise.all([
-      db.collection('casas_config').orderBy('nome').get(),
-      db.collection('cidades_config').orderBy('nome').get(),
-      db.collection('produtos_config').get(),
-      db.collection('casas_blocos').get()
+    const [casasSnap, cidadesSnap, prodsSnap] = await Promise.all([
+      db.collection('houses').get(),
+      db.collection('cidades').get(),
+      db.collection('produtos').get()
     ]);
 
-    // Adiciona casas novas sem duplicar
+    // Casas (nome/cidade/endereço/bloco já consolidados em houses)
     casasSnap.docs.forEach(d => {
       const data = d.data();
-      if (!data.isOverride && !CASAS.includes(data.nome)) CASAS.push(data.nome);
-      if (data.cidade)   CASAS_CIDADES[data.nome]   = data.cidade;
-      if (data.endereco) CASAS_ENDERECOS[data.nome]  = data.endereco;
+      if (data.ativo === false) return;
+      if (!CASAS.includes(data.nome)) CASAS.push(data.nome);
+      if (data.cidade)   CASAS_CIDADES[data.nome]  = data.cidade;
+      if (data.endereco) CASAS_ENDERECOS[data.nome] = data.endereco;
+      if (data.bloco)    CASAS_BLOCOS[data.nome]    = data.bloco;
     });
 
-    // Adiciona cidades novas sem duplicar
+    // Cidades
     cidadesSnap.docs.forEach(d => {
       const data = d.data();
-      if (!data.isOverride && !CIDADES.includes(data.nome)) CIDADES.push(data.nome);
+      if (data.ativo === false) return;
+      if (!CIDADES.includes(data.nome)) CIDADES.push(data.nome);
     });
 
-    // Adiciona/atualiza produtos
+    // Produtos (inativos = ex-"removidos", ignorados)
     prodsSnap.docs.forEach(d => {
       const data = d.data();
-      const cat = data.categoria;
+      if (data.ativo === false) return;
+      const cat = data.categoriaKey;
       if (!CATEGORIAS[cat]) return;
-      // Busca pelo ID do documento (padrão) OU pelo campo prodId (fallback)
-      const searchId = d.id;
-      const existIdx = CATEGORIAS[cat].produtos.findIndex(p => p.id === searchId);
+      const ppp = (data.percapita != null ? data.percapita : data.ppp) || 0;
+      const existIdx = CATEGORIAS[cat].produtos.findIndex(p => p.id === d.id);
       if (existIdx >= 0) {
         CATEGORIAS[cat].produtos[existIdx] = {
           ...CATEGORIAS[cat].produtos[existIdx],
-          nome: data.nome, unidade: data.unidade, ppp: data.percapita || 0, _overridden: true
+          nome: data.nome, unidade: data.unidade, ppp, _overridden: true
         };
       } else {
-        // Produto custom (não existia nos padrões)
-        if (!CATEGORIAS[cat].produtos.some(p => p.id === d.id)) {
-          CATEGORIAS[cat].produtos.push({ id: d.id, nome: data.nome, unidade: data.unidade, ppp: data.percapita || 0, _custom: true });
-        }
+        CATEGORIAS[cat].produtos.push({ id: d.id, nome: data.nome, unidade: data.unidade, ppp, _custom: true });
       }
     });
-
-    // Carrega blocos
-    blocosSnap.docs.forEach(d => { CASAS_BLOCOS[d.data().nome] = d.data().bloco; });
   } catch(e) {
     console.warn('Erro ao carregar dados principais:', e);
   }
-
-  // ── Coleções de controle de admin (criadas sob demanda — sem regras ainda = ignora silenciosamente) ──
-  const adminCollections = [
-    { col: 'casas_removidas',   cb: (docs) => { const s = new Set(docs.map(d => d.data().nome)); CASAS = CASAS.filter(c => !s.has(c)); } },
-    { col: 'cidades_removidas', cb: (docs) => { const s = new Set(docs.map(d => d.data().nome)); CIDADES = CIDADES.filter(c => !s.has(c)); } },
-    { col: 'produtos_removidos',cb: (docs) => { const s = new Set(docs.map(d => d.data().prodId)); Object.keys(CATEGORIAS).forEach(cat => { CATEGORIAS[cat].produtos = CATEGORIAS[cat].produtos.filter(p => !s.has(p.id)); }); } },
-    { col: 'casas_override',    cb: (docs) => { docs.forEach(d => { const ov = d.data(); const idx = CASAS.indexOf(ov.originalNome); if (idx >= 0) { CASAS[idx] = ov.novoNome; delete CASAS_CIDADES[ov.originalNome]; CASAS_CIDADES[ov.novoNome] = ov.cidade; } }); } },
-    { col: 'cidades_override',  cb: (docs) => { docs.forEach(d => { const ov = d.data(); const idx = CIDADES.indexOf(ov.originalNome); if (idx >= 0) { Object.keys(CASAS_CIDADES).forEach(c => { if (CASAS_CIDADES[c] === ov.originalNome) CASAS_CIDADES[c] = ov.novoNome; }); CIDADES[idx] = ov.novoNome; } }); } },
-  ];
-
-  await Promise.all(adminCollections.map(async ({ col, cb }) => {
-    try {
-      const snap = await db.collection(col).get();
-      cb(snap.docs);
-    } catch(e) {
-      // Coleção ainda sem regras no Firestore — ignora silenciosamente
-      console.info(`[loadDynamicData] Coleção "${col}" sem acesso (normal na primeira vez):`, e.code);
-    }
-  }));
 
   // Ordena alfabeticamente
   CASAS.sort((a, b) => a.localeCompare(b, 'pt-BR'));
@@ -287,17 +266,12 @@ function nomeProdutoAtual(catKey, prodId, fallback) {
 }
 
 // ─────────────────────────────────────────────
-// 🔥  FIREBASE INIT
+// 🔥  BANCO DE DADOS (Supabase via camada de compatibilidade js/00-db.js)
 // ─────────────────────────────────────────────
-firebase.initializeApp(FIREBASE_CONFIG);
-var auth = firebase.auth();
-var db   = firebase.firestore();
-
-// ── Correção: persistência de autenticação local (evita ERR_NAME_NOT_RESOLVED
-//    causado por tentativas de refresh de token quando a aba fica em segundo plano)
-auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch(e => console.warn('setPersistence:', e));
-
-// Conexão Firestore padrão (sem db.settings para evitar conflito de flags)
+// js/00-db.js (carregado antes) já criou window.db e window.auth emulando a API
+// do Firebase sobre o Supabase. A persistência de sessão é configurada no cliente.
+var auth = window.auth;
+var db   = window.db;
 
 // EmailJS init
 emailjs.init({ publicKey: EMAILJS_PUBLIC_KEY });
