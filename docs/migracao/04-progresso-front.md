@@ -30,8 +30,15 @@ EMULA a API do Firebase sobre o Supabase. Assim os módulos mudam pouquíssimo. 
 | indicadores / metas / financeiro-compras / var-solicitacoes | 🟡 | navegação sem erro; funções profundas a validar |
 | **Escrita com itens** | ✅ | round-trip TESTADO: add movimentação → split em movement_items → read reconstrói |
 | 06-pedidos (Storage NF/boleto) | ✅ | shim `firebase.storage()` + `verArquivoPedido()` (URL assinada 1h); NF baixa 200/pdf; write de pedido com items map testado |
-| 14-gestao (escrita casas/produtos) | ⏳ | escrever nas tabelas consolidadas com `ativo` |
-| batches / runTransaction / aprovar_cotacao | ⏳ | ver pendências |
+| Gestão casas/cidades (08) | ✅ | tabelas houses/cidades; soft delete; write testado |
+| Gestão produtos (10) | ✅ | produtos (status→ativo); preços batch→sequencial |
+| Gestão categorias (14) | ✅ | categorias (PK=key); deleteCat soft delete |
+| casas_tipo_compra | ✅ | tabela nova (migration 004) + RLS |
+| batches restantes / runTransaction / aprovar_cotacao | ⏳ | variedades (contador→proximo_codigo_var), aprovar cotação→RPC, demais db.batch() |
+
+## Chaves primárias naturais (shim `PK`)
+`cidades=nome` · `categorias=key` · `casas_tipo_compra=nome`. Demais tabelas: `id`.
+`metas` (PK composta ano+cat_key) ainda pendente — tratar no módulo de metas.
 
 ## Conversão snake↔camel: RASA (só nível de topo)
 Corrigida para NÃO recursar em valores → campos JSONB (percapitas.values, stockEval,
