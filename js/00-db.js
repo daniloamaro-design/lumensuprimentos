@@ -80,8 +80,11 @@
     movements:        { leituraIA: 'leitura_ia' },
   };
   const aliasDe = (col) => ALIAS[tabelaDe(col)] || {};
-  // campo do app → coluna do banco (where/orderBy)
-  const campoParaColuna = (col, campo) => aliasDe(col)[campo] || toSnakeKey(campo);
+  // campo do app → coluna do banco (where/orderBy). Aceita FieldPath.documentId().
+  const campoParaColuna = (col, campo) => {
+    if (campo && typeof campo === 'object' && campo.__fieldPath) return pkDe(col);
+    return aliasDe(col)[campo] || toSnakeKey(campo);
+  };
   // objeto do app → objeto p/ o banco (chaves via alias/snake; valores intactos)
   function objParaBanco(col, obj) {
     const a = aliasDe(col);
@@ -128,6 +131,27 @@
 
   // Prepara dados de escrita: alias + snake nas chaves de topo + resolve serverTimestamp.
   const prepEscrita = (col, dados) => resolverSentinelas(objParaBanco(col, dados));
+
+  // Resolve transforms (increment/arrayUnion/arrayRemove) que precisam do valor atual:
+  // busca a linha, calcula em JS e devolve o objeto com valores concretos.
+  async function resolverTransforms(tab, pk, id, obj) {
+    const transforms = {}, plain = {};
+    for (const [k, v] of Object.entries(obj)) {
+      if (v && typeof v === 'object' && v.__transform) transforms[k] = v; else plain[k] = v;
+    }
+    const chaves = Object.keys(transforms);
+    if (!chaves.length) return obj;
+    let cur = {};
+    const { data } = await _sb.from(tab).select(chaves.join(',')).eq(pk, id).maybeSingle();
+    if (data) cur = data;
+    for (const [k, t] of Object.entries(transforms)) {
+      const atual = cur[k];
+      if (t.__transform === 'increment') plain[k] = (Number(atual) || 0) + t.n;
+      else if (t.__transform === 'arrayUnion') { const a = Array.isArray(atual) ? atual.slice() : []; for (const it of t.items) a.push(it); plain[k] = a; }
+      else if (t.__transform === 'arrayRemove') { const set = new Set(t.items.map(x => JSON.stringify(x))); plain[k] = (Array.isArray(atual) ? atual : []).filter(x => !set.has(JSON.stringify(x))); }
+    }
+    return plain;
+  }
 
   // Dados de escrita → { parent (sem itens), itens (linhas p/ tabela-filha) }
   function splitItens(col, dados) {
@@ -215,14 +239,16 @@
       },
       async set(dados, opts) {
         const { parent, itens } = splitItens(col, prepEscrita(col, dados));
-        const { error } = await _sb.from(tab).upsert({ ...parent, [pk]: id }, { onConflict: pk });
+        const resolvido = await resolverTransforms(tab, pk, id, parent);
+        const { error } = await _sb.from(tab).upsert({ ...resolvido, [pk]: id }, { onConflict: pk });
         if (error) throw traduzErro(error);
         await gravarFilhos(col, id, itens);
       },
       async update(dados) {
         const { parent, itens } = splitItens(col, prepEscrita(col, dados));
-        if (Object.keys(parent).length) {
-          const { error } = await _sb.from(tab).update(parent).eq(pk, id);
+        const resolvido = await resolverTransforms(tab, pk, id, parent);
+        if (Object.keys(resolvido).length) {
+          const { error } = await _sb.from(tab).update(resolvido).eq(pk, id);
           if (error) throw traduzErro(error);
         }
         await gravarFilhos(col, id, itens);
@@ -403,8 +429,15 @@
     firestore: Object.assign(function () { return window.db; }, {
       FieldValue: {
         serverTimestamp: () => SERVER_TS,
-        delete: () => null,
+        delete: () => null,                                  // vira NULL na escrita
+        increment: (n) => ({ __transform: 'increment', n }),
+        arrayUnion: (...items) => ({ __transform: 'arrayUnion', items }),
+        arrayRemove: (...items) => ({ __transform: 'arrayRemove', items }),
       },
+      // Comparações em colunas timestamptz aceitam string ISO.
+      Timestamp: { fromDate: (d) => (d instanceof Date ? d.toISOString() : new Date(d).toISOString()) },
+      // documentId() em .where() → mapeado para a chave primária da tabela.
+      FieldPath: { documentId: () => ({ __fieldPath: 'id' }) },
     }),
     auth: function () { return authShim; },
     storage: storageShim,
