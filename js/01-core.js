@@ -1,16 +1,9 @@
 // Extraído de index.html (config + dados do sistema + firebase init + state) em 2026-07-27
 // DEVE ser o PRIMEIRO arquivo do bloco principal a carregar.
 // ─────────────────────────────────────────────
-// ⚙️  CONFIGURAÇÃO — PREENCHA ANTES DE USAR
+// ⚙️  CONFIGURAÇÃO
 // ─────────────────────────────────────────────
-const FIREBASE_CONFIG = {
-  apiKey:            "AIzaSyCJrEyqTInN2YzEwO1eOFibOTpj2Tj-LCQ",
-  authDomain:        "automacao-logistica2040.firebaseapp.com",
-  projectId:         "automacao-logistica2040",
-  storageBucket:     "automacao-logistica2040.firebasestorage.app",
-  messagingSenderId: "980133097947",
-  appId:             "1:980133097947:web:4f778878f8e83b97f677fe"
-};
+// (Firebase removido — o banco/auth agora é Supabase, configurado em js/00-db.js)
 
 // Email via EmailJS
 const EMAILJS_SERVICE_ID  = "service_3j9tbrr";
