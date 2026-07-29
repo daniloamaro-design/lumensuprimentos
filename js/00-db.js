@@ -65,6 +65,10 @@
   };
   const tabelaDe = (col) => TABELA[col] || col;
 
+  // Chave primária por tabela (default 'id'). Algumas usam chave natural.
+  const PK = { cidades: 'nome', categorias: 'key', casas_tipo_compra: 'nome' };
+  const pkDe = (col) => PK[tabelaDe(col)] || 'id';
+
   // Aliases: nome EXATO do campo no app (camelCase) → coluna real do banco (snake).
   // Necessário para renomeações (categoria→categoria_key) e siglas que a conversão
   // genérica não acerta (nfFileURL→nf_file_url, leituraIA→leitura_ia).
@@ -155,8 +159,9 @@
 
   // ── Snapshot (resultado de .get()) ─────────────────────────────────
   function fazerSnapshot(col, rows) {
+    const pk = pkDe(col);
     const docs = rows.map((r) => ({
-      id: r.id,
+      id: r[pk],
       exists: true,
       data: () => rowToData(col, r),
     }));
@@ -169,29 +174,30 @@
   // ── Referência a um documento: db.collection(x).doc(id) ────────────
   function docRef(col, id) {
     const tab = tabelaDe(col);
+    const pk = pkDe(col);
     return {
       id,
       async get() {
-        const { data, error } = await _sb.from(tab).select(selectClause(col)).eq('id', id).maybeSingle();
+        const { data, error } = await _sb.from(tab).select(selectClause(col)).eq(pk, id).maybeSingle();
         if (error) throw traduzErro(error);
         return { exists: !!data, id, data: () => (data ? rowToData(col, data) : undefined) };
       },
       async set(dados, opts) {
         const { parent, itens } = splitItens(col, prepEscrita(col, dados));
-        const { error } = await _sb.from(tab).upsert({ ...parent, id }, { onConflict: 'id' });
+        const { error } = await _sb.from(tab).upsert({ ...parent, [pk]: id }, { onConflict: pk });
         if (error) throw traduzErro(error);
         await gravarFilhos(col, id, itens);
       },
       async update(dados) {
         const { parent, itens } = splitItens(col, prepEscrita(col, dados));
         if (Object.keys(parent).length) {
-          const { error } = await _sb.from(tab).update(parent).eq('id', id);
+          const { error } = await _sb.from(tab).update(parent).eq(pk, id);
           if (error) throw traduzErro(error);
         }
         await gravarFilhos(col, id, itens);
       },
       async delete() {
-        const { error } = await _sb.from(tab).delete().eq('id', id);
+        const { error } = await _sb.from(tab).delete().eq(pk, id);
         if (error) throw traduzErro(error);
       },
     };
@@ -209,11 +215,12 @@
       limit(n) { _limit = n; return b; },
       doc(id) { return docRef(col, id); },
       async add(dados) {
+        const pk = pkDe(col);
         const { parent, itens } = splitItens(col, prepEscrita(col, dados));
-        const { data, error } = await _sb.from(tab).insert(parent).select('id').single();
+        const { data, error } = await _sb.from(tab).insert(parent).select(pk).single();
         if (error) throw traduzErro(error);
-        await gravarFilhos(col, data.id, itens);
-        return { id: data.id };
+        await gravarFilhos(col, data[pk], itens);
+        return { id: data[pk] };
       },
       async get() {
         let q = _sb.from(tab).select(selectClause(col));

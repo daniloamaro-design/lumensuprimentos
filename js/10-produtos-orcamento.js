@@ -150,10 +150,9 @@ async function saveProduct() {
       const existePadrao = CATEGORIAS[categoria].produtos.some(p => p.id === prodId || p.nome.toLowerCase() === nome.toLowerCase());
       if (existePadrao) { showToast('Este produto já existe como padrão!'); setBtnLoading('btn-save-product', false); return; }
 
-      // Salva no Firebase
+      // Salva na tabela produtos (categoria→categoria_key via alias; status→ativo)
       await db.collection('produtos_config').doc(prodId).set({
-        nome, categoria, unidade, percapita, status,
-        createdBy: currentUserData.name,
+        nome, categoria, unidade, percapita, ppp: percapita, ativo: status === 'ativo',
         createdAt: firebase.firestore.FieldValue.serverTimestamp()
       });
 
@@ -161,18 +160,11 @@ async function saveProduct() {
       CATEGORIAS[categoria].produtos.push({ id: prodId, nome, unidade, ppp: percapita });
       showToast(`✅ Produto "${nome}" adicionado!`);
     } else {
-      // Editando produto existente — salva sempre no Firebase (inclusive padrão)
-      const ts = firebase.firestore.FieldValue.serverTimestamp();
-      const snap = await db.collection('produtos_config').doc(prodId).get();
-      if (snap.exists) {
-        await db.collection('produtos_config').doc(prodId).update({ nome, unidade, percapita, status, updatedAt: ts });
-      } else {
-        // Produto padrão sem doc ainda: cria override
-        await db.collection('produtos_config').doc(prodId).set({
-          nome, categoria, unidade, percapita, status, isOverride: true,
-          updatedBy: currentUserData.name, updatedAt: ts
-        });
-      }
+      // Editando produto (upsert: cria a linha se for produto padrão sem registro)
+      await db.collection('produtos_config').doc(prodId).set({
+        nome, categoria, unidade, percapita, ppp: percapita, ativo: status === 'ativo',
+        isOverride: true, updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+      }, { merge: true });
       // Atualiza memória local
       const prodIdx = CATEGORIAS[categoria].produtos.findIndex(p => p.id === prodId);
       if (prodIdx >= 0) {
@@ -181,8 +173,7 @@ async function saveProduct() {
       showToast(`✅ Produto atualizado!`);
     }
 
-    // Salva preços por cidade
-    const batch = db.batch();
+    // Salva preços por cidade (sequencial; upsert manual pela chave cat+prod+cidade)
     for (const cidade of CIDADES) {
       const inputId = `mp-preco-${cidade.replace(/[^a-zA-Z0-9]/g,'_')}`;
       const inp = document.getElementById(inputId);
@@ -190,7 +181,6 @@ async function saveProduct() {
       const price = parseFloat(inp.value);
       if (!price || price <= 0) continue;
 
-      // Busca se já existe
       const existing = await db.collection('prices')
         .where('cat','==',categoria)
         .where('prodId','==',prodId)
@@ -204,12 +194,11 @@ async function saveProduct() {
       };
 
       if (existing.empty) {
-        batch.set(db.collection('prices').doc(), priceData);
+        await db.collection('prices').add(priceData);
       } else {
-        batch.update(db.collection('prices').doc(existing.docs[0].id), priceData);
+        await db.collection('prices').doc(existing.docs[0].id).update(priceData);
       }
     }
-    await batch.commit();
 
     cancelEditProduct();
     await loadMpProducts();
@@ -282,23 +271,21 @@ function cancelEditProduct() {
 async function deleteProduct(docId, nome, tipo) {
   if (!confirm(`Tem certeza que deseja remover "${nome}"?\n\nOs registros de movimentação existentes não serão apagados.`)) return;
   try {
-    if (tipo === 'custom') {
-      // Produto manual: remove do Firebase
-      await db.collection('produtos_config').doc(docId).delete();
-      Object.keys(CATEGORIAS).forEach(cat => {
-        CATEGORIAS[cat].produtos = CATEGORIAS[cat].produtos.filter(p => p.id !== docId);
-      });
+    // Modelo consolidado: soft delete (ativo=false). Se a linha não existir
+    // (produto padrão sem registro), cria-a inativa para "esconder" o padrão.
+    const ref = db.collection('produtos_config').doc(docId);
+    const snap = await ref.get();
+    if (snap.exists) {
+      await ref.update({ ativo: false, deletedAt: firebase.firestore.FieldValue.serverTimestamp(), deletedBy: currentUserData.name });
     } else {
-      // Produto padrão: marca como removido e remove override se houver
-      await db.collection('produtos_removidos').add({ prodId: docId, nome, deletedAt: firebase.firestore.FieldValue.serverTimestamp(), deletedBy: currentUserData.name });
-      // Remove override do Firebase se existir
-      const ovSnap = await db.collection('produtos_config').doc(docId).get();
-      if (ovSnap.exists && ovSnap.data().isOverride) await db.collection('produtos_config').doc(docId).delete();
-      // Remove da memória
-      Object.keys(CATEGORIAS).forEach(cat => {
-        CATEGORIAS[cat].produtos = CATEGORIAS[cat].produtos.filter(p => p.id !== docId);
-      });
+      // Produto padrão sem registro: cria linha inativa (categoria obrigatória)
+      let catKey = null;
+      Object.keys(CATEGORIAS).forEach(c => { if (CATEGORIAS[c].produtos.some(p => p.id === docId)) catKey = c; });
+      await ref.set({ nome, categoria: catKey || 'cereal', ativo: false, deletedAt: firebase.firestore.FieldValue.serverTimestamp(), deletedBy: currentUserData.name });
     }
+    Object.keys(CATEGORIAS).forEach(cat => {
+      CATEGORIAS[cat].produtos = CATEGORIAS[cat].produtos.filter(p => p.id !== docId);
+    });
     showToast(`Produto "${nome}" removido.`);
     loadMpProducts();
   } catch(e) {

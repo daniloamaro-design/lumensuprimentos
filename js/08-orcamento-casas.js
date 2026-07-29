@@ -632,15 +632,11 @@ async function loadManageHouses() {
   const el = document.getElementById('custom-houses-list');
   el.innerHTML = '<div class="loading-state"><div class="spinner spinner-dark"></div>Carregando...</div>';
 
-  // Load bloco assignments from firebase
-  const blocosSnap = await db.collection('casas_blocos').get();
+  // Modelo consolidado: tudo vem da tabela houses (id + bloco por casa).
+  const housesSnap = await db.collection('houses').get();
+  const customIds = {}; // nome → id da linha em houses
   CASAS_BLOCOS = {};
-  blocosSnap.docs.forEach(d => { CASAS_BLOCOS[d.data().nome] = d.data().bloco; });
-
-  // Load custom houses
-  const customSnap = await db.collection('casas_config').orderBy('nome').get();
-  const customIds = {};
-  customSnap.docs.forEach(d => { customIds[d.data().nome] = d.id; });
+  housesSnap.docs.forEach(d => { const h = d.data(); customIds[h.nome] = d.id; if (h.bloco) CASAS_BLOCOS[h.nome] = h.bloco; });
 
   // Names of default houses (hardcoded list)
   const CASAS_PADRAO_NOMES = new Set([
@@ -666,9 +662,9 @@ async function loadManageHouses() {
     ${CASAS.map(casa => {
       const hid     = casa.replace(/[^a-zA-Z0-9]/g,'_');
       const cidade  = CASAS_CIDADES[casa] || '—';
-      const isCustom= !!customIds[casa];
-      const isPadrao= !isCustom;
-      const docId   = customIds[casa] || '';
+      const isPadrao= CASAS_PADRAO_NOMES.has(casa);
+      const isCustom= !isPadrao;
+      const docId   = customIds[casa] || '';   // id da linha em houses
       const tipo    = isPadrao ? 'padrao' : 'custom';
       return `<tr>
         <td><strong>${casa}</strong></td>
@@ -698,15 +694,17 @@ async function loadManageHouses() {
 
 async function saveAllBlocks() {
   try {
-    const batch = db.batch();
+    // Mapa nome → id da linha em houses
+    const housesSnap = await db.collection('houses').get();
+    const idPorNome = {};
+    housesSnap.docs.forEach(d => { idPorNome[d.data().nome] = d.id; });
     for (const casa of CASAS) {
       const hid  = casa.replace(/[^a-zA-Z0-9]/g,'_');
       const sel  = document.getElementById('bloco-sel-' + hid);
       const bloco= sel ? sel.value : '';
-      const ref  = db.collection('casas_blocos').doc(hid);
-      batch.set(ref, { nome: casa, bloco, updatedAt: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true });
+      const id   = idPorNome[casa];
+      if (id) await db.collection('houses').doc(id).update({ bloco });
     }
-    await batch.commit();
     showToast('✅ Blocos de compra salvos com sucesso!');
   } catch(e) {
     showToast('Erro ao salvar blocos: ' + e.message);
@@ -724,16 +722,11 @@ async function addNewHouse() {
 
   const endereco = document.getElementById('new-house-endereco').value.trim();
   try {
-    await db.collection('casas_config').add({
-      nome, cidade, endereco,
-      createdBy: currentUserData.name,
+    await db.collection('houses').add({
+      nome, cidade, endereco, bloco: bloco || null, ativo: true,
+      acolhidos: 0, coordenadores: 0, extra: 0, currentPeople: 0,
       createdAt: firebase.firestore.FieldValue.serverTimestamp()
     });
-    // Save bloco if chosen
-    if (bloco) {
-      const hid = nome.replace(/[^a-zA-Z0-9]/g,'_');
-      await db.collection('casas_blocos').doc(hid).set({ nome, bloco, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
-    }
     if (typeof CASAS_ENDERECOS !== 'undefined') CASAS_ENDERECOS[nome] = endereco;
     CASAS.push(nome);
     CASAS.sort((a, b) => a.localeCompare(b, 'pt-BR'));
@@ -791,24 +784,18 @@ async function saveEditHouse() {
 
   setBtnLoading('btn-save-edit-house', true);
   try {
-    const ts = firebase.firestore.FieldValue.serverTimestamp();
-
-    if (tipo === 'custom') {
-      if (docId) {
-        await db.collection('casas_config').doc(docId).update({ nome: novoNome, cidade: novaCidade, endereco: novoEndereco, updatedAt: ts });
-      }
-    } else {
-      const overrideSnap = await db.collection('casas_override')
-        .where('originalNome', '==', originalNome).get();
-      if (overrideSnap.empty) {
-        await db.collection('casas_override').add({ originalNome, novoNome, cidade: novaCidade, endereco: novoEndereco, updatedAt: ts });
-      } else {
-        await db.collection('casas_override').doc(overrideSnap.docs[0].id).update({ novoNome, cidade: novaCidade, endereco: novoEndereco, updatedAt: ts });
-      }
+    // Modelo consolidado: uma única linha em houses. docId = id da linha;
+    // se vazio (fallback), localiza pela nome original.
+    let id = docId;
+    if (!id) {
+      const snap = await db.collection('houses').where('nome', '==', originalNome).get();
+      if (!snap.empty) id = snap.docs[0].id;
     }
-
-    const hid = novoNome.replace(/[^a-zA-Z0-9]/g,'_');
-    await db.collection('casas_blocos').doc(hid).set({ nome: novoNome, bloco: novoBloco, updatedAt: ts }, { merge: true });
+    if (id) {
+      await db.collection('houses').doc(id).update({
+        nome: novoNome, cidade: novaCidade, endereco: novoEndereco, bloco: novoBloco || null
+      });
+    }
 
     if (typeof CASAS_ENDERECOS !== 'undefined') {
       delete CASAS_ENDERECOS[originalNome];
@@ -835,19 +822,14 @@ async function deleteHouse(docId, nome, tipo) {
   if (!confirm(`Tem certeza que deseja remover "${nome}"?\n\nOs dados de estoque e pedidos desta casa não serão apagados.`)) return;
 
   try {
-    if (tipo === 'custom') {
-      // Casa manual: remove doc do Firebase
-      if (docId) await db.collection('casas_config').doc(docId).delete();
-      // Remove também qualquer override antigo
-      const ovSnap = await db.collection('casas_override').where('novoNome','==',nome).get();
-      ovSnap.docs.forEach(d => d.ref.delete());
-    } else {
-      // Casa padrão: marca como removida
-      await db.collection('casas_removidas').add({ nome, deletedAt: firebase.firestore.FieldValue.serverTimestamp(), deletedBy: currentUserData.name });
-      // Remove possível override anterior
-      const ovSnap = await db.collection('casas_override').where('originalNome','==',nome).get();
-      ovSnap.docs.forEach(d => d.ref.delete());
+    // Modelo consolidado: marca a linha em houses como inativa (soft delete),
+    // preservando o histórico. docId = id da linha; fallback pela nome.
+    let id = docId;
+    if (!id) {
+      const snap = await db.collection('houses').where('nome', '==', nome).get();
+      if (!snap.empty) id = snap.docs[0].id;
     }
+    if (id) await db.collection('houses').doc(id).update({ ativo: false });
 
     // Remove da lista local
     CASAS = CASAS.filter(c => c !== nome);
@@ -868,7 +850,8 @@ async function loadManageCities() {
   const el = document.getElementById('custom-cities-list');
   el.innerHTML = '<div class="loading-state"><div class="spinner spinner-dark"></div>Carregando...</div>';
 
-  const customSnap = await db.collection('cidades_config').orderBy('nome').get();
+  // Modelo consolidado: cidades vêm da tabela 'cidades' (PK = nome).
+  const customSnap = await db.collection('cidades').orderBy('nome').get();
   const customIds = {};
   customSnap.docs.forEach(d => { customIds[d.data().nome] = { id: d.id, data: d.data() }; });
 
@@ -923,20 +906,13 @@ async function saveEditCity() {
 
   setBtnLoading('btn-save-edit-city', true);
   try {
-    const ts = firebase.firestore.FieldValue.serverTimestamp();
-
-    if (tipo === 'custom') {
-      if (docId) {
-        await db.collection('cidades_config').doc(docId).update({ nome: novoNome, updatedAt: ts });
-      }
-    } else {
-      // Cidade padrão: salva override
-      const ovSnap = await db.collection('cidades_override').where('originalNome','==',originalNome).get();
-      if (ovSnap.empty) {
-        await db.collection('cidades_override').add({ originalNome, novoNome, updatedAt: ts });
-      } else {
-        await db.collection('cidades_override').doc(ovSnap.docs[0].id).update({ novoNome, updatedAt: ts });
-      }
+    // Renomear cidade: como houses.cidade referencia cidades(nome), criamos a nova,
+    // repontamos as casas e removemos a antiga (respeitando a chave estrangeira).
+    if (novoNome !== originalNome) {
+      await db.collection('cidades').add({ nome: novoNome, ativo: true });
+      const casasSnap = await db.collection('houses').where('cidade', '==', originalNome).get();
+      for (const d of casasSnap.docs) await db.collection('houses').doc(d.id).update({ cidade: novoNome });
+      await db.collection('cidades').doc(originalNome).delete();
     }
 
     // Atualiza memória local
@@ -963,11 +939,7 @@ async function addNewCity() {
   if (CIDADES.includes(nome)) { showToast('Essa cidade já existe no sistema!'); return; }
 
   try {
-    await db.collection('cidades_config').add({
-      nome,
-      createdBy: currentUserData.name,
-      createdAt: firebase.firestore.FieldValue.serverTimestamp()
-    });
+    await db.collection('cidades').add({ nome, ativo: true });
 
     CIDADES.push(nome);
     CIDADES.sort((a, b) => a.localeCompare(b, 'pt-BR'));
@@ -984,15 +956,8 @@ async function deleteCity(docId, nome, tipo) {
   if (!confirm(`Tem certeza que deseja remover "${nome}"?\n\nOs preços cadastrados para esta cidade não serão apagados.`)) return;
 
   try {
-    if (tipo === 'custom' || docId) {
-      if (docId) await db.collection('cidades_config').doc(docId).delete();
-    } else {
-      // Cidade padrão: marca como removida
-      await db.collection('cidades_removidas').add({ nome, deletedAt: firebase.firestore.FieldValue.serverTimestamp(), deletedBy: currentUserData.name });
-      // Remove possível override
-      const ovSnap = await db.collection('cidades_override').where('originalNome','==',nome).get();
-      ovSnap.docs.forEach(d => d.ref.delete());
-    }
+    // Soft delete: marca a cidade como inativa (preserva preços/histórico).
+    await db.collection('cidades').doc(nome).update({ ativo: false });
     CIDADES = CIDADES.filter(c => c !== nome);
     populateHouseSelects();
     showToast(`Cidade "${nome}" removida.`);
