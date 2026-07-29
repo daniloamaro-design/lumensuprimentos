@@ -34,7 +34,27 @@ EMULA a API do Firebase sobre o Supabase. Assim os módulos mudam pouquíssimo. 
 | Gestão produtos (10) | ✅ | produtos (status→ativo); preços batch→sequencial |
 | Gestão categorias (14) | ✅ | categorias (PK=key); deleteCat soft delete |
 | casas_tipo_compra | ✅ | tabela nova (migration 004) + RLS |
-| batches restantes / runTransaction / aprovar_cotacao | ⏳ | variedades (contador→proximo_codigo_var), aprovar cotação→RPC, demais db.batch() |
+| Variedades (contador + batches) | ✅ | gerarCodigosVarLote→RPC; batches via shim |
+| Metas (15 + 17) | ✅ | shim reconstrói doc 'categorias_ANO' ⇄ linhas |
+| db.batch() (21 sites) | ✅ | shim.batch() executa em sequência; doc() auto-id; snapshot.ref |
+| aprovar cotação | 🟡 | funciona via 2 updates (shim); RPC aprovar_cotacao disponível p/ atomicidade futura |
+
+## VARREDURA DE 30+ PÁGINAS: 0 ERROS 🎉
+Testadas por perfil admin sem nenhum erro de console: dashboard, users, houses,
+indicadores, irmaos, transferencias, financeiro-compras, prices, percapita,
+percapita-financeiro, cardapio-diario, rotina-estoque, ind-fornecedores, manage-cc,
+previsao, kanban, produtividade, calc-real, all-orders, movement, stock-view, new-order,
+fornecedores, manage-products, manage-houses, manage-cities, manage-cats,
+orcamento-financeiro, var-solicitacoes, var-orcamento, var-proposta, var-setores, metas.
+A camada de compatibilidade absorveu praticamente toda a diferença Firestore↔Supabase.
+
+## O que resta na FASE 4
+- **Validação de fluxos de escrita complexos** (criar pedido pela tela, movimentação,
+  importação financeira via Excel, aprovações) — testar a fundo por perfil.
+- **IA/chat (13, 16)**: chamam /api/gemini (função Vercel) — só funciona no deploy,
+  não no preview local. Validar no preview da Vercel (FASE 5).
+- **Limpeza final**: remover FIREBASE_CONFIG/chaves mortas do 01-core; remover usuário
+  de teste; conferir nenhum `firebase.`/`db.collection` órfão sem cobertura.
 
 ## Chaves primárias naturais (shim `PK`)
 `cidades=nome` · `categorias=key` · `casas_tipo_compra=nome`. Demais tabelas: `id`.
