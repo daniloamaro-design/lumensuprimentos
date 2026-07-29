@@ -164,6 +164,7 @@
       id: r[pk],
       exists: true,
       data: () => rowToData(col, r),
+      get ref() { return docRef(col, r[pk]); },
     }));
     return {
       docs, empty: docs.length === 0, size: docs.length,
@@ -175,6 +176,36 @@
   function docRef(col, id) {
     const tab = tabelaDe(col);
     const pk = pkDe(col);
+
+    // Caso especial: metas. No Firestore era 1 doc 'categorias_ANO' com um mapa
+    // {catKey: {metaSemana, metaMes, metaAno}}. No Postgres virou linhas (ano, cat_key).
+    // O shim reconstrói o mapa na leitura e explode em linhas na escrita.
+    if (tab === 'metas') {
+      const ano = parseInt(String(id).replace(/\D/g, ''), 10) || 0;
+      const gravar = async (dados) => {
+        for (const [catKey, m] of Object.entries(dados)) {
+          if (!m || typeof m !== 'object') continue;
+          const { error } = await _sb.from('metas').upsert(
+            { ano, cat_key: catKey, meta_semana: m.metaSemana || 0, meta_mes: m.metaMes || 0, meta_ano: m.metaAno || 0 },
+            { onConflict: 'ano,cat_key' });
+          if (error) throw traduzErro(error);
+        }
+      };
+      return {
+        id,
+        async get() {
+          const { data, error } = await _sb.from('metas').select('*').eq('ano', ano);
+          if (error) throw traduzErro(error);
+          const obj = {};
+          for (const r of (data || [])) obj[r.cat_key] = { metaSemana: r.meta_semana, metaMes: r.meta_mes, metaAno: r.meta_ano };
+          return { exists: !!(data && data.length), id, data: () => obj };
+        },
+        set: gravar,
+        update: gravar,
+        async delete() { await _sb.from('metas').delete().eq('ano', ano); },
+      };
+    }
+
     return {
       id,
       async get() {
@@ -213,7 +244,11 @@
       where(campo, op, val) { filtros.push([campoParaColuna(col, campo), OP[op] || 'eq', val]); return b; },
       orderBy(campo, dir = 'asc') { ordens.push([campoParaColuna(col, campo), dir]); return b; },
       limit(n) { _limit = n; return b; },
-      doc(id) { return docRef(col, id); },
+      // doc() sem id → gera um id (UUID) no cliente para inserção via .set()
+      doc(id) {
+        if (id == null) id = (crypto && crypto.randomUUID) ? crypto.randomUUID() : ('id-' + Date.now() + Math.random().toString(36).slice(2));
+        return docRef(col, id);
+      },
       async add(dados) {
         const pk = pkDe(col);
         const { parent, itens } = splitItens(col, prepEscrita(col, dados));
@@ -348,8 +383,21 @@
     }
   };
 
+  // ── Batch (db.batch()) → executa as operações em sequência ─────────
+  // Não é atômico como o Firestore, mas equivale para a migração. Operações
+  // que exigem atomicidade real (aprovar cotação) usam funções SQL (RPC).
+  function makeBatch() {
+    const ops = [];
+    return {
+      set(ref, data, opts) { ops.push(() => ref.set(data, opts)); return this; },
+      update(ref, data) { ops.push(() => ref.update(data)); return this; },
+      delete(ref) { ops.push(() => ref.delete()); return this; },
+      async commit() { for (const op of ops) await op(); },
+    };
+  }
+
   // ── Globais que o restante do app espera ───────────────────────────
-  window.db = { collection };
+  window.db = { collection, batch: makeBatch };
   window.auth = authShim;
   window.firebase = {
     firestore: Object.assign(function () { return window.db; }, {
