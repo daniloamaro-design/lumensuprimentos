@@ -114,7 +114,8 @@ async function deleteCat(key) {
   if (CATS_NATIVAS.includes(key)) { showToast('⛔ Categorias nativas não podem ser removidas.'); return; }
   if (!confirm(`Remover a categoria "${c?.icon} ${c?.nome}"?\n\nOs produtos desta categoria serão desvinculados.`)) return;
   try {
-    await db.collection('categorias_config').doc(key).delete();
+    // Soft delete: produtos referenciam categorias(key), então desativamos em vez de excluir.
+    await db.collection('categorias_config').doc(key).update({ ativo: false });
     delete CATEGORIAS[key];
     showToast(`🗑️ Categoria removida.`);
     await renderCatsTable();

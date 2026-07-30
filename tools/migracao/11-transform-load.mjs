@@ -10,8 +10,21 @@
 import { readFileSync, existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import crypto from 'node:crypto';
 import pg from 'pg';
 import { DATABASE_URL, exigir } from './env.mjs';
+
+// UUID v5 determinístico do uid do Firebase — MESMA função de 15-usuarios-auth.mjs.
+// Necessário para que re-sincronizações batam com os ids remapeados (auth.users é UUID).
+const NS_UUID = '6ba7b810-9dad-11d1-80b4-00c04fd430c8';
+function uuidV5(nome) {
+  const nsBytes = Buffer.from(NS_UUID.replace(/-/g, ''), 'hex');
+  const hash = crypto.createHash('sha1').update(nsBytes).update(String(nome)).digest();
+  const b = hash.subarray(0, 16);
+  b[6] = (b[6] & 0x0f) | 0x50; b[8] = (b[8] & 0x3f) | 0x80;
+  const h = b.toString('hex');
+  return `${h.slice(0,8)}-${h.slice(8,12)}-${h.slice(12,16)}-${h.slice(16,20)}-${h.slice(20)}`;
+}
 
 exigir('DATABASE_URL', DATABASE_URL);
 const AQUI = dirname(fileURLToPath(import.meta.url));
@@ -67,7 +80,7 @@ async function main() {
   // ── users ──
   for (const d of ler('users')) {
     await upsert('users', {
-      id: d._id, email: S(d.email), name: S(d.name), role: S(d.role) || 'usuario',
+      id: uuidV5(d._id), email: S(d.email), name: S(d.name), role: S(d.role) || 'usuario',
       status: S(d.status) || 'pending', house: S(d.house),
       created_at: TS(d.createdAt), updated_at: TS(d.updatedAt) || TS(d.createdAt), updated_by: S(d.updatedBy),
     });

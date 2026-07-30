@@ -1,0 +1,43 @@
+name: Backup do banco Supabase
+
+# Faz um backup completo (pg_dump) do banco Supabase e guarda como artefato.
+# - Automático: todo domingo 03:00 UTC (00:00 em Brasília)
+# - Manual: aba "Actions" → "Backup do banco Supabase" → "Run workflow"
+#   (use este ANTES da virada e sempre que quiser um ponto de restauração)
+#
+# PRÉ-REQUISITO (ação única do usuário):
+#   GitHub → Settings → Secrets and variables → Actions → New repository secret
+#   Nome: SUPABASE_DB_URL
+#   Valor: a mesma DATABASE_URL do tools/migracao/.env (string do Session Pooler)
+
+on:
+  schedule:
+    - cron: '0 3 * * 0'        # domingo 03:00 UTC
+  workflow_dispatch:            # permite disparar manualmente
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Instalar cliente PostgreSQL 16
+        run: |
+          sudo sh -c 'echo "deb http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list'
+          curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo gpg --dearmor -o /etc/apt/trusted.gpg.d/pgdg.gpg
+          sudo apt-get update && sudo apt-get install -y postgresql-client-16
+
+      - name: Gerar dump
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          if [ -z "$SUPABASE_DB_URL" ]; then echo "❌ Falta o secret SUPABASE_DB_URL"; exit 1; fi
+          STAMP=$(date -u +%Y%m%d-%H%M%S)
+          pg_dump "$SUPABASE_DB_URL" --no-owner --no-privileges -Fc -f "backup-lumen-$STAMP.dump"
+          ls -lh backup-lumen-*.dump
+          echo "STAMP=$STAMP" >> $GITHUB_ENV
+
+      - name: Guardar backup como artefato (retido 90 dias)
+        uses: actions/upload-artifact@v4
+        with:
+          name: backup-lumen-${{ env.STAMP }}
+          path: backup-lumen-*.dump
+          retention-days: 90

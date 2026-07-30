@@ -52,15 +52,15 @@ async function getVarSetores() {
 // sem transação, tinha essa brecha, que ficava mais exposta agora que um único
 // envio pode gerar vários códigos em sequência).
 async function gerarCodigosVarLote(n) {
-  const ref = db.collection('var_counters').doc('solicitacoes');
-  return await db.runTransaction(async (tx) => {
-    const snap = await tx.get(ref);
-    const ultimo = snap.exists ? (snap.data().ultimo || 0) : 0;
-    const codigos = [];
-    for (let i = 1; i <= n; i++) codigos.push('VAR-' + String(ultimo + i).padStart(4, '0'));
-    tx.set(ref, { ultimo: ultimo + n });
-    return codigos;
-  });
+  // Usa a SEQUENCE do Postgres via função SQL proximo_codigo_var() — atômica,
+  // sem colisão entre usuários simultâneos (substitui o runTransaction do Firestore).
+  const codigos = [];
+  for (let i = 0; i < n; i++) {
+    const { data, error } = await window._sb.rpc('proximo_codigo_var');
+    if (error) throw error;
+    codigos.push(data);
+  }
+  return codigos;
 }
 
 async function gerarCodigoVar() {
