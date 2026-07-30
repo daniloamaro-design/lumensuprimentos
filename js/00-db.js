@@ -284,13 +284,31 @@
         return { id: data[pk] };
       },
       async get() {
-        let q = _sb.from(tab).select(selectClause(col));
-        for (const [c, op, val] of filtros) q = q[op](c, val);
-        for (const [c, dir] of ordens) q = q.order(c, { ascending: dir === 'asc' });
-        if (_limit != null) q = q.limit(_limit);
-        const { data, error } = await q;
-        if (error) throw traduzErro(error);
-        return fazerSnapshot(col, data || []);
+        const montar = () => {
+          let q = _sb.from(tab).select(selectClause(col));
+          for (const [c, op, val] of filtros) q = q[op](c, val);
+          for (const [c, dir] of ordens) q = q.order(c, { ascending: dir === 'asc' });
+          return q;
+        };
+        // Com limite explícito: uma única página (limites do app são pequenos).
+        if (_limit != null) {
+          const { data, error } = await montar().limit(_limit);
+          if (error) throw traduzErro(error);
+          return fazerSnapshot(col, data || []);
+        }
+        // Sem limite: pagina de 1000 em 1000 (o PostgREST devolve no máx. 1000 por vez)
+        // para trazer TODAS as linhas — senão tabelas grandes (ex.: compras_financeiro)
+        // ficariam truncadas em 1000 e os totais sairiam errados.
+        const PAGINA = 1000;
+        let inicio = 0, todas = [];
+        for (;;) {
+          const { data, error } = await montar().range(inicio, inicio + PAGINA - 1);
+          if (error) throw traduzErro(error);
+          todas = todas.concat(data || []);
+          if (!data || data.length < PAGINA) break;
+          inicio += PAGINA;
+        }
+        return fazerSnapshot(col, todas);
       },
       // onSnapshot: implementado por polling leve (30s) — os listeners do app são,
       // na prática, detectores de mudança. Retorna função de cancelamento.
