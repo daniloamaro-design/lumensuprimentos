@@ -83,11 +83,24 @@ Views SQL consolidadas + relatórios gerenciais do ERP inteiro.
 base a favor (Suprimentos pronto + toolkit + método). Feito em fases, cada uma entrega valor e
 nada quebra o que já roda.
 
-## Decisões a confirmar com o usuário (na FASE U0)
-- Onde o ERP vai morar: manter no repo/deploy do Suprimentos (que vira "o ERP") ou repo novo?
-- "Casas" e "Fornecedores" são as MESMAS entidades nos 3, ou listas diferentes? (define se
-  compartilha 1 tabela ou mantém separadas por módulo)
-- Perfis: uma pessoa tem o mesmo acesso nos 3 módulos, ou acesso por módulo?
+## Decisões do usuário (2026-07-30) — FECHADAS
+1. **Onde mora:** o projeto do **Suprimentos vira O ERP** — Passagens e Fretes entram nele.
+   Sem repo novo; evoluímos o repo/deploy atual (lumen-suprimentos).
+2. **Casas e Fornecedores são os MESMOS nos 3** → **tabelas compartilhadas únicas**
+   (`houses`, `suppliers` já existentes). Na migração, os cadastros de Passagens/Fretes são
+   mesclados por nome (dedup); os três módulos passam a apontar para a mesma lista.
+3. **Acesso:** por padrão o mesmo nos 3 módulos, MAS o ERP terá uma **TELA DE GESTÃO DE
+   PERMISSÕES** (admin) onde se define, por perfil, o que cada um enxerga/navega. Ou seja:
+   a matriz de permissões deixa de ser fixa no código e passa a ser **editável no próprio ERP**
+   (guardada no banco). Isso é um recurso novo a construir (evolui o modelo de 11 perfis atual).
+
+## Impacto dessas decisões no plano
+- **FASE U0** ganha: desenho da tabela de **permissões editáveis** (perfil × módulo × página/ação)
+  + a tela de administração dela.
+- **U1/U2** (migração): mesclar `users`, `houses`, `suppliers` dos 3 nas tabelas já existentes,
+  deduplicando por nome/email; dados de Passagens/Fretes referenciam esses cadastros compartilhados.
+- **U3** (app único): o menu lateral passa a ser montado dinamicamente a partir das permissões do
+  perfil (o que ele pode ver), não mais fixo.
 
 ## Estado atual
 Suprimentos: ✅ em produção no Supabase. Este plano começa AGORA em paralelo, pela FASE U0
