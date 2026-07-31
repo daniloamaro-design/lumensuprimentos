@@ -7,8 +7,10 @@ name: Backup do banco Supabase
 #
 # PRÉ-REQUISITO (ação única do usuário):
 #   GitHub → Settings → Secrets and variables → Actions → New repository secret
-#   Nome: SUPABASE_DB_URL
-#   Valor: a mesma DATABASE_URL do tools/migracao/.env (string do Session Pooler)
+#   Nome: SUPABASE_DB_PASSWORD
+#   Valor: APENAS a senha do banco (a mesma da criação do projeto Supabase),
+#          sem codificar nada — pode ter @, #, etc. à vontade.
+#   (host/usuário/porta não são segredos e já estão fixos abaixo.)
 
 on:
   schedule:
@@ -28,11 +30,15 @@ jobs:
 
       - name: Gerar dump
         env:
-          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          PGHOST: aws-0-sa-east-1.pooler.supabase.com
+          PGPORT: '5432'
+          PGUSER: postgres.saalwqfjhnvleltqfftr
+          PGDATABASE: postgres
+          PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
         run: |
-          if [ -z "$SUPABASE_DB_URL" ]; then echo "❌ Falta o secret SUPABASE_DB_URL"; exit 1; fi
+          if [ -z "$PGPASSWORD" ]; then echo "❌ Falta o secret SUPABASE_DB_PASSWORD"; exit 1; fi
           STAMP=$(date -u +%Y%m%d-%H%M%S)
-          pg_dump "$SUPABASE_DB_URL" --no-owner --no-privileges -Fc -f "backup-lumen-$STAMP.dump"
+          pg_dump --no-owner --no-privileges -Fc -f "backup-lumen-$STAMP.dump"
           ls -lh backup-lumen-*.dump
           echo "STAMP=$STAMP" >> $GITHUB_ENV
 
