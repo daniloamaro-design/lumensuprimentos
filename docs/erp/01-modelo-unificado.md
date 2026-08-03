@@ -35,14 +35,13 @@ fretes_import_log, fretes_users, fretes_counters.
 - **Fretes:** `fretes`, `rotas`, `freteiros`, `fretes_acertos` (ou consolidar no financeiro),
   `fretes_import_log`. (+ counters → sequence)
 
-### ⚠️ Ponto a confirmar com o usuário — "fornecedores"
-Você disse que fornecedores são os mesmos nos 3. Mas os dados mostram 3 tipos:
-- Suprimentos: `suppliers` (fornecedores de produtos)
-- Passagens: `fornecedores` / `passagens_fornecedores` (agências/companhias)
-- Fretes: `freteiros` (transportadores)
-**Pergunta:** é UMA lista só de fornecedores (com um campo "tipo"), ou são listas distintas por
-natureza? Provável: uma tabela `suppliers` compartilhada com coluna `tipo`
-(produtos|passagens|frete) — assim o financeiro consolidado agrupa por fornecedor de verdade.
+### Fornecedores — DECIDIDO (opção A, tipos múltiplos)
+UMA tabela `suppliers` compartilhada, com coluna **`tipos text[]`** (multi-seleção):
+`produtos` | `passagens` | `frete`. Um fornecedor pode ter 2+ tipos (ex.: ['produtos','frete']).
+Na migração, mesclar por nome/CNPJ os fornecedores dos 3 e marcar os tipos correspondentes;
+os `freteiros` (Fretes) e `passagens_fornecedores` (Passagens) entram como suppliers com o
+tipo respectivo. O cadastro de fornecedor no ERP terá seleção múltipla de tipos.
+(A tabela suppliers já tem `categorias text[]`; adiciona-se `tipos text[]`.)
 
 ### 🔐 Permissões editáveis (recurso novo pedido pelo usuário)
 Hoje a matriz perfil→páginas é fixa no código. No ERP vira dados editáveis:
