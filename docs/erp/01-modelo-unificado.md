@@ -67,6 +67,25 @@ cada módulo novo: gerar migrations das tabelas, ETL, mesclar users/houses/suppl
 - **Password hash parameters** de cada projeto (para preservar as senhas dos usuários), OU
   aceitar reset de senha para os usuários exclusivos de Passagens/Fretes.
 
+## Inventário real (2026-07-30, via chaves de serviço)
+**Passagens (854 docs):** compras_financeiro **830** · passagens_fornecedores 12 · users 6 ·
+passagens_solicitacoes 4 · configuracoes 1 · counters 1. (cotacoes/log/alimentacao/fornecedores = 0)
+→ **Passagens é, na prática, um sistema FINANCEIRO** (830 lançamentos); o fluxo de solicitações
+é pouco usado (4). O grosso vai para o `compras_financeiro` unificado (modulo=passagens).
+
+**Fretes (759 docs):** fretes **435** · fretes_counters 271 · casas_lumen 21 · fretes_metas 18 ·
+freteiros 10 · fretes_users 3 · import_log 1. (rotas/acertos = 0)
+→ Núcleo são os 435 fretes + metas. `fretes_counters` (271) investigar na U1/U2 (vira sequence).
+
+**Volumes pequenos** (854 + 759) → migrações rápidas. Chaves de serviço dos 2 projetos
+validadas e funcionando (FIREBASE_SA_PASSAGENS / FIREBASE_SA_FRETES no .env).
+
+**Financeiro consolidado (a grande motivação):** Suprimentos 1.493 + Passagens 830 = ~2.323
+lançamentos financeiros já ficam numa tabela só → relatórios cruzados imediatos.
+
+**Cadastros a mesclar:** users (Sup 11 + Pas 6 + Fre 3, por email) · casas (Sup 20 + Fre 21, por
+nome) · fornecedores (Sup 16 + Pas 12 + Fre 10, com tipos[]).
+
 ## Próximos passos da U0
 1. Confirmar com o usuário o ponto dos "fornecedores" (lista única com tipo vs. separadas).
 2. Fechar o desenho da tela de permissões editáveis.
