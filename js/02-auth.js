@@ -337,6 +337,13 @@ async function showApp() {
   await loadDynamicData();
   populateHouseSelects();
 
+  // ERP (U3): o login começa sempre no módulo Suprimentos (a navegação abaixo
+  // cai numa página do Suprimentos). O usuário troca de módulo pelo seletor.
+  const _navShell = document.getElementById('sidebar');
+  if (_navShell) _navShell.dataset.mod = 'suprimentos';
+  document.querySelectorAll('.modulo-btn').forEach(b =>
+    b.classList.toggle('ativo', b.dataset.mod === 'suprimentos'));
+
   if (isAdminLevel) {
     goPage('dashboard');
     restaurarEstadoPaineis();

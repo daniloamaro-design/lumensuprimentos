@@ -29,7 +29,7 @@
   <!-- SheetJS para leitura e exportação de Excel -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
-  <link rel="stylesheet" href="css/estilos.css?v=1">
+  <link rel="stylesheet" href="css/estilos.css?v=2">
 </head>
 <body>
 
@@ -276,8 +276,14 @@
   <div class="sidebar-overlay" id="sidebar-overlay" onclick="closeSidebar()"></div>
 
   <!-- SIDEBAR -->
-  <nav class="sidebar" id="sidebar">
-    <div class="sidebar-section" id="sidebar-admin" style="display:none;">
+  <nav class="sidebar" id="sidebar" data-mod="suprimentos">
+    <!-- Seletor de módulos do ERP -->
+    <div class="modulo-switcher" id="modulo-switcher">
+      <button class="modulo-btn ativo" data-mod="suprimentos" onclick="selecionarModulo('suprimentos')" title="Suprimentos">📦 Suprimentos</button>
+      <button class="modulo-btn" data-mod="passagens" onclick="selecionarModulo('passagens')" title="Passagens">✈️ Passagens</button>
+      <button class="modulo-btn" data-mod="frete" onclick="selecionarModulo('frete')" title="Fretes">🚚 Fretes</button>
+    </div>
+    <div class="sidebar-section" data-modulo="suprimentos" id="sidebar-admin" style="display:none;">
       <div class="sidebar-section-title">Administração</div>
       <button class="sidebar-item" data-page="dashboard" onclick="goPageMobile('dashboard')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
@@ -331,7 +337,7 @@
       </button>
     </div>
     <!-- SIDEBAR: ESTOQUE / COMPRAS (unificado) -->
-    <div class="sidebar-section" id="sidebar-estoque-compras" style="display:none;">
+    <div class="sidebar-section" data-modulo="suprimentos" id="sidebar-estoque-compras" style="display:none;">
       <div class="sidebar-section-title">Estoque / Compras</div>
       <button class="sidebar-item" data-page="kanban" onclick="goPageMobile('kanban')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="5" height="18" rx="1"/><rect x="10" y="8" width="5" height="13" rx="1"/><rect x="17" y="5" width="5" height="16" rx="1"/></svg>
@@ -445,7 +451,7 @@
     </div>
 
     <!-- SIDEBAR: INDICADORES -->
-    <div class="sidebar-section" id="sidebar-indicadores">
+    <div class="sidebar-section" data-modulo="suprimentos" id="sidebar-indicadores">
       <div class="sidebar-section-title">Indicadores</div>
       <button class="sidebar-item" data-page="indicadores" onclick="goPageMobile('indicadores')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
@@ -466,7 +472,7 @@
     </div>
 
     <!-- SIDEBAR: FINANCEIRO -->
-    <div class="sidebar-section" id="sidebar-financeiro" style="display:none;">
+    <div class="sidebar-section" data-modulo="suprimentos" id="sidebar-financeiro" style="display:none;">
       <div class="sidebar-section-title">Financeiro</div>
       <button class="sidebar-item" data-page="financeiro-compras" onclick="goPageMobile('financeiro-compras')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
@@ -475,7 +481,7 @@
     </div>
 
     <!-- SIDEBAR: CSL (csl + coord_csl) -->
-    <div class="sidebar-section" id="sidebar-csl" style="display:none;">
+    <div class="sidebar-section" data-modulo="suprimentos" id="sidebar-csl" style="display:none;">
       <div class="sidebar-section-title">CSL / Projetos</div>
       <button class="sidebar-item" data-page="new-order" onclick="goPageMobile('new-order')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
@@ -508,7 +514,7 @@
     </div>
 
     <!-- SIDEBAR: VARIEDADES (adminLevel + compras + estoque + financeiro + escritorio) -->
-    <div class="sidebar-section" id="sidebar-variedades" style="display:none;">
+    <div class="sidebar-section" data-modulo="suprimentos" id="sidebar-variedades" style="display:none;">
       <div class="sidebar-section-title">Compras de Variedades</div>
       <button class="sidebar-item" data-page="var-solicitacoes" onclick="goPageMobile('var-solicitacoes')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
@@ -534,7 +540,7 @@
     </div>
 
     <!-- SIDEBAR: USUÁRIO (visível só para usuarios) -->
-    <div class="sidebar-section" id="sidebar-usuario" style="display:none;">
+    <div class="sidebar-section" data-modulo="suprimentos" id="sidebar-usuario" style="display:none;">
       <div class="sidebar-section-title">Minha Casa</div>
       <button class="sidebar-item" data-page="movement" onclick="goPageMobile('movement')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
@@ -547,6 +553,40 @@
       <button class="sidebar-item" onclick="openAjusteModal()">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
         Solicitar Ajuste
+      </button>
+    </div>
+
+    <!-- ════════ MÓDULO PASSAGENS ════════ -->
+    <div class="sidebar-section" data-modulo="passagens" id="sidebar-passagens">
+      <div class="sidebar-section-title">Passagens</div>
+      <button class="sidebar-item" data-page="pas-solicitacoes" onclick="goPageMobile('pas-solicitacoes')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.2c.4-.3.6-.7.5-1.2z"/></svg>
+        Solicitações
+      </button>
+      <button class="sidebar-item" data-page="financeiro-compras" onclick="goPageMobile('financeiro-compras')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+        Financeiro
+      </button>
+    </div>
+
+    <!-- ════════ MÓDULO FRETES ════════ -->
+    <div class="sidebar-section" data-modulo="frete" id="sidebar-frete">
+      <div class="sidebar-section-title">Fretes</div>
+      <button class="sidebar-item" data-page="frt-lista" onclick="goPageMobile('frt-lista')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+        Fretes
+      </button>
+      <button class="sidebar-item" data-page="frt-novo" onclick="goPageMobile('frt-novo')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Novo Frete
+      </button>
+      <button class="sidebar-item" data-page="frt-freteiros" onclick="goPageMobile('frt-freteiros')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+        Freteiros
+      </button>
+      <button class="sidebar-item" data-page="frt-metas" onclick="goPageMobile('frt-metas')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
+        Metas do Frete
       </button>
     </div>
   </nav>
@@ -1961,6 +2001,41 @@
   </div>
 </div>
 
+
+  <!-- ════════ PÁGINAS DOS MÓDULOS PASSAGENS / FRETES (U3) ════════ -->
+  <!-- Placeholders enquanto os módulos nativos são construídos. -->
+  <div class="page" id="page-pas-solicitacoes">
+    <div class="page-header"><h1 class="page-title">✈️ Passagens — Solicitações</h1></div>
+    <div class="card"><div class="card-body" style="text-align:center;padding:48px 16px;color:var(--text-muted);">
+      <div style="font-size:40px;margin-bottom:8px;">🚧</div>
+      Módulo em construção. Os dados de Passagens já estão no banco; o financeiro consolidado está disponível em <b>Passagens → Financeiro</b>.
+    </div></div>
+  </div>
+  <div class="page" id="page-frt-lista">
+    <div class="page-header"><h1 class="page-title">🚚 Fretes</h1></div>
+    <div class="card"><div class="card-body" style="text-align:center;padding:48px 16px;color:var(--text-muted);">
+      <div style="font-size:40px;margin-bottom:8px;">🚧</div>Módulo em construção.
+    </div></div>
+  </div>
+  <div class="page" id="page-frt-novo">
+    <div class="page-header"><h1 class="page-title">🚚 Novo Frete</h1></div>
+    <div class="card"><div class="card-body" style="text-align:center;padding:48px 16px;color:var(--text-muted);">
+      <div style="font-size:40px;margin-bottom:8px;">🚧</div>Módulo em construção.
+    </div></div>
+  </div>
+  <div class="page" id="page-frt-freteiros">
+    <div class="page-header"><h1 class="page-title">🚚 Freteiros</h1></div>
+    <div class="card"><div class="card-body" style="text-align:center;padding:48px 16px;color:var(--text-muted);">
+      <div style="font-size:40px;margin-bottom:8px;">🚧</div>Módulo em construção.
+    </div></div>
+  </div>
+  <div class="page" id="page-frt-metas">
+    <div class="page-header"><h1 class="page-title">🚚 Metas do Frete</h1></div>
+    <div class="card"><div class="card-body" style="text-align:center;padding:48px 16px;color:var(--text-muted);">
+      <div style="font-size:40px;margin-bottom:8px;">🚧</div>Módulo em construção.
+    </div></div>
+  </div>
+
   </main>
 
 <!-- ═══════════════ PAGE: FORNECEDORES ═══════════════ -->
@@ -2511,6 +2586,7 @@
 <script src="js/15-fornecedores-metas.js?v=1"></script>
 <script src="js/16-chat-ia.js?v=1"></script>
 <script src="js/17-metas-wrappers.js?v=1"></script>
+<script src="js/18-erp.js?v=1"></script>
 <!-- CHAT IA FLUTUANTE -->
 <!-- ════════ GEMINI IA — botão movido para a barra superior (id: chat-ia-topbar-btn) ════════ -->
 

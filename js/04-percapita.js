@@ -516,8 +516,13 @@ function goPage(page) {
     usuario:     ['movement','my-orders','new-order'],
   };
 
+  // Páginas dos módulos Passagens (pas-) e Fretes (frt-): liberadas por ora.
+  // A gestão de permissões editável (perfil × módulo × página) entra na U4;
+  // até lá o acesso aos módulos segue a decisão "mesmo acesso nos 3".
+  const _moduloPage = page.startsWith('frt-') || page.startsWith('pas-');
+
   const roleAllowed = allowed[role];
-  if (!_isAdminLvl && roleAllowed !== 'ALL') {
+  if (!_isAdminLvl && roleAllowed !== 'ALL' && !_moduloPage) {
     if (!roleAllowed || !roleAllowed.includes(page)) {
       showToast('⛔ Você não tem permissão para esta página.');
       return;
