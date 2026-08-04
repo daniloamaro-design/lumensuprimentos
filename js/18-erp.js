@@ -329,3 +329,102 @@ async function salvarFrtMeta() {
   } catch (e) { console.error(e); showToast('❌ Erro ao salvar: ' + e.message); }
 }
 window.salvarFrtMeta = salvarFrtMeta;
+
+/* ══════════════════════════════════════════════════════════════════════
+   MÓDULO PASSAGENS (enxuto) — lista das solicitações (passagens_solicitacoes),
+   somente leitura + detalhe. O financeiro já está consolidado no Suprimentos.
+   ══════════════════════════════════════════════════════════════════════ */
+
+let _pasCache = [];
+
+const _PAS_STATUS = {
+  nova: ['🆕 Nova', 'var(--text-muted)'],
+  em_analise: ['🔎 Em análise', 'var(--lumen)'],
+  'Em Análise': ['🔎 Em análise', 'var(--lumen)'],
+  aprovada: ['✅ Aprovada', 'var(--ok,#16a34a)'],
+  comprada: ['🎫 Comprada', 'var(--ok,#16a34a)'],
+  reprovada: ['⛔ Reprovada', 'var(--danger,#dc2626)'],
+  cancelada: ['✖ Cancelada', 'var(--text-muted)'],
+};
+function pasBadge(s) {
+  const [txt, cor] = _PAS_STATUS[s] || [s || '—', 'var(--text-muted)'];
+  return `<span style="font-weight:600;color:${cor};">${txt}</span>`;
+}
+
+async function loadPasSolic() {
+  const tb = document.getElementById('pas-tbody');
+  if (tb) tb.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:24px;color:var(--text-muted);">Carregando…</td></tr>';
+  try {
+    const snap = await db.collection('passagens_solicitacoes').get();
+    _pasCache = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    _pasCache.sort((a, b) => String(b.criadoEm || '').localeCompare(String(a.criadoEm || '')));
+    const status = [...new Set(_pasCache.map(s => s.status).filter(Boolean))];
+    const sel = document.getElementById('pas-f-status');
+    if (sel) sel.innerHTML = '<option value="">Todos</option>' + status.map(s => `<option value="${frtEsc(s)}">${frtEsc(s)}</option>`).join('');
+    renderPasSolic();
+  } catch (e) {
+    console.error('loadPasSolic', e);
+    if (tb) tb.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:24px;color:var(--danger,#dc2626);">Erro ao carregar: ${frtEsc(e.message)}</td></tr>`;
+  }
+}
+window.loadPasSolic = loadPasSolic;
+
+function renderPasSolic() {
+  const busca = (document.getElementById('pas-f-busca')?.value || '').toLowerCase().trim();
+  const fst = document.getElementById('pas-f-status')?.value || '';
+  const lista = _pasCache.filter(s => {
+    if (fst && (s.status || '') !== fst) return false;
+    if (busca) {
+      const alvo = `${s.codigo || ''} ${s.passageiro || ''} ${s.solicitante || ''} ${s.origem || ''} ${s.destino || ''}`.toLowerCase();
+      if (!alvo.includes(busca)) return false;
+    }
+    return true;
+  });
+  const tb = document.getElementById('pas-tbody');
+  if (!tb) return;
+  if (!lista.length) {
+    tb.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:24px;color:var(--text-muted);">Nenhuma solicitação encontrada.</td></tr>';
+    return;
+  }
+  tb.innerHTML = lista.map(s => `
+    <tr>
+      <td>${frtEsc(s.codigo || '—')}</td>
+      <td>${frtDataBR(s.criadoEm)}</td>
+      <td>${frtEsc(s.tipo || '—')}</td>
+      <td>${frtEsc(s.passageiro || '—')}</td>
+      <td style="max-width:260px;">${frtEsc(s.origem || '—')} <span style="color:var(--text-muted);">→</span> ${frtEsc(s.destino || '—')}</td>
+      <td>${pasBadge(s.status)}</td>
+      <td style="text-align:right;"><button class="btn btn-outline btn-sm" onclick="abrirPasDetalhe('${s.id}')">Ver</button></td>
+    </tr>`).join('');
+}
+window.renderPasSolic = renderPasSolic;
+
+function abrirPasDetalhe(id) {
+  const s = _pasCache.find(x => x.id === id);
+  if (!s) return;
+  document.getElementById('pas-det-titulo').textContent = `Solicitação ${s.codigo || ''}`.trim();
+  const hist = Array.isArray(s.historico) ? s.historico : [];
+  const orcs = Array.isArray(s.orcamentos) ? s.orcamentos.filter(o => o && Object.keys(o).length) : [];
+  const vf = s.valorFinal && (s.valorFinal.valor ?? s.valorFinal);
+  const linha = (rot, val) => `<div><span style="color:var(--text-muted);font-size:13px;">${rot}</span><br>${val}</div>`;
+  document.getElementById('pas-det-body').innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+      ${linha('Solicitante', frtEsc(s.solicitante || '—'))}
+      ${linha('Passageiro', frtEsc(s.passageiro || '—'))}
+      ${linha('Tipo', frtEsc(s.tipo || '—'))}
+      ${linha('Status', pasBadge(s.status))}
+      ${linha('Saída', frtEsc(s.saida || '—'))}
+      ${linha('Retorno', frtEsc(s.retorno || '—') || '—')}
+    </div>
+    ${linha('Trajeto', `${frtEsc(s.origem || '—')} → ${frtEsc(s.destino || '—')}`)}
+    ${s.motivo ? linha('Motivo', frtEsc(s.motivo)) : ''}
+    ${s.obs ? linha('Observações', frtEsc(s.obs)) : ''}
+    ${vf != null ? linha('Valor final', frtBRL(vf)) : ''}
+    ${s.motivoReprovacao ? linha('Motivo da reprovação', frtEsc(s.motivoReprovacao)) : ''}
+    ${s.motivoCancelamento ? linha('Motivo do cancelamento', frtEsc(s.motivoCancelamento)) : ''}
+    ${orcs.length ? linha('Orçamentos', orcs.map(o => `• ${frtEsc(o.fornecedor || o.empresa || '')} ${o.valor != null ? frtBRL(o.valor) : ''}`).join('<br>')) : ''}
+    ${hist.length ? linha('Histórico', hist.map(h => `• ${frtEsc(h.acao || h.texto || '')}${h.usuario ? ' — ' + frtEsc(h.usuario) : ''}`).join('<br>')) : ''}
+  `;
+  openModal('modal-pas-detalhe');
+}
+window.abrirPasDetalhe = abrirPasDetalhe;

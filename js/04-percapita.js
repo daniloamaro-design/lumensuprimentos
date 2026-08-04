@@ -552,6 +552,8 @@ function goPage(page) {
   if (page === 'frt-novo') setTimeout(loadFrtNovoForm, 50);
   if (page === 'frt-freteiros') setTimeout(loadFrtFreteiros, 50);
   if (page === 'frt-metas') setTimeout(loadFrtMetas, 50);
+  // Módulo Passagens (U3)
+  if (page === 'pas-solicitacoes') setTimeout(loadPasSolic, 50);
   if (page === 'dashboard') {
     setTimeout(restaurarEstadoPaineis, 50);
     // Auto-refresh dashboard a cada 3 minutos

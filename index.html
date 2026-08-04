@@ -2005,10 +2005,16 @@
   <!-- ════════ MÓDULO PASSAGENS (U3 — enxuto) ════════ -->
   <div class="page" id="page-pas-solicitacoes">
     <div class="page-header"><h1 class="page-title">✈️ Passagens — Solicitações</h1></div>
-    <div class="card"><div class="card-body" style="text-align:center;padding:48px 16px;color:var(--text-muted);">
-      <div style="font-size:40px;margin-bottom:8px;">🚧</div>
-      Módulo em construção. Os dados de Passagens já estão no banco; o financeiro consolidado
-      está disponível em <b>Passagens → Financeiro</b>.
+    <div class="card" style="margin-bottom:16px;"><div class="card-body" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;">
+      <div><label class="form-label">Buscar</label><input type="text" class="form-input" id="pas-f-busca" placeholder="passageiro, destino, código…" oninput="renderPasSolic()"></div>
+      <div><label class="form-label">Status</label><select class="form-select" id="pas-f-status" onchange="renderPasSolic()"><option value="">Todos</option></select></div>
+      <div style="align-self:end;color:var(--text-muted);font-size:13px;">O financeiro das passagens já está consolidado em <b>Passagens → Financeiro</b>.</div>
+    </div></div>
+    <div class="card"><div class="card-body">
+      <div class="table-wrap"><table class="fin-table">
+        <thead><tr><th>Código</th><th>Data</th><th>Tipo</th><th>Passageiro</th><th>Trajeto</th><th>Status</th><th></th></tr></thead>
+        <tbody id="pas-tbody"><tr><td colspan="7" style="text-align:center;padding:24px;color:var(--text-muted);">Carregando…</td></tr></tbody>
+      </table></div>
     </div></div>
   </div>
 
@@ -2117,6 +2123,17 @@
         <button class="modal-close" onclick="closeModal('modal-frete-detalhe')">×</button>
       </div>
       <div class="modal-body" id="frt-det-body" style="padding:20px;display:flex;flex-direction:column;gap:12px;"></div>
+    </div>
+  </div>
+
+  <!-- MODAL: detalhe da solicitação de passagem -->
+  <div class="modal-overlay hidden" id="modal-pas-detalhe">
+    <div class="modal" style="max-width:600px;width:100%;">
+      <div class="modal-header">
+        <div class="modal-title" id="pas-det-titulo">Solicitação</div>
+        <button class="modal-close" onclick="closeModal('modal-pas-detalhe')">×</button>
+      </div>
+      <div class="modal-body" id="pas-det-body" style="padding:20px;display:flex;flex-direction:column;gap:12px;"></div>
     </div>
   </div>
 
@@ -2668,7 +2685,7 @@
 <script src="js/15-fornecedores-metas.js?v=1"></script>
 <script src="js/16-chat-ia.js?v=1"></script>
 <script src="js/17-metas-wrappers.js?v=1"></script>
-<script src="js/18-erp.js?v=2"></script>
+<script src="js/18-erp.js?v=3"></script>
 <!-- CHAT IA FLUTUANTE -->
 <!-- ════════ GEMINI IA — botão movido para a barra superior (id: chat-ia-topbar-btn) ════════ -->
 
