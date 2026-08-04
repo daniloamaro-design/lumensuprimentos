@@ -563,6 +563,10 @@
     <!-- ════════ MÓDULO PASSAGENS ════════ -->
     <div class="sidebar-section" data-modulo="passagens" id="sidebar-passagens">
       <div class="sidebar-section-title">Passagens</div>
+      <button class="sidebar-item" data-page="pas-nova" onclick="goPageMobile('pas-nova')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Nova Solicitação
+      </button>
       <button class="sidebar-item" data-page="pas-solicitacoes" onclick="goPageMobile('pas-solicitacoes')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.2c.4-.3.6-.7.5-1.2z"/></svg>
         Solicitações
@@ -2022,6 +2026,69 @@
     </div></div>
   </div>
 
+  <!-- PAGE: Nova Solicitação de Passagem -->
+  <div class="page" id="page-pas-nova">
+    <div class="page-header"><h1 class="page-title">✈️ Nova Solicitação</h1></div>
+    <div class="card" style="max-width:760px;"><div class="card-body" style="display:flex;flex-direction:column;gap:14px;">
+      <div>
+        <label class="form-label">Tipo de transporte *</label>
+        <div style="display:flex;gap:10px;">
+          <label style="flex:1;display:flex;align-items:center;gap:8px;padding:12px;border:1.5px solid var(--border);border-radius:10px;cursor:pointer;">
+            <input type="radio" name="pas-tipo" value="onibus" checked> 🚌 Ônibus
+          </label>
+          <label style="flex:1;display:flex;align-items:center;gap:8px;padding:12px;border:1.5px solid var(--border);border-radius:10px;cursor:pointer;">
+            <input type="radio" name="pas-tipo" value="aviao"> ✈️ Avião
+          </label>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <div><label class="form-label">Solicitante *</label><input class="form-input" id="pas-n-solicitante" type="text" readonly></div>
+        <div><label class="form-label">Nome do passageiro *</label><input class="form-input" id="pas-n-passageiro" type="text" placeholder="Nome completo"></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <div><label class="form-label">Origem *</label><input class="form-input" id="pas-n-origem" type="text" placeholder="Ex: Fortaleza - CE"></div>
+        <div><label class="form-label">Destino *</label><input class="form-input" id="pas-n-destino" type="text" placeholder="Ex: Salvador - BA"></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <div><label class="form-label">Data de saída *</label><input class="form-input" id="pas-n-saida" type="date"></div>
+        <div><label class="form-label">Data de retorno</label><input class="form-input" id="pas-n-retorno" type="date"></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <div><label class="form-label">Turno preferido *</label>
+          <select class="form-select" id="pas-n-turno">
+            <option value="">Selecione...</option>
+            <option value="manhã">Manhã (até 12h)</option>
+            <option value="tarde">Tarde (12h–18h)</option>
+            <option value="noite">Noite (18h+)</option>
+            <option value="qualquer">Qualquer horário</option>
+          </select>
+        </div>
+        <div><label class="form-label">Motivo *</label>
+          <select class="form-select" id="pas-n-motivo">
+            <option value="">Selecione...</option>
+            <option value="CDTJ">CDTJ</option>
+            <option value="OUTROS">Outros</option>
+            <option value="TRANSFERÊNCIA">Transferência</option>
+            <option value="VISITAR A FAMÍLIA">Visitar a Família</option>
+            <option value="RETIROS">Retiros</option>
+            <option value="SELO LUMEN">Selo Lumen</option>
+          </select>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <div><label class="form-label">Bagagem?</label>
+          <select class="form-select" id="pas-n-bagagem"><option value="nao">Não</option><option value="sim">Sim</option></select>
+        </div>
+        <div><label class="form-label">Chave PIX (alimentação)</label><input class="form-input" id="pas-n-pix" type="text" placeholder="CPF, e-mail ou celular (opcional)"></div>
+      </div>
+      <div><label class="form-label">Observações</label><textarea class="form-input" id="pas-n-obs" rows="2" style="resize:vertical;" placeholder="Justificativas de urgência, informações adicionais..."></textarea></div>
+      <div style="display:flex;gap:10px;justify-content:flex-end;">
+        <button class="btn btn-secondary" onclick="goPage('pas-solicitacoes')">Cancelar</button>
+        <button class="btn btn-primary" id="pas-n-salvar" onclick="salvarPasSolicitacao()">✈️ Enviar solicitação</button>
+      </div>
+    </div></div>
+  </div>
+
   <!-- ════════ MÓDULO FRETES (U3 — nativo) ════════ -->
   <!-- PAGE: Fretes (lista) -->
   <div class="page" id="page-frt-lista">
@@ -2688,7 +2755,7 @@
 <script src="js/01-core.js?v=5"></script>
 <script src="js/02-auth.js?v=2"></script>
 <script src="js/03-navegacao.js?v=2"></script>
-<script src="js/04-percapita.js?v=2"></script>
+<script src="js/04-percapita.js?v=3"></script>
 <script src="js/05-cadastros.js?v=1"></script>
 <script src="js/06-pedidos.js?v=3"></script>
 <script src="js/07-estoque-ia-form.js?v=2"></script>
@@ -2702,7 +2769,7 @@
 <script src="js/15-fornecedores-metas.js?v=2"></script>
 <script src="js/16-chat-ia.js?v=2"></script>
 <script src="js/17-metas-wrappers.js?v=2"></script>
-<script src="js/18-erp.js?v=5"></script>
+<script src="js/18-erp.js?v=6"></script>
 <!-- CHAT IA FLUTUANTE -->
 <!-- ════════ GEMINI IA — botão movido para a barra superior (id: chat-ia-topbar-btn) ════════ -->
 
