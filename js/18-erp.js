@@ -715,6 +715,86 @@ async function pasMarcarComprada() {
 }
 window.pasMarcarComprada = pasMarcarComprada;
 
+/* ══════════════════════════════════════════════════════════════════════
+   PAINÉIS / INDICADORES (Fretes e Passagens) — agregações client-side
+   ══════════════════════════════════════════════════════════════════════ */
+function _erpStat(label, val, sub, cls) {
+  return `<div class="stat-card${cls ? ' ' + cls : ''}"><div class="stat-label">${label}</div><div class="stat-value">${val}</div>${sub ? `<div class="stat-sub">${sub}</div>` : ''}</div>`;
+}
+function _erpBarras(pares, fmt) {
+  fmt = fmt || (x => x);
+  const max = Math.max(1, ...pares.map(p => Number(p[1]) || 0));
+  return pares.map(([lab, val]) => `
+    <div style="margin-bottom:8px;">
+      <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:2px;gap:8px;"><span>${frtEsc(lab)}</span><b>${fmt(val)}</b></div>
+      <div style="height:8px;background:var(--border);border-radius:4px;overflow:hidden;"><div style="height:100%;width:${((Number(val) || 0) / max * 100).toFixed(1)}%;background:var(--lumen);"></div></div>
+    </div>`).join('');
+}
+const _erpGrid = 'display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:16px;';
+
+async function loadFrtIndicadores() {
+  const cont = document.getElementById('frt-ind-conteudo');
+  if (!cont) return;
+  try {
+    if (!_fretesCache.length) { const snap = await db.collection('fretes').get(); _fretesCache = snap.docs.map(d => ({ id: d.id, ...d.data() })); }
+    const fs = _fretesCache;
+    const qtd = fs.length;
+    const total = fs.reduce((s, f) => s + (Number(f.valor) || 0), 0);
+    const pago = fs.filter(f => f.statusPag === 'pago').reduce((s, f) => s + (Number(f.valor) || 0), 0);
+    const ticket = qtd ? total / qtd : 0;
+    const avals = fs.map(f => f.avaliacao && Number(f.avaliacao.media)).filter(v => v > 0);
+    const avg = avals.length ? avals.reduce((a, b) => a + b, 0) / avals.length : 0;
+    const porFret = {}; fs.forEach(f => { const n = f.freteiroNome || '—'; porFret[n] = (porFret[n] || 0) + (Number(f.valor) || 0); });
+    const topFret = Object.entries(porFret).sort((a, b) => b[1] - a[1]).slice(0, 6);
+    const porMes = {}; fs.forEach(f => { const m = frtMesDaData(f.data || f.createdAt); if (m) porMes[m] = (porMes[m] || 0) + (Number(f.valor) || 0); });
+    const meses = Object.entries(porMes).sort((a, b) => a[0].localeCompare(b[0])).slice(-6);
+    cont.innerHTML = `
+      <div style="${_erpGrid}">
+        ${_erpStat('🚚 Fretes', qtd)}
+        ${_erpStat('💰 Valor total', frtBRL(total))}
+        ${_erpStat('✅ Pago', frtBRL(pago), '', 'stat-card-ok')}
+        ${_erpStat('⏳ Pendente', frtBRL(total - pago), '', 'stat-card-warn')}
+        ${_erpStat('🎫 Ticket médio', frtBRL(ticket))}
+        ${_erpStat('⭐ Avaliação média', avg ? avg.toFixed(1) : '—', avals.length + ' avaliados')}
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;">
+        <div class="card"><div class="card-header"><b>Top freteiros (valor)</b></div><div class="card-body">${topFret.length ? _erpBarras(topFret, frtBRL) : '—'}</div></div>
+        <div class="card"><div class="card-header"><b>Valor por mês</b></div><div class="card-body">${meses.length ? _erpBarras(meses, frtBRL) : '—'}</div></div>
+      </div>`;
+  } catch (e) { cont.innerHTML = `<div class="card"><div class="card-body" style="color:var(--danger,#dc2626);">Erro: ${frtEsc(e.message)}</div></div>`; }
+}
+window.loadFrtIndicadores = loadFrtIndicadores;
+
+async function loadPasIndicadores() {
+  const cont = document.getElementById('pas-ind-conteudo');
+  if (!cont) return;
+  try {
+    if (!_pasCache.length) { const snap = await db.collection('passagens_solicitacoes').get(); _pasCache = snap.docs.map(d => ({ id: d.id, ...d.data() })); }
+    const ps = _pasCache;
+    const porStatus = {}; ps.forEach(s => { const st = s.status || '—'; porStatus[st] = (porStatus[st] || 0) + 1; });
+    const compradas = ps.filter(s => s.status === 'comprada');
+    const valorComprado = compradas.reduce((a, s) => { const vf = s.valorFinal && (s.valorFinal.valor ?? s.valorFinal); return a + (Number(vf) || 0); }, 0);
+    const porMotivo = {}; ps.forEach(s => { const m = s.motivo || '—'; porMotivo[m] = (porMotivo[m] || 0) + 1; });
+    const porTipo = {}; ps.forEach(s => { const t = s.tipo || '—'; porTipo[t] = (porTipo[t] || 0) + 1; });
+    const statusPares = Object.entries(porStatus).sort((a, b) => b[1] - a[1]);
+    const motivoPares = Object.entries(porMotivo).sort((a, b) => b[1] - a[1]);
+    const tipoPares = Object.entries(porTipo).sort((a, b) => b[1] - a[1]);
+    cont.innerHTML = `
+      <div style="${_erpGrid}">
+        ${_erpStat('📋 Solicitações', ps.length)}
+        ${_erpStat('🎫 Compradas', compradas.length, '', 'stat-card-ok')}
+        ${_erpStat('💰 Valor comprado', frtBRL(valorComprado))}
+        ${_erpStat('⏳ Em aberto', (porStatus.pendente || 0) + (porStatus.em_analise || 0) + (porStatus['Em Análise'] || 0), '', 'stat-card-warn')}
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px;">
+        <div class="card"><div class="card-header"><b>Por status</b></div><div class="card-body">${statusPares.length ? _erpBarras(statusPares) : '—'}</div></div>
+        <div class="card"><div class="card-header"><b>Por motivo</b></div><div class="card-body">${motivoPares.length ? _erpBarras(motivoPares) : '—'}</div></div>
+        <div class="card"><div class="card-header"><b>Por tipo</b></div><div class="card-body">${tipoPares.length ? _erpBarras(tipoPares) : '—'}</div></div>
+      </div>`;
+  } catch (e) { cont.innerHTML = `<div class="card"><div class="card-body" style="color:var(--danger,#dc2626);">Erro: ${frtEsc(e.message)}</div></div>`; }
+}
+window.loadPasIndicadores = loadPasIndicadores;
+
 // ── Nova solicitação de passagem (portado do sistema antigo) ──
 function loadPasNovaForm() {
   const sol = document.getElementById('pas-n-solicitante');
@@ -777,7 +857,7 @@ window.salvarPasSolicitacao = salvarPasSolicitacao;
    ══════════════════════════════════════════════════════════════════════ */
 
 // páginas dos módulos (hoje abertas a todos; o admin restringe na tela)
-const _MOD_PAGES = ['pas-solicitacoes', 'pas-nova', 'frt-lista', 'frt-novo', 'frt-autorizacoes', 'frt-freteiros', 'frt-metas'];
+const _MOD_PAGES = ['pas-solicitacoes', 'pas-nova', 'pas-indicadores', 'frt-lista', 'frt-novo', 'frt-autorizacoes', 'frt-freteiros', 'frt-metas', 'frt-indicadores'];
 // todas as páginas do Suprimentos (perfis de gestão têm tudo)
 const _SUP_PAGES = ['dashboard', 'users', 'houses', 'manage-houses', 'manage-cities', 'manage-products',
   'manage-cats', 'percapita-financeiro', 'manage-cc', 'all-orders', 'produtividade', 'kanban',

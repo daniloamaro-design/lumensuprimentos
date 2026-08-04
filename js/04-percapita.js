@@ -529,9 +529,11 @@ function goPage(page) {
   if (page === 'frt-freteiros') setTimeout(loadFrtFreteiros, 50);
   if (page === 'frt-metas') setTimeout(loadFrtMetas, 50);
   if (page === 'frt-autorizacoes') setTimeout(loadFrtAutorizacoes, 50);
+  if (page === 'frt-indicadores') setTimeout(loadFrtIndicadores, 50);
   // Módulo Passagens (U3)
   if (page === 'pas-solicitacoes') setTimeout(loadPasSolic, 50);
   if (page === 'pas-nova') setTimeout(loadPasNovaForm, 50);
+  if (page === 'pas-indicadores') setTimeout(loadPasIndicadores, 50);
   // Permissões (U4)
   if (page === 'permissoes') setTimeout(loadPermissoesUI, 50);
   if (page === 'dashboard') {
