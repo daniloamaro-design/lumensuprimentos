@@ -2002,41 +2002,123 @@
 </div>
 
 
-  <!-- ════════ PÁGINAS DOS MÓDULOS PASSAGENS / FRETES (U3) ════════ -->
-  <!-- Placeholders enquanto os módulos nativos são construídos. -->
+  <!-- ════════ MÓDULO PASSAGENS (U3 — enxuto) ════════ -->
   <div class="page" id="page-pas-solicitacoes">
     <div class="page-header"><h1 class="page-title">✈️ Passagens — Solicitações</h1></div>
     <div class="card"><div class="card-body" style="text-align:center;padding:48px 16px;color:var(--text-muted);">
       <div style="font-size:40px;margin-bottom:8px;">🚧</div>
-      Módulo em construção. Os dados de Passagens já estão no banco; o financeiro consolidado está disponível em <b>Passagens → Financeiro</b>.
+      Módulo em construção. Os dados de Passagens já estão no banco; o financeiro consolidado
+      está disponível em <b>Passagens → Financeiro</b>.
     </div></div>
   </div>
+
+  <!-- ════════ MÓDULO FRETES (U3 — nativo) ════════ -->
+  <!-- PAGE: Fretes (lista) -->
   <div class="page" id="page-frt-lista">
-    <div class="page-header"><h1 class="page-title">🚚 Fretes</h1></div>
-    <div class="card"><div class="card-body" style="text-align:center;padding:48px 16px;color:var(--text-muted);">
-      <div style="font-size:40px;margin-bottom:8px;">🚧</div>Módulo em construção.
+    <div class="page-header" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+      <h1 class="page-title">🚚 Fretes</h1>
+      <button class="btn btn-primary" onclick="goPage('frt-novo')">+ Novo Frete</button>
+    </div>
+    <div class="stat-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:16px;">
+      <div class="stat-card"><div class="stat-label">🚚 Fretes</div><div class="stat-value" id="frt-kpi-qtd">—</div><div class="stat-sub" id="frt-kpi-periodo">no filtro atual</div></div>
+      <div class="stat-card"><div class="stat-label">💰 Valor total</div><div class="stat-value" id="frt-kpi-total">—</div></div>
+      <div class="stat-card stat-card-ok"><div class="stat-label">✅ Pago</div><div class="stat-value ok" id="frt-kpi-pago">—</div></div>
+      <div class="stat-card stat-card-warn"><div class="stat-label">⏳ Pendente</div><div class="stat-value" id="frt-kpi-pendente">—</div></div>
+    </div>
+    <div class="card" style="margin-bottom:16px;"><div class="card-body" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;">
+      <div><label class="form-label">Buscar</label><input type="text" class="form-input" id="frt-f-busca" placeholder="freteiro, origem, destino, código…" oninput="renderFrtLista()"></div>
+      <div><label class="form-label">Pagamento</label><select class="form-select" id="frt-f-pag" onchange="renderFrtLista()">
+        <option value="">Todos</option><option value="pago">Pago</option><option value="pendente">Pendente</option><option value="parcial">Parcial</option>
+      </select></div>
+      <div><label class="form-label">Freteiro</label><select class="form-select" id="frt-f-freteiro" onchange="renderFrtLista()"><option value="">Todos</option></select></div>
+      <div><label class="form-label">Mês</label><input type="month" class="form-input" id="frt-f-mes" onchange="renderFrtLista()"></div>
+    </div></div>
+    <div class="card"><div class="card-body">
+      <div class="table-wrap">
+        <table class="fin-table">
+          <thead><tr><th>Código</th><th>Data</th><th>Freteiro</th><th>Trajeto</th><th style="text-align:right;">Valor</th><th>Pagamento</th><th></th></tr></thead>
+          <tbody id="frt-tbody"><tr><td colspan="7" style="text-align:center;padding:24px;color:var(--text-muted);">Carregando…</td></tr></tbody>
+        </table>
+      </div>
     </div></div>
   </div>
+
+  <!-- PAGE: Novo Frete -->
   <div class="page" id="page-frt-novo">
     <div class="page-header"><h1 class="page-title">🚚 Novo Frete</h1></div>
-    <div class="card"><div class="card-body" style="text-align:center;padding:48px 16px;color:var(--text-muted);">
-      <div style="font-size:40px;margin-bottom:8px;">🚧</div>Módulo em construção.
+    <div class="card" style="max-width:720px;"><div class="card-body" style="display:flex;flex-direction:column;gap:14px;">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <div><label class="form-label">Freteiro *</label><select class="form-select" id="frt-n-freteiro"><option value="">Selecione…</option></select></div>
+        <div><label class="form-label">Data *</label><input type="date" class="form-input" id="frt-n-data"></div>
+      </div>
+      <div><label class="form-label">Origem *</label><input type="text" class="form-input" id="frt-n-origem" placeholder="Endereço de coleta"></div>
+      <div><label class="form-label">Destino *</label><input type="text" class="form-input" id="frt-n-destino" placeholder="Endereço de entrega"></div>
+      <div><label class="form-label">Paradas (uma por linha)</label><textarea class="form-input" id="frt-n-paradas" rows="2" placeholder="Endereços intermediários (opcional)" style="resize:vertical;"></textarea></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;">
+        <div><label class="form-label">Motivo</label><input type="text" class="form-input" id="frt-n-motivo" placeholder="Ex: Rota das casas"></div>
+        <div><label class="form-label">Valor (R$) *</label><input type="number" step="0.01" min="0" class="form-input" id="frt-n-valor" placeholder="0,00"></div>
+        <div><label class="form-label">Forma de pagamento</label><select class="form-select" id="frt-n-forma"><option value="pix">Pix</option><option value="dinheiro">Dinheiro</option><option value="transferencia">Transferência</option></select></div>
+      </div>
+      <div><label class="form-label">Observações</label><textarea class="form-input" id="frt-n-obs" rows="2" style="resize:vertical;"></textarea></div>
+      <div style="display:flex;gap:10px;justify-content:flex-end;">
+        <button class="btn btn-secondary" onclick="goPage('frt-lista')">Cancelar</button>
+        <button class="btn btn-primary" id="frt-n-salvar" onclick="salvarNovoFrete()">Salvar frete</button>
+      </div>
     </div></div>
   </div>
+
+  <!-- PAGE: Freteiros -->
   <div class="page" id="page-frt-freteiros">
     <div class="page-header"><h1 class="page-title">🚚 Freteiros</h1></div>
-    <div class="card"><div class="card-body" style="text-align:center;padding:48px 16px;color:var(--text-muted);">
-      <div style="font-size:40px;margin-bottom:8px;">🚧</div>Módulo em construção.
+    <div class="card" style="margin-bottom:16px;"><div class="card-header"><b>Novo freteiro</b></div>
+      <div class="card-body" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;align-items:end;">
+        <div><label class="form-label">Nome *</label><input type="text" class="form-input" id="frt-fr-nome"></div>
+        <div><label class="form-label">Telefone</label><input type="text" class="form-input" id="frt-fr-tel"></div>
+        <div><label class="form-label">Chave Pix</label><input type="text" class="form-input" id="frt-fr-pix"></div>
+        <div><label class="form-label">CPF/CNPJ</label><input type="text" class="form-input" id="frt-fr-doc"></div>
+        <div><button class="btn btn-primary" onclick="salvarFreteiro()">+ Adicionar</button></div>
+      </div>
+    </div>
+    <div class="card"><div class="card-body">
+      <div class="table-wrap"><table class="fin-table">
+        <thead><tr><th>Nome</th><th>Telefone</th><th>Chave Pix</th><th>CPF/CNPJ</th></tr></thead>
+        <tbody id="frt-freteiros-tbody"><tr><td colspan="4" style="text-align:center;padding:24px;color:var(--text-muted);">Carregando…</td></tr></tbody>
+      </table></div>
     </div></div>
   </div>
+
+  <!-- PAGE: Metas do Frete -->
   <div class="page" id="page-frt-metas">
     <div class="page-header"><h1 class="page-title">🚚 Metas do Frete</h1></div>
-    <div class="card"><div class="card-body" style="text-align:center;padding:48px 16px;color:var(--text-muted);">
-      <div style="font-size:40px;margin-bottom:8px;">🚧</div>Módulo em construção.
+    <div class="card" style="margin-bottom:16px;"><div class="card-header"><b>Nova meta</b></div>
+      <div class="card-body" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;align-items:end;">
+        <div><label class="form-label">Mês *</label><input type="month" class="form-input" id="frt-m-mes"></div>
+        <div><label class="form-label">Semanal (R$)</label><input type="number" step="0.01" min="0" class="form-input" id="frt-m-semanal"></div>
+        <div><label class="form-label">Mensal (R$)</label><input type="number" step="0.01" min="0" class="form-input" id="frt-m-mensal"></div>
+        <div><label class="form-label">Anual (R$)</label><input type="number" step="0.01" min="0" class="form-input" id="frt-m-anual"></div>
+        <div><button class="btn btn-primary" onclick="salvarFrtMeta()">+ Adicionar</button></div>
+      </div>
+    </div>
+    <div class="card"><div class="card-body">
+      <div class="table-wrap"><table class="fin-table">
+        <thead><tr><th>Mês</th><th style="text-align:right;">Semanal</th><th style="text-align:right;">Mensal</th><th style="text-align:right;">Anual</th></tr></thead>
+        <tbody id="frt-metas-tbody"><tr><td colspan="4" style="text-align:center;padding:24px;color:var(--text-muted);">Carregando…</td></tr></tbody>
+      </table></div>
     </div></div>
   </div>
 
   </main>
+
+  <!-- MODAL: detalhe do frete -->
+  <div class="modal-overlay hidden" id="modal-frete-detalhe">
+    <div class="modal" style="max-width:600px;width:100%;">
+      <div class="modal-header">
+        <div class="modal-title" id="frt-det-titulo">Frete</div>
+        <button class="modal-close" onclick="closeModal('modal-frete-detalhe')">×</button>
+      </div>
+      <div class="modal-body" id="frt-det-body" style="padding:20px;display:flex;flex-direction:column;gap:12px;"></div>
+    </div>
+  </div>
 
 <!-- ═══════════════ PAGE: FORNECEDORES ═══════════════ -->
 <!-- (injected inside #app-screen, rendered via goPage) -->
@@ -2586,7 +2668,7 @@
 <script src="js/15-fornecedores-metas.js?v=1"></script>
 <script src="js/16-chat-ia.js?v=1"></script>
 <script src="js/17-metas-wrappers.js?v=1"></script>
-<script src="js/18-erp.js?v=1"></script>
+<script src="js/18-erp.js?v=2"></script>
 <!-- CHAT IA FLUTUANTE -->
 <!-- ════════ GEMINI IA — botão movido para a barra superior (id: chat-ia-topbar-btn) ════════ -->
 

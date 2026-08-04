@@ -547,6 +547,11 @@ function goPage(page) {
   // Inicializa páginas que precisam de carregamento ao abrir
   if (page === 'produtividade') setTimeout(loadProdutividade, 50);
   if (page === 'kanban') setTimeout(loadKanban, 50);
+  // Módulo Fretes (U3)
+  if (page === 'frt-lista') setTimeout(loadFrtLista, 50);
+  if (page === 'frt-novo') setTimeout(loadFrtNovoForm, 50);
+  if (page === 'frt-freteiros') setTimeout(loadFrtFreteiros, 50);
+  if (page === 'frt-metas') setTimeout(loadFrtMetas, 50);
   if (page === 'dashboard') {
     setTimeout(restaurarEstadoPaineis, 50);
     // Auto-refresh dashboard a cada 3 minutos
