@@ -451,7 +451,7 @@ REGRAS:
   while (tentativas < maxTentativas) {
     tentativas++;
     try {
-      const resp = await fetch(GEMINI_URL, {
+      const resp = await geminiFetch({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

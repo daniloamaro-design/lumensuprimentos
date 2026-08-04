@@ -14,6 +14,21 @@ const EMAILJS_PUBLIC_KEY  = "UHnFUf7wjvrxJa2d2";
 // GEMINI_API_KEY removida — agora é variável de ambiente no Vercel
 const GEMINI_URL = "/api/gemini"; // chave segura no servidor Vercel
 
+// Disjuntor da IA: se a chamada falhar por chave/autenticação (401/403 — ex.:
+// GEMINI_API_KEY inválida na Vercel), desativa a IA nesta sessão para não ficar
+// repetindo o erro a cada carregamento do painel. As chamadas seguintes falham
+// na hora e os catches existentes mostram "IA indisponível". Recarregar reativa.
+window._geminiIndisponivel = false;
+async function geminiFetch(init) {
+  if (window._geminiIndisponivel) throw new Error('IA indisponível (verifique a GEMINI_API_KEY na Vercel).');
+  const resp = await fetch(GEMINI_URL, init);
+  if (!resp.ok && (resp.status === 401 || resp.status === 403)) {
+    window._geminiIndisponivel = true;
+    console.warn('IA (Gemini) desativada nesta sessão — verifique a GEMINI_API_KEY na Vercel.');
+  }
+  return resp;
+}
+
 // E-mail do administrador geral
 const ADMIN_EMAIL = "daniloamaro@lumenserfeliz.org";
 

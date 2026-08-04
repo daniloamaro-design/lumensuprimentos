@@ -1214,3 +1214,14 @@
 .sidebar[data-mod="suprimentos"] .sidebar-section[data-modulo]:not([data-modulo="suprimentos"]),
 .sidebar[data-mod="passagens"]   .sidebar-section[data-modulo]:not([data-modulo="passagens"]),
 .sidebar[data-mod="frete"]       .sidebar-section[data-modulo]:not([data-modulo="frete"]){display:none !important;}
+
+/* ══ Tabela de Permissões (U4) — cabeçalho e coluna fixos, tema escuro ══ */
+#permissoes-conteudo .perm-scroll{max-height:calc(100vh - 240px);overflow:auto;border:1px solid var(--border);border-radius:10px;}
+#permissoes-conteudo .perm-table{width:100%;min-width:760px;border-collapse:separate;border-spacing:0;font-size:12px;}
+#permissoes-conteudo .perm-table th,#permissoes-conteudo .perm-table td{padding:9px 12px;border-bottom:1px solid var(--border);white-space:nowrap;text-align:center;}
+#permissoes-conteudo .perm-table thead th{position:sticky;top:0;z-index:3;background:var(--surface);color:var(--text-muted);text-transform:uppercase;font-size:10px;letter-spacing:.4px;font-weight:700;}
+#permissoes-conteudo .perm-table th.perm-pg,#permissoes-conteudo .perm-table td.perm-pg{position:sticky;left:0;z-index:2;background:var(--surface);text-align:left;color:var(--text);}
+#permissoes-conteudo .perm-table thead th.perm-pg{z-index:4;}
+#permissoes-conteudo .perm-table tr.perm-sec td{position:sticky;left:0;background:var(--bg);color:var(--text);font-weight:700;text-align:left;}
+#permissoes-conteudo .perm-table td.perm-pg .perm-key{font-size:11px;color:var(--text-muted);}
+#permissoes-conteudo .perm-table input[type=checkbox]{width:16px;height:16px;cursor:pointer;accent-color:var(--lumen,#2B9FA8);}

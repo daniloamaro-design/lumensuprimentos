@@ -545,17 +545,17 @@ function loadPermissoesUI() {
   };
   const cur = {}; _ROLES_EDIT.forEach(r => cur[r] = permDe(r));
 
-  let html = '<div class="table-wrap"><table class="fin-table" style="min-width:720px;"><thead><tr>'
-    + '<th style="text-align:left;position:sticky;left:0;background:var(--card,#fff);z-index:1;">Página</th>';
+  let html = '<div class="perm-scroll"><table class="perm-table"><thead><tr>'
+    + '<th class="perm-pg">Página</th>';
   _ROLES_EDIT.forEach(r => html += `<th title="${r}">${_ROLES_ROTULO[r]}</th>`);
   html += '</tr></thead><tbody>';
   grupos.forEach(g => {
-    html += `<tr><td colspan="${_ROLES_EDIT.length + 1}" style="font-weight:700;background:var(--bg,#f3f4f6);">${frtEsc(g.titulo)}</td></tr>`;
+    html += `<tr class="perm-sec"><td colspan="${_ROLES_EDIT.length + 1}">${frtEsc(g.titulo)}</td></tr>`;
     g.itens.forEach(it => {
-      html += `<tr><td style="text-align:left;position:sticky;left:0;background:var(--card,#fff);">${frtEsc(it.label)}<div style="font-size:11px;color:var(--text-muted);">${it.page}</div></td>`;
+      html += `<tr><td class="perm-pg">${frtEsc(it.label)}<div class="perm-key">${it.page}</div></td>`;
       _ROLES_EDIT.forEach(r => {
         const ck = cur[r].has(it.page) ? 'checked' : '';
-        html += `<td style="text-align:center;"><input type="checkbox" data-role="${r}" data-page="${it.page}" ${ck}></td>`;
+        html += `<td><input type="checkbox" data-role="${r}" data-page="${it.page}" ${ck}></td>`;
       });
       html += '</tr>';
     });
