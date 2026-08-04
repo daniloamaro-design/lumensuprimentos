@@ -528,6 +528,7 @@ function goPage(page) {
   if (page === 'frt-novo') setTimeout(loadFrtNovoForm, 50);
   if (page === 'frt-freteiros') setTimeout(loadFrtFreteiros, 50);
   if (page === 'frt-metas') setTimeout(loadFrtMetas, 50);
+  if (page === 'frt-autorizacoes') setTimeout(loadFrtAutorizacoes, 50);
   // Módulo Passagens (U3)
   if (page === 'pas-solicitacoes') setTimeout(loadPasSolic, 50);
   if (page === 'pas-nova') setTimeout(loadPasNovaForm, 50);

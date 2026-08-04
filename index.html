@@ -29,7 +29,7 @@
   <!-- SheetJS para leitura e exportação de Excel -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
-  <link rel="stylesheet" href="css/estilos.css?v=4">
+  <link rel="stylesheet" href="css/estilos.css?v=5">
 </head>
 <body>
 
@@ -587,6 +587,10 @@
       <button class="sidebar-item" data-page="frt-novo" onclick="goPageMobile('frt-novo')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
         Novo Frete
+      </button>
+      <button class="sidebar-item" data-page="frt-autorizacoes" onclick="goPageMobile('frt-autorizacoes')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12l2 2 4-4"/><path d="M21 12c0 4.97-4.03 9-9 9s-9-4.03-9-9 4.03-9 9-9c1.5 0 2.9.36 4.14 1"/></svg>
+        Autorizações
       </button>
       <button class="sidebar-item" data-page="frt-freteiros" onclick="goPageMobile('frt-freteiros')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
@@ -2113,10 +2117,24 @@
     <div class="card"><div class="card-body">
       <div class="table-wrap">
         <table class="fin-table">
-          <thead><tr><th>Código</th><th>Data</th><th>Freteiro</th><th>Trajeto</th><th style="text-align:right;">Valor</th><th>Pagamento</th><th></th></tr></thead>
+          <thead><tr><th>Código</th><th>Data</th><th>Freteiro</th><th>Trajeto</th><th style="text-align:right;">Valor</th><th>Situação</th><th></th></tr></thead>
           <tbody id="frt-tbody"><tr><td colspan="7" style="text-align:center;padding:24px;color:var(--text-muted);">Carregando…</td></tr></tbody>
         </table>
       </div>
+    </div></div>
+  </div>
+
+  <!-- PAGE: Autorizações de Frete -->
+  <div class="page" id="page-frt-autorizacoes">
+    <div class="page-header"><h1 class="page-title">🚚 Autorizações de Frete</h1></div>
+    <div class="card" style="margin-bottom:12px;"><div class="card-body" style="color:var(--text-muted);font-size:13px;">
+      Fretes aguardando <b>autorização</b>. Ao autorizar, o frete vai para <b>Em transporte</b>.
+    </div></div>
+    <div class="card"><div class="card-body">
+      <div class="table-wrap"><table class="fin-table">
+        <thead><tr><th>Código</th><th>Data</th><th>Freteiro</th><th>Trajeto</th><th style="text-align:right;">Valor</th><th></th></tr></thead>
+        <tbody id="frt-aut-tbody"><tr><td colspan="6" style="text-align:center;padding:24px;color:var(--text-muted);">Carregando…</td></tr></tbody>
+      </table></div>
     </div></div>
   </div>
 
@@ -2207,6 +2225,46 @@
         <button class="modal-close" onclick="closeModal('modal-frete-detalhe')">×</button>
       </div>
       <div class="modal-body" id="frt-det-body" style="padding:20px;display:flex;flex-direction:column;gap:12px;"></div>
+    </div>
+  </div>
+
+  <!-- MODAL: avaliação do frete -->
+  <div class="modal-overlay hidden" id="modal-avaliar-frete">
+    <div class="modal" style="max-width:440px;width:100%;">
+      <div class="modal-header">
+        <div class="modal-title">⭐ Avaliar frete</div>
+        <button class="modal-close" onclick="closeModal('modal-avaliar-frete')">×</button>
+      </div>
+      <div class="modal-body" style="padding:20px;display:flex;flex-direction:column;gap:14px;">
+        <input type="hidden" id="frt-av-id">
+        <div class="frt-av-crit" style="display:flex;align-items:center;justify-content:space-between;">
+          <span>Pontualidade</span>
+          <div class="frt-star-row" data-criterio="pontualidade">${''}
+            <span class="frt-star" data-val="1" onclick="frtSetEstrela('pontualidade',1)">★</span><span class="frt-star" data-val="2" onclick="frtSetEstrela('pontualidade',2)">★</span><span class="frt-star" data-val="3" onclick="frtSetEstrela('pontualidade',3)">★</span><span class="frt-star" data-val="4" onclick="frtSetEstrela('pontualidade',4)">★</span><span class="frt-star" data-val="5" onclick="frtSetEstrela('pontualidade',5)">★</span>
+          </div>
+        </div>
+        <div class="frt-av-crit" style="display:flex;align-items:center;justify-content:space-between;">
+          <span>Qualidade</span>
+          <div class="frt-star-row" data-criterio="qualidade">
+            <span class="frt-star" data-val="1" onclick="frtSetEstrela('qualidade',1)">★</span><span class="frt-star" data-val="2" onclick="frtSetEstrela('qualidade',2)">★</span><span class="frt-star" data-val="3" onclick="frtSetEstrela('qualidade',3)">★</span><span class="frt-star" data-val="4" onclick="frtSetEstrela('qualidade',4)">★</span><span class="frt-star" data-val="5" onclick="frtSetEstrela('qualidade',5)">★</span>
+          </div>
+        </div>
+        <div class="frt-av-crit" style="display:flex;align-items:center;justify-content:space-between;">
+          <span>Cuidado com a carga</span>
+          <div class="frt-star-row" data-criterio="cuidado">
+            <span class="frt-star" data-val="1" onclick="frtSetEstrela('cuidado',1)">★</span><span class="frt-star" data-val="2" onclick="frtSetEstrela('cuidado',2)">★</span><span class="frt-star" data-val="3" onclick="frtSetEstrela('cuidado',3)">★</span><span class="frt-star" data-val="4" onclick="frtSetEstrela('cuidado',4)">★</span><span class="frt-star" data-val="5" onclick="frtSetEstrela('cuidado',5)">★</span>
+          </div>
+        </div>
+        <div class="frt-av-crit" style="display:flex;align-items:center;justify-content:space-between;">
+          <span>Comunicação</span>
+          <div class="frt-star-row" data-criterio="comunicacao">
+            <span class="frt-star" data-val="1" onclick="frtSetEstrela('comunicacao',1)">★</span><span class="frt-star" data-val="2" onclick="frtSetEstrela('comunicacao',2)">★</span><span class="frt-star" data-val="3" onclick="frtSetEstrela('comunicacao',3)">★</span><span class="frt-star" data-val="4" onclick="frtSetEstrela('comunicacao',4)">★</span><span class="frt-star" data-val="5" onclick="frtSetEstrela('comunicacao',5)">★</span>
+          </div>
+        </div>
+        <div style="text-align:center;font-size:13px;color:var(--text-muted);">Média: <b id="frt-av-media" style="color:var(--lumen);font-size:16px;">—</b></div>
+        <div><label class="form-label">Comentário (opcional)</label><textarea class="form-input" id="frt-av-comentario" rows="2" style="resize:vertical;"></textarea></div>
+        <div style="text-align:right;"><button class="btn btn-primary" onclick="salvarAvaliacaoFrete()">Salvar avaliação</button></div>
+      </div>
     </div>
   </div>
 
@@ -2755,7 +2813,7 @@
 <script src="js/01-core.js?v=5"></script>
 <script src="js/02-auth.js?v=2"></script>
 <script src="js/03-navegacao.js?v=2"></script>
-<script src="js/04-percapita.js?v=3"></script>
+<script src="js/04-percapita.js?v=4"></script>
 <script src="js/05-cadastros.js?v=1"></script>
 <script src="js/06-pedidos.js?v=3"></script>
 <script src="js/07-estoque-ia-form.js?v=2"></script>
@@ -2769,7 +2827,7 @@
 <script src="js/15-fornecedores-metas.js?v=2"></script>
 <script src="js/16-chat-ia.js?v=2"></script>
 <script src="js/17-metas-wrappers.js?v=2"></script>
-<script src="js/18-erp.js?v=6"></script>
+<script src="js/18-erp.js?v=7"></script>
 <!-- CHAT IA FLUTUANTE -->
 <!-- ════════ GEMINI IA — botão movido para a barra superior (id: chat-ia-topbar-btn) ════════ -->
 
