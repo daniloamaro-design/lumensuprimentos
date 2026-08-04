@@ -78,6 +78,7 @@
     prices_historico: { cat: 'cat_key' },
     orders:           { nfFileURL: 'nf_file_url', boletoFileURL: 'boleto_file_url' },
     movements:        { leituraIA: 'leitura_ia' },
+    houses:           { name: 'nome' },  // a tela "Casas e Pessoas" usa 'name'; coluna real é 'nome'
   };
   const aliasDe = (col) => ALIAS[tabelaDe(col)] || {};
   // campo do app → coluna do banco (where/orderBy). Aceita FieldPath.documentId().
