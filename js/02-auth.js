@@ -280,6 +280,9 @@ async function showApp() {
 
   document.getElementById('topbar-user').textContent = currentUserData.name;
 
+  // U4: carrega as permissões editáveis (perfil × página) antes de montar o menu.
+  if (typeof carregarPermissoes === 'function') { await carregarPermissoes(); }
+
   // Administracao: somente adminLevel
   document.getElementById('sidebar-admin').style.display = isAdminLevel ? 'block' : 'none';
 
@@ -336,6 +339,17 @@ async function showApp() {
   // Carrega casas e cidades dinamicas do Firebase
   await loadDynamicData();
   populateHouseSelects();
+
+  // ERP (U3): o login começa sempre no módulo Suprimentos (a navegação abaixo
+  // cai numa página do Suprimentos). O usuário troca de módulo pelo seletor.
+  const _navShell = document.getElementById('sidebar');
+  if (_navShell) _navShell.dataset.mod = 'suprimentos';
+  document.querySelectorAll('.modulo-btn').forEach(b =>
+    b.classList.toggle('ativo', b.dataset.mod === 'suprimentos'));
+
+  // U4: filtra a barra lateral pelas permissões do perfil (esconde itens/seções
+  // não permitidos). Roda por último para sobrepor a visibilidade padrão acima.
+  if (typeof aplicarPermissoesSidebar === 'function') { aplicarPermissoesSidebar(role); }
 
   if (isAdminLevel) {
     goPage('dashboard');

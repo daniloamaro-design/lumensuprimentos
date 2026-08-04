@@ -252,7 +252,7 @@ async function enviarAlertasVencimento() {
       to_email:   ADMIN_EMAIL,
       to_name:    'Administrador',
       from_name:  'Sistema Lumen',
-      subject:    `🔔 ${total} boleto(s) vencendo/vencido(s) — Lumen Estoque`,
+      subject:    `🔔 ${total} boleto(s) vencendo/vencido(s) — Suprimentos Obra Lumen`,
       message:    `Prezado Administrador,\n\nOs seguintes boletos precisam de atenção:\n\n${linhas}\n\nAcesse o sistema para realizar os pagamentos.`,
       reply_to:   ADMIN_EMAIL,
     });

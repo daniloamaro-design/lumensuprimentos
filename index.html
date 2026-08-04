@@ -9,12 +9,12 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="theme-color" content="#2B9FA8">
-  <title>Lumen Estoque — Sistema de Controle</title>
+  <title>Suprimentos Obra Lumen — Sistema de Controle</title>
 
   <!-- Supabase (substitui o Firebase) + camada de compatibilidade -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="js/00-db.js?v=12"></script>
-<script src="js/propostas-semanais.js?v=1"></script>
+  <script src="js/00-db.js?v=13"></script>
+<script src="js/propostas-semanais.js?v=2"></script>
 
   <!-- jsPDF para geração de PDF -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -29,7 +29,7 @@
   <!-- SheetJS para leitura e exportação de Excel -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
-  <link rel="stylesheet" href="css/estilos.css?v=1">
+  <link rel="stylesheet" href="css/estilos.css?v=2">
 </head>
 <body>
 
@@ -44,7 +44,7 @@
       <polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/>
     </svg>
   </div>
-  <div class="splash-title">Lumen Estoque</div>
+  <div class="splash-title">Suprimentos Obra Lumen</div>
   <div class="splash-sub">Carregando sistema...</div>
   <div class="splash-bar-wrap"><div class="splash-bar" id="splash-bar"></div></div>
 </div>
@@ -59,7 +59,7 @@
 
     <div style="text-align:center; margin-bottom:22px; margin-top:8px;">
       <p style="font-size:15px; font-weight:400; color:#2B9FA8; margin:0 0 2px 0; line-height:1.4;">Bem vindo ao</p>
-      <h1 style="font-size:24px; font-weight:700; color:#2B9FA8; margin:0 0 8px 0; line-height:1.3;">Lumen Estoque</h1>
+      <h1 style="font-size:24px; font-weight:700; color:#2B9FA8; margin:0 0 8px 0; line-height:1.3;">Suprimentos Obra Lumen</h1>
       <p style="font-size:13px; font-weight:400; color:#2B9FA8; margin:0; line-height:1.5;">Entre com suas credenciais para acessar o sistema</p>
     </div>
 
@@ -136,7 +136,7 @@
         </svg>
       </div>
       <div>
-        <div class="auth-logo-text">Lumen Estoque</div>
+        <div class="auth-logo-text">Suprimentos Obra Lumen</div>
         <div class="auth-logo-sub">Solicitar Acesso</div>
       </div>
     </div>
@@ -210,7 +210,7 @@
           <circle cx="12" cy="12" r="8"/><path d="M12 6v6l3 3"/>
         </svg>
       </div>
-      <span class="topbar-brand-text">Lumen Estoque</span>
+      <span class="topbar-brand-text">Suprimentos Obra Lumen</span>
     </div>
     <div class="topbar-center">
       <div class="topbar-page-title" id="topbar-page-title">Painel</div>
@@ -276,8 +276,14 @@
   <div class="sidebar-overlay" id="sidebar-overlay" onclick="closeSidebar()"></div>
 
   <!-- SIDEBAR -->
-  <nav class="sidebar" id="sidebar">
-    <div class="sidebar-section" id="sidebar-admin" style="display:none;">
+  <nav class="sidebar" id="sidebar" data-mod="suprimentos">
+    <!-- Seletor de módulos do ERP -->
+    <div class="modulo-switcher" id="modulo-switcher">
+      <button class="modulo-btn ativo" data-mod="suprimentos" onclick="selecionarModulo('suprimentos')" title="Suprimentos">📦 Suprimentos</button>
+      <button class="modulo-btn" data-mod="passagens" onclick="selecionarModulo('passagens')" title="Passagens">✈️ Passagens</button>
+      <button class="modulo-btn" data-mod="frete" onclick="selecionarModulo('frete')" title="Fretes">🚚 Fretes</button>
+    </div>
+    <div class="sidebar-section" data-modulo="suprimentos" id="sidebar-admin" style="display:none;">
       <div class="sidebar-section-title">Administração</div>
       <button class="sidebar-item" data-page="dashboard" onclick="goPageMobile('dashboard')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
@@ -329,9 +335,13 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="5" height="18" rx="1"/><rect x="10" y="8" width="5" height="13" rx="1"/><rect x="17" y="5" width="5" height="16" rx="1"/></svg>
         Produtividade
       </button>
+      <button class="sidebar-item" data-page="permissoes" onclick="goPageMobile('permissoes')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        Permissões
+      </button>
     </div>
     <!-- SIDEBAR: ESTOQUE / COMPRAS (unificado) -->
-    <div class="sidebar-section" id="sidebar-estoque-compras" style="display:none;">
+    <div class="sidebar-section" data-modulo="suprimentos" id="sidebar-estoque-compras" style="display:none;">
       <div class="sidebar-section-title">Estoque / Compras</div>
       <button class="sidebar-item" data-page="kanban" onclick="goPageMobile('kanban')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="5" height="18" rx="1"/><rect x="10" y="8" width="5" height="13" rx="1"/><rect x="17" y="5" width="5" height="16" rx="1"/></svg>
@@ -445,7 +455,7 @@
     </div>
 
     <!-- SIDEBAR: INDICADORES -->
-    <div class="sidebar-section" id="sidebar-indicadores">
+    <div class="sidebar-section" data-modulo="suprimentos" id="sidebar-indicadores">
       <div class="sidebar-section-title">Indicadores</div>
       <button class="sidebar-item" data-page="indicadores" onclick="goPageMobile('indicadores')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
@@ -466,7 +476,7 @@
     </div>
 
     <!-- SIDEBAR: FINANCEIRO -->
-    <div class="sidebar-section" id="sidebar-financeiro" style="display:none;">
+    <div class="sidebar-section" data-modulo="suprimentos" id="sidebar-financeiro" style="display:none;">
       <div class="sidebar-section-title">Financeiro</div>
       <button class="sidebar-item" data-page="financeiro-compras" onclick="goPageMobile('financeiro-compras')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
@@ -475,7 +485,7 @@
     </div>
 
     <!-- SIDEBAR: CSL (csl + coord_csl) -->
-    <div class="sidebar-section" id="sidebar-csl" style="display:none;">
+    <div class="sidebar-section" data-modulo="suprimentos" id="sidebar-csl" style="display:none;">
       <div class="sidebar-section-title">CSL / Projetos</div>
       <button class="sidebar-item" data-page="new-order" onclick="goPageMobile('new-order')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
@@ -508,7 +518,7 @@
     </div>
 
     <!-- SIDEBAR: VARIEDADES (adminLevel + compras + estoque + financeiro + escritorio) -->
-    <div class="sidebar-section" id="sidebar-variedades" style="display:none;">
+    <div class="sidebar-section" data-modulo="suprimentos" id="sidebar-variedades" style="display:none;">
       <div class="sidebar-section-title">Compras de Variedades</div>
       <button class="sidebar-item" data-page="var-solicitacoes" onclick="goPageMobile('var-solicitacoes')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
@@ -534,7 +544,7 @@
     </div>
 
     <!-- SIDEBAR: USUÁRIO (visível só para usuarios) -->
-    <div class="sidebar-section" id="sidebar-usuario" style="display:none;">
+    <div class="sidebar-section" data-modulo="suprimentos" id="sidebar-usuario" style="display:none;">
       <div class="sidebar-section-title">Minha Casa</div>
       <button class="sidebar-item" data-page="movement" onclick="goPageMobile('movement')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
@@ -547,6 +557,40 @@
       <button class="sidebar-item" onclick="openAjusteModal()">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
         Solicitar Ajuste
+      </button>
+    </div>
+
+    <!-- ════════ MÓDULO PASSAGENS ════════ -->
+    <div class="sidebar-section" data-modulo="passagens" id="sidebar-passagens">
+      <div class="sidebar-section-title">Passagens</div>
+      <button class="sidebar-item" data-page="pas-solicitacoes" onclick="goPageMobile('pas-solicitacoes')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.2c.4-.3.6-.7.5-1.2z"/></svg>
+        Solicitações
+      </button>
+      <button class="sidebar-item" data-page="financeiro-compras" onclick="goPageMobile('financeiro-compras')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+        Financeiro
+      </button>
+    </div>
+
+    <!-- ════════ MÓDULO FRETES ════════ -->
+    <div class="sidebar-section" data-modulo="frete" id="sidebar-frete">
+      <div class="sidebar-section-title">Fretes</div>
+      <button class="sidebar-item" data-page="frt-lista" onclick="goPageMobile('frt-lista')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+        Fretes
+      </button>
+      <button class="sidebar-item" data-page="frt-novo" onclick="goPageMobile('frt-novo')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Novo Frete
+      </button>
+      <button class="sidebar-item" data-page="frt-freteiros" onclick="goPageMobile('frt-freteiros')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+        Freteiros
+      </button>
+      <button class="sidebar-item" data-page="frt-metas" onclick="goPageMobile('frt-metas')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
+        Metas do Frete
       </button>
     </div>
   </nav>
@@ -1961,7 +2005,154 @@
   </div>
 </div>
 
+
+  <!-- ════════ MÓDULO PASSAGENS (U3 — enxuto) ════════ -->
+  <div class="page" id="page-pas-solicitacoes">
+    <div class="page-header"><h1 class="page-title">✈️ Passagens — Solicitações</h1></div>
+    <div class="card" style="margin-bottom:16px;"><div class="card-body" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;">
+      <div><label class="form-label">Buscar</label><input type="text" class="form-input" id="pas-f-busca" placeholder="passageiro, destino, código…" oninput="renderPasSolic()"></div>
+      <div><label class="form-label">Status</label><select class="form-select" id="pas-f-status" onchange="renderPasSolic()"><option value="">Todos</option></select></div>
+      <div style="align-self:end;color:var(--text-muted);font-size:13px;">O financeiro das passagens já está consolidado em <b>Passagens → Financeiro</b>.</div>
+    </div></div>
+    <div class="card"><div class="card-body">
+      <div class="table-wrap"><table class="fin-table">
+        <thead><tr><th>Código</th><th>Data</th><th>Tipo</th><th>Passageiro</th><th>Trajeto</th><th>Status</th><th></th></tr></thead>
+        <tbody id="pas-tbody"><tr><td colspan="7" style="text-align:center;padding:24px;color:var(--text-muted);">Carregando…</td></tr></tbody>
+      </table></div>
+    </div></div>
+  </div>
+
+  <!-- ════════ MÓDULO FRETES (U3 — nativo) ════════ -->
+  <!-- PAGE: Fretes (lista) -->
+  <div class="page" id="page-frt-lista">
+    <div class="page-header" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+      <h1 class="page-title">🚚 Fretes</h1>
+      <button class="btn btn-primary" onclick="goPage('frt-novo')">+ Novo Frete</button>
+    </div>
+    <div class="stat-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:16px;">
+      <div class="stat-card"><div class="stat-label">🚚 Fretes</div><div class="stat-value" id="frt-kpi-qtd">—</div><div class="stat-sub" id="frt-kpi-periodo">no filtro atual</div></div>
+      <div class="stat-card"><div class="stat-label">💰 Valor total</div><div class="stat-value" id="frt-kpi-total">—</div></div>
+      <div class="stat-card stat-card-ok"><div class="stat-label">✅ Pago</div><div class="stat-value ok" id="frt-kpi-pago">—</div></div>
+      <div class="stat-card stat-card-warn"><div class="stat-label">⏳ Pendente</div><div class="stat-value" id="frt-kpi-pendente">—</div></div>
+    </div>
+    <div class="card" style="margin-bottom:16px;"><div class="card-body" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;">
+      <div><label class="form-label">Buscar</label><input type="text" class="form-input" id="frt-f-busca" placeholder="freteiro, origem, destino, código…" oninput="renderFrtLista()"></div>
+      <div><label class="form-label">Pagamento</label><select class="form-select" id="frt-f-pag" onchange="renderFrtLista()">
+        <option value="">Todos</option><option value="pago">Pago</option><option value="pendente">Pendente</option><option value="parcial">Parcial</option>
+      </select></div>
+      <div><label class="form-label">Freteiro</label><select class="form-select" id="frt-f-freteiro" onchange="renderFrtLista()"><option value="">Todos</option></select></div>
+      <div><label class="form-label">Mês</label><input type="month" class="form-input" id="frt-f-mes" onchange="renderFrtLista()"></div>
+    </div></div>
+    <div class="card"><div class="card-body">
+      <div class="table-wrap">
+        <table class="fin-table">
+          <thead><tr><th>Código</th><th>Data</th><th>Freteiro</th><th>Trajeto</th><th style="text-align:right;">Valor</th><th>Pagamento</th><th></th></tr></thead>
+          <tbody id="frt-tbody"><tr><td colspan="7" style="text-align:center;padding:24px;color:var(--text-muted);">Carregando…</td></tr></tbody>
+        </table>
+      </div>
+    </div></div>
+  </div>
+
+  <!-- PAGE: Novo Frete -->
+  <div class="page" id="page-frt-novo">
+    <div class="page-header"><h1 class="page-title">🚚 Novo Frete</h1></div>
+    <div class="card" style="max-width:720px;"><div class="card-body" style="display:flex;flex-direction:column;gap:14px;">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <div><label class="form-label">Freteiro *</label><select class="form-select" id="frt-n-freteiro"><option value="">Selecione…</option></select></div>
+        <div><label class="form-label">Data *</label><input type="date" class="form-input" id="frt-n-data"></div>
+      </div>
+      <div><label class="form-label">Origem *</label><input type="text" class="form-input" id="frt-n-origem" placeholder="Endereço de coleta"></div>
+      <div><label class="form-label">Destino *</label><input type="text" class="form-input" id="frt-n-destino" placeholder="Endereço de entrega"></div>
+      <div><label class="form-label">Paradas (uma por linha)</label><textarea class="form-input" id="frt-n-paradas" rows="2" placeholder="Endereços intermediários (opcional)" style="resize:vertical;"></textarea></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;">
+        <div><label class="form-label">Motivo</label><input type="text" class="form-input" id="frt-n-motivo" placeholder="Ex: Rota das casas"></div>
+        <div><label class="form-label">Valor (R$) *</label><input type="number" step="0.01" min="0" class="form-input" id="frt-n-valor" placeholder="0,00"></div>
+        <div><label class="form-label">Forma de pagamento</label><select class="form-select" id="frt-n-forma"><option value="pix">Pix</option><option value="dinheiro">Dinheiro</option><option value="transferencia">Transferência</option></select></div>
+      </div>
+      <div><label class="form-label">Observações</label><textarea class="form-input" id="frt-n-obs" rows="2" style="resize:vertical;"></textarea></div>
+      <div style="display:flex;gap:10px;justify-content:flex-end;">
+        <button class="btn btn-secondary" onclick="goPage('frt-lista')">Cancelar</button>
+        <button class="btn btn-primary" id="frt-n-salvar" onclick="salvarNovoFrete()">Salvar frete</button>
+      </div>
+    </div></div>
+  </div>
+
+  <!-- PAGE: Freteiros -->
+  <div class="page" id="page-frt-freteiros">
+    <div class="page-header"><h1 class="page-title">🚚 Freteiros</h1></div>
+    <div class="card" style="margin-bottom:16px;"><div class="card-header"><b>Novo freteiro</b></div>
+      <div class="card-body" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;align-items:end;">
+        <div><label class="form-label">Nome *</label><input type="text" class="form-input" id="frt-fr-nome"></div>
+        <div><label class="form-label">Telefone</label><input type="text" class="form-input" id="frt-fr-tel"></div>
+        <div><label class="form-label">Chave Pix</label><input type="text" class="form-input" id="frt-fr-pix"></div>
+        <div><label class="form-label">CPF/CNPJ</label><input type="text" class="form-input" id="frt-fr-doc"></div>
+        <div><button class="btn btn-primary" onclick="salvarFreteiro()">+ Adicionar</button></div>
+      </div>
+    </div>
+    <div class="card"><div class="card-body">
+      <div class="table-wrap"><table class="fin-table">
+        <thead><tr><th>Nome</th><th>Telefone</th><th>Chave Pix</th><th>CPF/CNPJ</th></tr></thead>
+        <tbody id="frt-freteiros-tbody"><tr><td colspan="4" style="text-align:center;padding:24px;color:var(--text-muted);">Carregando…</td></tr></tbody>
+      </table></div>
+    </div></div>
+  </div>
+
+  <!-- PAGE: Metas do Frete -->
+  <div class="page" id="page-frt-metas">
+    <div class="page-header"><h1 class="page-title">🚚 Metas do Frete</h1></div>
+    <div class="card" style="margin-bottom:16px;"><div class="card-header"><b>Nova meta</b></div>
+      <div class="card-body" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;align-items:end;">
+        <div><label class="form-label">Mês *</label><input type="month" class="form-input" id="frt-m-mes"></div>
+        <div><label class="form-label">Semanal (R$)</label><input type="number" step="0.01" min="0" class="form-input" id="frt-m-semanal"></div>
+        <div><label class="form-label">Mensal (R$)</label><input type="number" step="0.01" min="0" class="form-input" id="frt-m-mensal"></div>
+        <div><label class="form-label">Anual (R$)</label><input type="number" step="0.01" min="0" class="form-input" id="frt-m-anual"></div>
+        <div><button class="btn btn-primary" onclick="salvarFrtMeta()">+ Adicionar</button></div>
+      </div>
+    </div>
+    <div class="card"><div class="card-body">
+      <div class="table-wrap"><table class="fin-table">
+        <thead><tr><th>Mês</th><th style="text-align:right;">Semanal</th><th style="text-align:right;">Mensal</th><th style="text-align:right;">Anual</th></tr></thead>
+        <tbody id="frt-metas-tbody"><tr><td colspan="4" style="text-align:center;padding:24px;color:var(--text-muted);">Carregando…</td></tr></tbody>
+      </table></div>
+    </div></div>
+  </div>
+
+  <!-- ════════ PERMISSÕES (U4 — admin) ════════ -->
+  <div class="page" id="page-permissoes">
+    <div class="page-header" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
+      <h1 class="page-title">🔒 Permissões</h1>
+      <button class="btn btn-primary" id="perm-salvar" onclick="salvarPermissoes()">Salvar permissões</button>
+    </div>
+    <div class="card" style="margin-bottom:12px;"><div class="card-body" style="color:var(--text-muted);font-size:13px;line-height:1.5;">
+      Marque as páginas que cada <b>perfil</b> pode acessar. O perfil <b>Administrador</b> tem acesso total (não editável).
+      As mudanças passam a valer no <b>próximo login</b> de cada usuário.
+    </div></div>
+    <div class="card"><div class="card-body"><div id="permissoes-conteudo">Carregando…</div></div></div>
+  </div>
+
   </main>
+
+  <!-- MODAL: detalhe do frete -->
+  <div class="modal-overlay hidden" id="modal-frete-detalhe">
+    <div class="modal" style="max-width:600px;width:100%;">
+      <div class="modal-header">
+        <div class="modal-title" id="frt-det-titulo">Frete</div>
+        <button class="modal-close" onclick="closeModal('modal-frete-detalhe')">×</button>
+      </div>
+      <div class="modal-body" id="frt-det-body" style="padding:20px;display:flex;flex-direction:column;gap:12px;"></div>
+    </div>
+  </div>
+
+  <!-- MODAL: detalhe da solicitação de passagem -->
+  <div class="modal-overlay hidden" id="modal-pas-detalhe">
+    <div class="modal" style="max-width:600px;width:100%;">
+      <div class="modal-header">
+        <div class="modal-title" id="pas-det-titulo">Solicitação</div>
+        <button class="modal-close" onclick="closeModal('modal-pas-detalhe')">×</button>
+      </div>
+      <div class="modal-body" id="pas-det-body" style="padding:20px;display:flex;flex-direction:column;gap:12px;"></div>
+    </div>
+  </div>
 
 <!-- ═══════════════ PAGE: FORNECEDORES ═══════════════ -->
 <!-- (injected inside #app-screen, rendered via goPage) -->
@@ -2495,22 +2686,23 @@
      SCRIPTS
      ════════════════════════════════════════════════════════════ -->
 <script src="js/01-core.js?v=4"></script>
-<script src="js/02-auth.js?v=1"></script>
-<script src="js/03-navegacao.js?v=1"></script>
-<script src="js/04-percapita.js?v=1"></script>
+<script src="js/02-auth.js?v=2"></script>
+<script src="js/03-navegacao.js?v=2"></script>
+<script src="js/04-percapita.js?v=2"></script>
 <script src="js/05-cadastros.js?v=1"></script>
-<script src="js/06-pedidos.js?v=2"></script>
+<script src="js/06-pedidos.js?v=3"></script>
 <script src="js/07-estoque-ia-form.js?v=1"></script>
 <script src="js/08-orcamento-casas.js?v=2"></script>
-<script src="js/09-indicadores-transf.js?v=1"></script>
-<script src="js/10-produtos-orcamento.js?v=2"></script>
-<script src="js/11-fornecedores-pendentes.js?v=1"></script>
-<script src="js/12-financeiro-compras.js?v=1"></script>
+<script src="js/09-indicadores-transf.js?v=2"></script>
+<script src="js/10-produtos-orcamento.js?v=3"></script>
+<script src="js/11-fornecedores-pendentes.js?v=2"></script>
+<script src="js/12-financeiro-compras.js?v=2"></script>
 <script src="js/13-ia-avancada.js?v=1"></script>
-<script src="js/14-gestao.js?v=2"></script>
-<script src="js/15-fornecedores-metas.js?v=1"></script>
+<script src="js/14-gestao.js?v=3"></script>
+<script src="js/15-fornecedores-metas.js?v=2"></script>
 <script src="js/16-chat-ia.js?v=1"></script>
-<script src="js/17-metas-wrappers.js?v=1"></script>
+<script src="js/17-metas-wrappers.js?v=2"></script>
+<script src="js/18-erp.js?v=4"></script>
 <!-- CHAT IA FLUTUANTE -->
 <!-- ════════ GEMINI IA — botão movido para a barra superior (id: chat-ia-topbar-btn) ════════ -->
 
@@ -2831,7 +3023,7 @@
   </div>
 </div>
 
-<script src="js/melhorias.js?v=1"></script>
+<script src="js/melhorias.js?v=2"></script>
 
 
 

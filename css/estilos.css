@@ -1204,3 +1204,13 @@
     body.dark-mode h3, body.dark-mode h4 { color: #D8F0F2; }
     body.dark-mode p  { color: #C0DADE; }
     body.dark-mode small { color: #6A9498; }
+
+/* ══ ERP — Seletor de módulos (U3) ══ */
+.modulo-switcher{display:flex;gap:6px;flex-wrap:wrap;padding:12px 12px 8px;border-bottom:1px solid var(--border);margin-bottom:8px;}
+.modulo-btn{flex:1;min-width:88px;font-size:12px;font-weight:700;padding:8px 6px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text-muted);cursor:pointer;transition:all .15s;white-space:nowrap;}
+.modulo-btn:hover{border-color:var(--lumen);color:var(--lumen);}
+.modulo-btn.ativo{background:var(--lumen);border-color:var(--lumen);color:#fff;}
+/* Mostra só as seções do módulo ativo (o !important vence o display inline por perfil das seções não-ativas) */
+.sidebar[data-mod="suprimentos"] .sidebar-section[data-modulo]:not([data-modulo="suprimentos"]),
+.sidebar[data-mod="passagens"]   .sidebar-section[data-modulo]:not([data-modulo="passagens"]),
+.sidebar[data-mod="frete"]       .sidebar-section[data-modulo]:not([data-modulo="frete"]){display:none !important;}

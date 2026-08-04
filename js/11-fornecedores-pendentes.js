@@ -483,7 +483,7 @@ function exportIndFornecedoresPDF() {
     y+=7;
   });
   doc.setTextColor(...gray); doc.setFontSize(7);
-  doc.text('Lumen Estoque — lumenserfeliz.org',14,288);
+  doc.text('Suprimentos Obra Lumen — lumenserfeliz.org',14,288);
   doc.save(`LM-Indicadores-Fornecedores-${new Date().toISOString().slice(0,10)}.pdf`);
   showToast('✅ PDF de indicadores exportado!');
 }

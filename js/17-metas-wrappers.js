@@ -197,12 +197,12 @@ ${forn50.join('\n') || '  Nenhum'}
 ${metasLinha.join('\n') || '  Sem metas cadastradas'}
 
 ${'═'.repeat(50)}
-Relatório gerado automaticamente pelo Sistema Lumen Estoque`;
+Relatório gerado automaticamente pelo Sistema Suprimentos Obra Lumen`;
 
     await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, {
       to_email:  ADMIN_EMAIL,
       to_name:   'Administrador Lumen',
-      from_name: 'Sistema Lumen Estoque',
+      from_name: 'Sistema Suprimentos Obra Lumen',
       reply_to:  ADMIN_EMAIL,
       subject:   `📊 Relatório Semanal Lumen — ${semStr}`,
       message:   relatorio,
@@ -413,7 +413,7 @@ async function gerarSlidesMetas() {
     html += '<div class="slide" style="background:#0d1b2a;">';
     if (logoSrc) html += '<div style="margin-bottom:24px;"><img src="' + logoSrc + '" alt="Obra Lumen" style="height:80px;"></div>';
     html += '<h1 style="font-size:32px;">Juntos por uma gestão mais eficiente!</h1>';
-    html += '<div class="subtitle">Obra Lumen · Sistema Lumen Estoque</div>';
+    html += '<div class="subtitle">Suprimentos Obra Lumen</div>';
     html += '<div style="font-size:13px;color:#3a6186;margin-top:32px;">Gerado em ' + new Date().toLocaleString('pt-BR') + '</div>';
     html += '</div>';
 

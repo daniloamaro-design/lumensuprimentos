@@ -231,7 +231,7 @@ async function gerarPropostaPDF() {
   doc.setFontSize(16); doc.setFont(undefined,'bold');
   doc.text('PROPOSTA SEMANAL DE COMPRAS', 14, 13);
   doc.setFontSize(9); doc.setFont(undefined,'normal');
-  doc.text('Lumen Estoque — Sistema de Controle', 14, 20);
+  doc.text('Suprimentos Obra Lumen — Sistema de Controle', 14, 20);
   doc.setTextColor(0,0,0);
 
   // Info
@@ -290,7 +290,7 @@ async function gerarPropostaPDF() {
   for (let i = 1; i <= pageCount; i++) {
     doc.setPage(i);
     doc.setFontSize(8); doc.setTextColor(150,150,150);
-    doc.text(`Lumen Estoque — Página ${i} de ${pageCount}`, 14, doc.internal.pageSize.height - 8);
+    doc.text(`Suprimentos Obra Lumen — Página ${i} de ${pageCount}`, 14, doc.internal.pageSize.height - 8);
     doc.text(new Date().toLocaleString('pt-BR'), 140, doc.internal.pageSize.height - 8);
   }
 

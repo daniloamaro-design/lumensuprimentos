@@ -574,7 +574,7 @@ async function gerarPDFCardapio() {
   for (let i = 1; i <= pageCount; i++) {
     doc.setPage(i);
     doc.setFontSize(8);
-    doc.text(`Lumen Estoque — Página ${i} de ${pageCount}`, 14, doc.internal.pageSize.height - 8);
+    doc.text(`Suprimentos Obra Lumen — Página ${i} de ${pageCount}`, 14, doc.internal.pageSize.height - 8);
   }
 
   doc.save(`Cardapio_${r.casa.replace(/\s+/g,'_')}_${dataStr.replace(/\//g,'-')}.pdf`);

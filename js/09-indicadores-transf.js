@@ -840,7 +840,7 @@ function desenharTransferenciaNoPDF(doc, t, registradoPorNome) {
   doc.rect(0, 0, 210, 30, 'F');
   doc.setTextColor(255,255,255);
   doc.setFontSize(15); doc.setFont('helvetica','bold');
-  doc.text('Lumen Estoque — Transferência entre Casas', 14, 13);
+  doc.text('Suprimentos Obra Lumen — Transferência entre Casas', 14, 13);
   doc.setFontSize(9); doc.setFont('helvetica','normal');
   doc.text(`Código: ${t.code}   |   Data: ${t.data || '—'}`, 14, 21);
   doc.text(`Registrado por: ${registradoPorNome || '—'}`, 14, 27);
@@ -947,7 +947,7 @@ async function gerarPDFTransferencia() {
   for (let i = 1; i <= pageCount; i++) {
     doc.setPage(i);
     doc.setFontSize(8); doc.setTextColor(150,150,150);
-    doc.text(`Lumen Estoque — Página ${i} de ${pageCount}`, 14, doc.internal.pageSize.height - 8);
+    doc.text(`Suprimentos Obra Lumen — Página ${i} de ${pageCount}`, 14, doc.internal.pageSize.height - 8);
     doc.text(new Date().toLocaleString('pt-BR'), 140, doc.internal.pageSize.height - 8);
   }
 
@@ -992,7 +992,7 @@ async function exportarTransferenciasSelecionadasPDF() {
     for (let i = 1; i <= pageCount; i++) {
       doc.setPage(i);
       doc.setFontSize(8); doc.setTextColor(150,150,150);
-      doc.text(`Lumen Estoque — Página ${i} de ${pageCount}`, 14, doc.internal.pageSize.height - 8);
+      doc.text(`Suprimentos Obra Lumen — Página ${i} de ${pageCount}`, 14, doc.internal.pageSize.height - 8);
       doc.text(new Date().toLocaleString('pt-BR'), 140, doc.internal.pageSize.height - 8);
     }
 

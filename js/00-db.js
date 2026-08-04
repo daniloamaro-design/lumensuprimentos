@@ -66,7 +66,7 @@
   const tabelaDe = (col) => TABELA[col] || col;
 
   // Chave primária por tabela (default 'id'). Algumas usam chave natural.
-  const PK = { cidades: 'nome', categorias: 'key', casas_tipo_compra: 'nome' };
+  const PK = { cidades: 'nome', categorias: 'key', casas_tipo_compra: 'nome', role_permissions: 'role' };
   const pkDe = (col) => PK[tabelaDe(col)] || 'id';
 
   // Aliases: nome EXATO do campo no app (camelCase) → coluna real do banco (snake).

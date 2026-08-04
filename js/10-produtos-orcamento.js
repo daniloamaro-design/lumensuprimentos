@@ -903,7 +903,7 @@ function exportOrcDetalhadoPDF() {
   doc.text(fmt(totalFinal), 200, y+8, {align:'right'});
 
   doc.setTextColor(...gray); doc.setFontSize(7);
-  doc.text('Lumen Estoque — lumenserfeliz.org', 14, 290);
+  doc.text('Suprimentos Obra Lumen — lumenserfeliz.org', 14, 290);
   doc.save(`LM-Orc-${r.casa.replace(/[^a-zA-Z0-9]/g,'-')}-${r.de}.pdf`);
   showToast('✅ PDF do orçamento exportado!');
 }
@@ -1290,7 +1290,7 @@ function exportOrcamentoPDF() {
   doc.text(fmt(total), 200, y+32, { align:'right' });
 
   doc.setTextColor(...gray); doc.setFontSize(7);
-  doc.text('Lumen Estoque — lumenserfeliz.org', 14, 290);
+  doc.text('Suprimentos Obra Lumen — lumenserfeliz.org', 14, 290);
   doc.save(`LM-Orcamento-${de}.pdf`);
   showToast('✅ PDF do orçamento exportado!');
 }
@@ -1609,7 +1609,7 @@ function exportOrdersPDF() {
   });
 
   doc.setTextColor(...gray); doc.setFontSize(7);
-  doc.text('Lumen Estoque — lumenserfeliz.org', 10, 200);
+  doc.text('Suprimentos Obra Lumen — lumenserfeliz.org', 10, 200);
 
   // Monta nome do arquivo: LM-[Casa]-[Categoria]-[Data].pdf
   const normalize = s => (s || '').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-zA-Z0-9]/g,'-').replace(/-+/g,'-').replace(/^-|-$/g,'');
@@ -1668,7 +1668,7 @@ function exportSuppliersReport() {
   });
 
   doc.setTextColor(...gray); doc.setFontSize(7);
-  doc.text('Lumen Estoque — lumenserfeliz.org', 14, 288);
+  doc.text('Suprimentos Obra Lumen — lumenserfeliz.org', 14, 288);
   doc.save(`LM-Fornecedores-${new Date().toISOString().slice(0,10)}.pdf`);
   showToast('✅ Relatório de fornecedores exportado!');
 }
