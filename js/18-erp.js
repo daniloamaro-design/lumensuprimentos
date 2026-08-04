@@ -428,3 +428,165 @@ function abrirPasDetalhe(id) {
   openModal('modal-pas-detalhe');
 }
 window.abrirPasDetalhe = abrirPasDetalhe;
+
+/* ══════════════════════════════════════════════════════════════════════
+   U4 — PERMISSÕES EDITÁVEIS (perfil × página)
+   Fonte da verdade: tabela role_permissions (uma linha por perfil, lista de
+   páginas). Carregada no login em window.PERMISSOES. Se o banco não estiver
+   disponível (tabela ainda não criada), cai para FALLBACK_PERMS = o mesmo
+   acesso de hoje — então nada quebra antes da migração ser aplicada.
+   O perfil 'admin' tem acesso total garantido no código.
+   ══════════════════════════════════════════════════════════════════════ */
+
+// páginas dos módulos (hoje abertas a todos; o admin restringe na tela)
+const _MOD_PAGES = ['pas-solicitacoes', 'frt-lista', 'frt-novo', 'frt-freteiros', 'frt-metas'];
+// todas as páginas do Suprimentos (perfis de gestão têm tudo)
+const _SUP_PAGES = ['dashboard', 'users', 'houses', 'manage-houses', 'manage-cities', 'manage-products',
+  'manage-cats', 'percapita-financeiro', 'manage-cc', 'all-orders', 'produtividade', 'kanban',
+  'new-order', 'movement', 'stock-view', 'transferencias', 'orcamento-financeiro', 'orc-pendentes',
+  'fornecedores', 'my-orders', 'prices', 'percapita', 'calc-real', 'previsao', 'rotina-estoque',
+  'cardapio-diario', 'financeiro-compras', 'indicadores', 'irmaos', 'ind-fornecedores', 'metas',
+  'var-solicitacoes', 'var-orcamento', 'var-proposta', 'var-historico', 'var-setores', 'solicitar-ajuste'];
+const _TODAS_PAGES = [..._SUP_PAGES, ..._MOD_PAGES];
+
+// Matriz padrão = espelha o comportamento atual (js/04-percapita.js antigo)
+// + páginas de módulo abertas a todos. NÃO inclui 'permissoes' (só admin).
+window.FALLBACK_PERMS = {
+  diretor: _TODAS_PAGES, gerente: _TODAS_PAGES, coordenador: _TODAS_PAGES,
+  compras: ['new-order', 'movement', 'all-orders', 'prices', 'orcamento-financeiro', 'orc-pendentes',
+    'fornecedores', 'kanban', 'houses', 'manage-houses', 'manage-cities', 'manage-products',
+    'manage-cats', 'manage-cc', 'financeiro-compras', 'percapita', 'stock-view', 'transferencias',
+    'previsao', 'calc-real', 'my-orders', 'var-solicitacoes', ..._MOD_PAGES],
+  estoque: ['new-order', 'movement', 'all-orders', 'prices', 'orcamento-financeiro', 'orc-pendentes',
+    'fornecedores', 'kanban', 'stock-view', 'transferencias', 'percapita', 'previsao', 'my-orders',
+    'var-solicitacoes', ..._MOD_PAGES],
+  financeiro: ['financeiro-compras', 'fornecedores', 'var-solicitacoes', ..._MOD_PAGES],
+  escritorio: ['var-solicitacoes', ..._MOD_PAGES],
+  csl: ['new-order', 'movement', 'all-orders', 'stock-view', 'my-orders', 'solicitar-ajuste', ..._MOD_PAGES],
+  coord_csl: ['new-order', 'movement', 'all-orders', 'stock-view', 'my-orders', ..._MOD_PAGES],
+  usuario: ['movement', 'my-orders', 'new-order', ..._MOD_PAGES],
+};
+
+// Perfis editáveis na tela (admin fica de fora = acesso total)
+const _ROLES_EDIT = ['diretor', 'gerente', 'coordenador', 'compras', 'estoque', 'financeiro', 'escritorio', 'csl', 'coord_csl', 'usuario'];
+const _ROLES_ROTULO = { diretor: 'Diretor', gerente: 'Gerente', coordenador: 'Coordenador', compras: 'Compras', estoque: 'Estoque', financeiro: 'Financeiro', escritorio: 'Escritório', csl: 'CSL', coord_csl: 'Coord. CSL', usuario: 'Usuário' };
+
+// Conjunto de páginas permitidas p/ um perfil: banco → fallback. 'ALL' p/ admin.
+function permSetDe(role) {
+  if (role === 'admin') return 'ALL';
+  const m = window.PERMISSOES;
+  if (m && m[role]) return m[role];               // Set vindo do banco
+  const fb = window.FALLBACK_PERMS && window.FALLBACK_PERMS[role];
+  if (fb) return new Set(fb);
+  return null;                                     // perfil desconhecido: não bloqueia
+}
+window.permSetDe = permSetDe;
+
+async function carregarPermissoes() {
+  try {
+    const snap = await db.collection('role_permissions').get();
+    const map = {};
+    snap.docs.forEach(d => {
+      const pages = d.data().pages;
+      map[d.id] = new Set(Array.isArray(pages) ? pages : []);
+    });
+    window.PERMISSOES = map;                         // {} se a tabela estiver vazia
+  } catch (e) {
+    console.warn('Permissões: usando matriz padrão (tabela indisponível).', e.message);
+    window.PERMISSOES = null;                        // força fallback
+  }
+}
+window.carregarPermissoes = carregarPermissoes;
+
+// Aplica as permissões à barra lateral: esconde itens não permitidos, seções
+// vazias e botões de módulo sem nenhuma página liberada. Roda DEPOIS do showApp.
+function aplicarPermissoesSidebar(role) {
+  const ps = permSetDe(role);
+  if (ps === 'ALL' || ps == null) return;           // admin/desconhecido: showApp decide
+  document.querySelectorAll('#sidebar .sidebar-item[data-page]').forEach(it => {
+    it.style.display = ps.has(it.dataset.page) ? '' : 'none';
+  });
+  document.querySelectorAll('#sidebar .sidebar-section[data-modulo]').forEach(sec => {
+    const algum = [...sec.querySelectorAll('.sidebar-item[data-page]')].some(it => it.style.display !== 'none');
+    if (!algum) sec.style.display = 'none';          // some se ficou sem itens p/ o perfil
+  });
+  document.querySelectorAll('.modulo-btn').forEach(btn => {
+    const mod = btn.dataset.mod;
+    const paginas = [...document.querySelectorAll(`#sidebar .sidebar-section[data-modulo="${mod}"] .sidebar-item[data-page]`)].map(i => i.dataset.page);
+    btn.style.display = paginas.some(p => ps.has(p)) ? '' : 'none';
+  });
+}
+window.aplicarPermissoesSidebar = aplicarPermissoesSidebar;
+
+// ── Tela de gestão de permissões (admin) ──
+function loadPermissoesUI() {
+  const cont = document.getElementById('permissoes-conteudo');
+  if (!cont) return;
+
+  // páginas a partir da própria sidebar (dedupe global; ignora 'permissoes')
+  const vistas = new Set();
+  const grupos = [];
+  document.querySelectorAll('#sidebar .sidebar-section').forEach(sec => {
+    const titulo = sec.querySelector('.sidebar-section-title')?.textContent.trim() || '—';
+    const itens = [];
+    sec.querySelectorAll('.sidebar-item[data-page]').forEach(it => {
+      const pg = it.dataset.page;
+      if (pg === 'permissoes' || vistas.has(pg)) return;
+      vistas.add(pg);
+      itens.push({ page: pg, label: it.textContent.trim().replace(/\s+/g, ' ') });
+    });
+    if (itens.length) grupos.push({ titulo, itens });
+  });
+
+  const permDe = r => {
+    const m = window.PERMISSOES;
+    if (m && m[r]) return m[r];
+    return new Set((window.FALLBACK_PERMS && window.FALLBACK_PERMS[r]) || []);
+  };
+  const cur = {}; _ROLES_EDIT.forEach(r => cur[r] = permDe(r));
+
+  let html = '<div class="table-wrap"><table class="fin-table" style="min-width:720px;"><thead><tr>'
+    + '<th style="text-align:left;position:sticky;left:0;background:var(--card,#fff);z-index:1;">Página</th>';
+  _ROLES_EDIT.forEach(r => html += `<th title="${r}">${_ROLES_ROTULO[r]}</th>`);
+  html += '</tr></thead><tbody>';
+  grupos.forEach(g => {
+    html += `<tr><td colspan="${_ROLES_EDIT.length + 1}" style="font-weight:700;background:var(--bg,#f3f4f6);">${frtEsc(g.titulo)}</td></tr>`;
+    g.itens.forEach(it => {
+      html += `<tr><td style="text-align:left;position:sticky;left:0;background:var(--card,#fff);">${frtEsc(it.label)}<div style="font-size:11px;color:var(--text-muted);">${it.page}</div></td>`;
+      _ROLES_EDIT.forEach(r => {
+        const ck = cur[r].has(it.page) ? 'checked' : '';
+        html += `<td style="text-align:center;"><input type="checkbox" data-role="${r}" data-page="${it.page}" ${ck}></td>`;
+      });
+      html += '</tr>';
+    });
+  });
+  html += '</tbody></table></div>';
+  cont.innerHTML = html;
+}
+window.loadPermissoesUI = loadPermissoesUI;
+
+async function salvarPermissoes() {
+  const btn = document.getElementById('perm-salvar');
+  if (btn) { btn.disabled = true; btn.textContent = 'Salvando…'; }
+  try {
+    const porRole = {}; _ROLES_EDIT.forEach(r => porRole[r] = []);
+    document.querySelectorAll('#permissoes-conteudo input[type=checkbox]').forEach(cb => {
+      if (cb.checked) porRole[cb.dataset.role].push(cb.dataset.page);
+    });
+    for (const r of _ROLES_EDIT) {
+      await db.collection('role_permissions').doc(r).set({
+        pages: porRole[r],
+        atualizadoPor: (typeof currentUserData !== 'undefined' && currentUserData?.name) || null,
+        atualizadoEm: firebase.firestore.FieldValue.serverTimestamp(),
+      }, { merge: true });
+    }
+    await carregarPermissoes();
+    showToast('✅ Permissões salvas. Cada usuário verá a mudança no próximo login.');
+  } catch (e) {
+    console.error(e);
+    showToast('❌ Erro ao salvar: ' + e.message);
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = 'Salvar permissões'; }
+  }
+}
+window.salvarPermissoes = salvarPermissoes;

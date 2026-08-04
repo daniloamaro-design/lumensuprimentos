@@ -479,7 +479,7 @@ function exportarPercapitaFinanceiroPDF() {
     doc.setPage(i);
     doc.setFontSize(8);
     doc.setTextColor(0,0,0);
-    doc.text(`Lumen Estoque — Página ${i} de ${pageCount}`, 14, doc.internal.pageSize.height - 8);
+    doc.text(`Suprimentos Obra Lumen — Página ${i} de ${pageCount}`, 14, doc.internal.pageSize.height - 8);
   }
 
   doc.save(`Per_Capita_Financeiro_${new Date().toISOString().slice(0,10)}.pdf`);
@@ -491,39 +491,15 @@ function goPage(page) {
   // órfão rodando em segundo plano (e falhando contra as regras depois do logout).
   if (window._pageListener) { window._pageListener(); window._pageListener = null; }
 
-  // ── Guarda de acesso por perfil ──
+  // ── Guarda de acesso por perfil (U4: permissões editáveis) ──
+  // O 'admin' tem acesso total garantido (salvaguarda). Para os demais perfis,
+  // o conjunto de páginas vem da tabela role_permissions (window.PERMISSOES),
+  // com fallback para a matriz padrão (window.FALLBACK_PERMS, em js/18-erp.js)
+  // caso o banco/tela de permissões ainda não esteja disponível.
   const role = currentUserData?.role || 'usuario';
-  const _isAdminLvl = ['admin','diretor','gerente','coordenador'].includes(role);
-
-  // Mapa de páginas permitidas por role
-  const allowed = {
-    admin:       'ALL',
-    diretor:     'ALL',
-    gerente:     'ALL',
-    coordenador: 'ALL',
-    compras:     ['new-order','movement','all-orders','prices','orcamento-financeiro','orc-pendentes',
-                  'fornecedores','kanban','houses','manage-houses','manage-cities','manage-products',
-                  'manage-cats','manage-cc','financeiro-compras','percapita','stock-view','transferencias',
-                  'previsao','calc-real','my-orders',
-                  'var-solicitacoes'],
-    estoque:     ['new-order','movement','all-orders','prices','orcamento-financeiro','orc-pendentes',
-                  'fornecedores','kanban','stock-view','transferencias','percapita','previsao','my-orders',
-                  'var-solicitacoes'],
-    financeiro:  ['financeiro-compras','fornecedores','var-solicitacoes'],
-    escritorio:  ['var-solicitacoes'],
-    csl:         ['new-order','movement','all-orders','stock-view','my-orders','solicitar-ajuste'],
-    coord_csl:   ['new-order','movement','all-orders','stock-view','my-orders'],
-    usuario:     ['movement','my-orders','new-order'],
-  };
-
-  // Páginas dos módulos Passagens (pas-) e Fretes (frt-): liberadas por ora.
-  // A gestão de permissões editável (perfil × módulo × página) entra na U4;
-  // até lá o acesso aos módulos segue a decisão "mesmo acesso nos 3".
-  const _moduloPage = page.startsWith('frt-') || page.startsWith('pas-');
-
-  const roleAllowed = allowed[role];
-  if (!_isAdminLvl && roleAllowed !== 'ALL' && !_moduloPage) {
-    if (!roleAllowed || !roleAllowed.includes(page)) {
+  if (role !== 'admin' && typeof permSetDe === 'function') {
+    const ps = permSetDe(role);           // Set de páginas, 'ALL', ou null (desconhecido)
+    if (ps && ps !== 'ALL' && !ps.has(page)) {
       showToast('⛔ Você não tem permissão para esta página.');
       return;
     }
@@ -554,6 +530,8 @@ function goPage(page) {
   if (page === 'frt-metas') setTimeout(loadFrtMetas, 50);
   // Módulo Passagens (U3)
   if (page === 'pas-solicitacoes') setTimeout(loadPasSolic, 50);
+  // Permissões (U4)
+  if (page === 'permissoes') setTimeout(loadPermissoesUI, 50);
   if (page === 'dashboard') {
     setTimeout(restaurarEstadoPaineis, 50);
     // Auto-refresh dashboard a cada 3 minutos

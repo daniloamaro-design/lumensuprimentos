@@ -1,7 +1,7 @@
 {
   "name": "lumen-estoque",
   "version": "1.0.0",
-  "description": "Lumen Estoque - Sistema de Controle",
+  "description": "Suprimentos Obra Lumen - Sistema de Controle",
   "dependencies": {
     "resend": "^3.2.0"
   },

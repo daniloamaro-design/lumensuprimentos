@@ -419,7 +419,7 @@ function abrirWhatsAppFornecedor(tel, nome) {
   if (!tel) { showToast('Fornecedor sem telefone cadastrado.'); return; }
   const num = tel.replace(/\D/g,'');
   const full = num.startsWith('55') ? num : '55' + num;
-  const msg = encodeURIComponent(`Olá ${nome||''}, estou entrando em contato pelo Sistema Lumen Estoque.`);
+  const msg = encodeURIComponent(`Olá ${nome||''}, estou entrando em contato pelo Sistema Suprimentos Obra Lumen.`);
   window.open(`https://wa.me/${full}?text=${msg}`, '_blank');
 }
 

@@ -607,7 +607,7 @@ function desenharCompraNoPDF(doc, order, itensCompra) {
   doc.rect(0, 0, 210, 30, 'F');
   doc.setTextColor(255,255,255);
   doc.setFontSize(15); doc.setFont('helvetica','bold');
-  doc.text('Lumen Estoque — Compra de Produtos', 14, 13);
+  doc.text('Suprimentos Obra Lumen — Compra de Produtos', 14, 13);
   doc.setFontSize(9); doc.setFont('helvetica','normal');
   doc.text(`Pedido: ${order.code}   |   Data: ${formatDate(order.createdAt)}`, 14, 21);
   doc.text(`Solicitante: ${order.requesterName || '—'}`, 14, 27);
@@ -727,7 +727,7 @@ async function exportarComprasSelecionadasPDF() {
     for (let i = 1; i <= pageCount; i++) {
       doc.setPage(i);
       doc.setFontSize(8); doc.setTextColor(150,150,150);
-      doc.text(`Lumen Estoque — Página ${i} de ${pageCount}`, 14, doc.internal.pageSize.height - 8);
+      doc.text(`Suprimentos Obra Lumen — Página ${i} de ${pageCount}`, 14, doc.internal.pageSize.height - 8);
       doc.text(new Date().toLocaleString('pt-BR'), 140, doc.internal.pageSize.height - 8);
     }
 
@@ -1344,7 +1344,7 @@ function makeTransferPDF(order, transferItems, evalData) {
   });
 
   doc.setTextColor(...gray); doc.setFontSize(7);
-  doc.text('Gerado pelo Sistema Lumen Estoque — lumenserfeliz.org', 14, 290);
+  doc.text('Gerado pelo Sistema Suprimentos Obra Lumen — lumenserfeliz.org', 14, 290);
   doc.save(`LM-Transferencia-${order.house.replace(/\s/g,'-')}-${new Date().toISOString().slice(0,10)}.pdf`);
   showToast('✅ PDF de Transferência gerado!');
 }
@@ -1416,7 +1416,7 @@ function makePurchasePDF(order, purchaseItems) {
   });
 
   doc.setTextColor(...gray); doc.setFontSize(7);
-  doc.text('Gerado pelo Sistema Lumen Estoque — lumenserfeliz.org', 14, 290);
+  doc.text('Gerado pelo Sistema Suprimentos Obra Lumen — lumenserfeliz.org', 14, 290);
 
   // Nome: LM-Compras-[Casa]-[Categoria do Pedido]-[Data]-[Código].pdf
   const normalizeStr = s => (s || '').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-zA-Z0-9]/g,'-').replace(/-+/g,'-').replace(/^-|-$/g,'');
@@ -1757,7 +1757,7 @@ function makePDF(house, items, meta, isPurchaseOnly) {
   });
 
   // Footer
-  const label = isPurchaseOnly ? 'Documento de COMPRA — apenas itens não cobertos pelo estoque' : 'Gerado pelo Sistema Lumen Estoque — lumenserfeliz.org';
+  const label = isPurchaseOnly ? 'Documento de COMPRA — apenas itens não cobertos pelo estoque' : 'Gerado pelo Sistema Suprimentos Obra Lumen — lumenserfeliz.org';
   doc.setTextColor(...gray); doc.setFontSize(8);
   doc.text(label, 14, 285);
   doc.text('lumenserfeliz.org', 14, 290);
@@ -1802,7 +1802,7 @@ async function sendOrderEmail(orderData, recipient) {
     await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, {
       to_email:     recipient,
       to_name:      'Equipe Lumen',
-      from_name:    'Sistema Lumen Estoque',
+      from_name:    'Sistema Suprimentos Obra Lumen',
       reply_to:     ADMIN_EMAIL,
       subject:      `📦 Pedido ${orderData.code} — ${orderData.house}`,
       message:      `Pedido: ${orderData.code}\nCasa: ${orderData.house}\nSolicitante: ${orderData.requesterName || '—'}\nData: ${new Date().toLocaleDateString('pt-BR')}\nCategorias: ${formatCats(orderData.categories)}\nPessoas: ${orderData.people || '—'}\n\nItens:\n${summary}\n\nObservações: ${orderData.observations || 'Nenhuma'}`,
@@ -1919,7 +1919,7 @@ function makePDFBase64(house, items, meta) {
 
   const label = isPurchaseOnly
     ? 'Documento de COMPRA — apenas itens nao cobertos pelo estoque | lumenserfeliz.org'
-    : 'Gerado pelo Sistema Lumen Estoque — lumenserfeliz.org';
+    : 'Gerado pelo Sistema Suprimentos Obra Lumen — lumenserfeliz.org';
   doc.setTextColor(...gray); doc.setFontSize(8);
   doc.text(label, 14, 290);
 

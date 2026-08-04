@@ -655,7 +655,7 @@ function exportIrmRelatorioPDF() {
   // Cabeçalho
   doc.setFillColor(...blue); doc.rect(0,0,210,24,'F');
   doc.setTextColor(255,255,255); doc.setFont('helvetica','bold'); doc.setFontSize(14);
-  doc.text('Lumen Estoque — Indicadores dos Irmãos', 14, 12);
+  doc.text('Suprimentos Obra Lumen — Indicadores dos Irmãos', 14, 12);
   doc.setFont('helvetica','normal'); doc.setFontSize(9);
   doc.text('Gerado em: ' + new Date().toLocaleString('pt-BR'), 14, 19);
 
@@ -739,7 +739,7 @@ function exportIrmRelatorioPDF() {
       styles: { fontSize: 7, cellPadding: 1.6 },
       headStyles: { fillColor: lightBlue, textColor: [40,40,40], fontSize: 7 },
       margin: { left: 14, right: 14 },
-      didDrawPage: () => { doc.setTextColor(...gray); doc.setFontSize(7); doc.text('Lumen Estoque — lumenserfeliz.org', 14, 290); },
+      didDrawPage: () => { doc.setTextColor(...gray); doc.setFontSize(7); doc.text('Suprimentos Obra Lumen — lumenserfeliz.org', 14, 290); },
     });
     y = doc.lastAutoTable.finalY + 8;
   });

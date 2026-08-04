@@ -1443,7 +1443,7 @@ function gerarPdfDetalhadoFin(dados, titulo, nomeArquivo){
       headStyles: { fillColor:[224,231,240], textColor:[40,40,40], fontSize:8 },
       columnStyles: { 0:{cellWidth:24}, 1:{cellWidth:24}, 3:{cellWidth:22}, 4:{cellWidth:28, halign:'right'} },
       margin: { left:10, right:10 },
-      didDrawPage: () => { doc.setTextColor(...gray); doc.setFontSize(7); doc.text('Lumen Estoque — lumenserfeliz.org', 14, 290); }
+      didDrawPage: () => { doc.setTextColor(...gray); doc.setFontSize(7); doc.text('Suprimentos Obra Lumen — lumenserfeliz.org', 14, 290); }
     });
     y = doc.lastAutoTable.finalY + 8;
     if (y > 250){ doc.addPage(); y = 20; }
