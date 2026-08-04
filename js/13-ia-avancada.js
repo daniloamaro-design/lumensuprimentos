@@ -349,7 +349,7 @@ ${resumo}
 Seja objetivo e prático. Use emojis para destacar pontos importantes.`;
 
   try {
-    const resp = await fetch(GEMINI_URL, {
+    const resp = await geminiFetch({
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -474,7 +474,7 @@ ${JSON.stringify(fornResumo, null, 2)}
 
 Seja direto e prático. Use emojis. Máximo 350 palavras.`;
 
-    const resp = await fetch(GEMINI_URL, {
+    const resp = await geminiFetch({
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ contents: [{ role: 'user', parts: [{ text: prompt }] }] })
@@ -546,7 +546,7 @@ Gere um alerta executivo de 4-5 linhas destacando:
 Use emojis. Seja direto.`;
 
     try {
-      const resp = await fetch(GEMINI_URL, {
+      const resp = await geminiFetch({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ contents: [{ role: 'user', parts: [{ text: prompt }] }] })
