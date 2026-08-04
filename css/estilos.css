@@ -1225,3 +1225,8 @@
 #permissoes-conteudo .perm-table tr.perm-sec td{position:sticky;left:0;background:var(--bg);color:var(--text);font-weight:700;text-align:left;}
 #permissoes-conteudo .perm-table td.perm-pg .perm-key{font-size:11px;color:var(--text-muted);}
 #permissoes-conteudo .perm-table input[type=checkbox]{width:16px;height:16px;cursor:pointer;accent-color:var(--lumen,#2B9FA8);}
+
+/* ══ Avaliação de frete — estrelas (U3) ══ */
+.frt-star-row{display:inline-flex;gap:2px;}
+.frt-star{font-size:22px;color:var(--border);cursor:pointer;transition:color .1s;line-height:1;}
+.frt-star.on,.frt-star:hover{color:#F5B301;}

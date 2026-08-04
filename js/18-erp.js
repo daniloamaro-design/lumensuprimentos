@@ -58,6 +58,17 @@ function frtBadgePag(sp) {
   const [txt, cor] = map[sp] || ['—', 'var(--text-muted)'];
   return `<span style="font-weight:600;color:${cor};">${txt}</span>`;
 }
+// Situação do frete (fluxo: solicitado → transporte → entregue; ou cancelado)
+function frtStatusBadge(s) {
+  const map = {
+    solicitado: ['📋 Solicitado', '#0284C7'],
+    transporte: ['🚛 Em transporte', '#D97706'],
+    entregue: ['✅ Entregue', '#059669'],
+    cancelado: ['❌ Cancelado', '#DC2626'],
+  };
+  const [txt, cor] = map[s] || [s || '—', 'var(--text-muted)'];
+  return `<span style="font-weight:600;color:${cor};">${txt}</span>`;
+}
 
 let _fretesCache = [];   // fretes carregados (objetos do shim, camelCase)
 
@@ -120,7 +131,7 @@ function renderFrtLista() {
       <td>${frtEsc(f.freteiroNome || '—')}</td>
       <td style="max-width:280px;">${frtEsc(f.origem || '—')} <span style="color:var(--text-muted);">→</span> ${frtEsc(f.destino || '—')}</td>
       <td style="text-align:right;">${frtBRL(f.valor)}</td>
-      <td>${frtBadgePag(f.statusPag)}</td>
+      <td>${frtStatusBadge(f.status)}<br><span style="font-size:11px;">${frtBadgePag(f.statusPag)}</span></td>
       <td style="text-align:right;white-space:nowrap;">
         <button class="btn btn-outline btn-sm" onclick="abrirFreteDetalhe('${f.id}')">Ver</button>
         ${f.statusPag !== 'pago' ? `<button class="btn btn-secondary btn-sm" onclick="frtMarcarPago('${f.id}')">Marcar pago</button>` : ''}
@@ -137,8 +148,18 @@ function abrirFreteDetalhe(id) {
   const av = f.avaliacao || null;
   const hist = Array.isArray(f.historico) ? f.historico : [];
   const linha = (rot, val) => `<div><span style="color:var(--text-muted);font-size:13px;">${rot}</span><br>${val}</div>`;
+
+  // Botões do fluxo conforme a situação
+  const acoes = [];
+  if (f.status === 'solicitado') acoes.push(`<button class="btn btn-primary btn-sm" onclick="frtAutorizar('${f.id}')">✅ Autorizar</button>`);
+  if (f.status === 'transporte') acoes.push(`<button class="btn btn-primary btn-sm" onclick="frtMarcarEntregue('${f.id}')">📦 Marcar entregue</button>`);
+  if (f.status === 'entregue' && f.etapaStatus !== 'avaliado') acoes.push(`<button class="btn btn-secondary btn-sm" onclick="abrirAvaliacaoFrete('${f.id}')">⭐ Avaliar</button>`);
+  if (f.statusPag !== 'pago' && f.status !== 'cancelado') acoes.push(`<button class="btn btn-secondary btn-sm" onclick="frtMarcarPago('${f.id}', true)">💰 Marcar pago</button>`);
+  if (f.status !== 'cancelado' && f.status !== 'entregue') acoes.push(`<button class="btn btn-outline btn-sm" onclick="frtCancelar('${f.id}')">❌ Cancelar</button>`);
+
   document.getElementById('frt-det-body').innerHTML = `
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+      ${linha('Situação', frtStatusBadge(f.status))}
       ${linha('Data', frtDataBR(f.data || f.createdAt))}
       ${linha('Freteiro', frtEsc(f.freteiroNome || '—'))}
       ${linha('Valor', frtBRL(f.valor))}
@@ -151,11 +172,126 @@ function abrirFreteDetalhe(id) {
     ${f.obs ? linha('Observações', frtEsc(f.obs)) : ''}
     ${av ? linha('Avaliação', `⭐ ${av.media ?? '—'} ${av.comentario ? '— ' + frtEsc(av.comentario) : ''}`) : ''}
     ${hist.length ? linha('Histórico', hist.map(h => `• ${frtEsc(typeof h === 'string' ? h : (h.texto || h.acao || JSON.stringify(h)))}`).join('<br>')) : ''}
-    ${f.statusPag !== 'pago' ? `<div style="text-align:right;"><button class="btn btn-primary" onclick="frtMarcarPago('${f.id}', true)">Marcar como pago</button></div>` : ''}
+    ${acoes.length ? `<div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;">${acoes.join('')}</div>` : ''}
   `;
   openModal('modal-frete-detalhe');
 }
 window.abrirFreteDetalhe = abrirFreteDetalhe;
+
+// Muda a situação do frete e registra no histórico
+async function frtMudarStatus(id, novoStatus, rotulo, extra) {
+  const f = _fretesCache.find(x => x.id === id);
+  if (!f) return;
+  const nome = (typeof currentUserData !== 'undefined' && currentUserData?.name) || null;
+  try {
+    const hist = { acao: rotulo, status: novoStatus, por: nome, data: new Date().toISOString() };
+    await db.collection('fretes').doc(id).update({
+      status: novoStatus,
+      historico: firebase.firestore.FieldValue.arrayUnion(hist),
+      updatedBy: nome,
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+      ...(extra || {}),
+    });
+    f.status = novoStatus;
+    f.historico = [...(Array.isArray(f.historico) ? f.historico : []), hist];
+    if (extra) Object.assign(f, extra);
+    showToast('✅ ' + rotulo);
+    closeModal('modal-frete-detalhe');
+    if (window._currentActivePage === 'frt-autorizacoes') loadFrtAutorizacoes(); else renderFrtLista();
+  } catch (e) { console.error(e); showToast('❌ Erro: ' + e.message); }
+}
+async function frtAutorizar(id) {
+  const f = _fretesCache.find(x => x.id === id);
+  if (!confirm(`Autorizar e liberar o frete ${f?.code || ''} para transporte?`)) return;
+  frtMudarStatus(id, 'transporte', 'Frete autorizado', { statusPag: 'pendente' });
+}
+async function frtMarcarEntregue(id) {
+  const f = _fretesCache.find(x => x.id === id);
+  if (!confirm(`Confirmar a entrega do frete ${f?.code || ''}?`)) return;
+  frtMudarStatus(id, 'entregue', 'Frete entregue');
+}
+async function frtCancelar(id) {
+  const f = _fretesCache.find(x => x.id === id);
+  if (!confirm(`Cancelar o frete ${f?.code || ''}? Esta ação registra o cancelamento.`)) return;
+  frtMudarStatus(id, 'cancelado', 'Frete cancelado');
+}
+window.frtAutorizar = frtAutorizar;
+window.frtMarcarEntregue = frtMarcarEntregue;
+window.frtCancelar = frtCancelar;
+
+// ── Avaliação do frete (4 critérios, 1–5 estrelas) ──
+const _frtAvNotas = { pontualidade: 0, qualidade: 0, cuidado: 0, comunicacao: 0 };
+function abrirAvaliacaoFrete(id) {
+  document.getElementById('frt-av-id').value = id;
+  Object.keys(_frtAvNotas).forEach(k => _frtAvNotas[k] = 0);
+  document.querySelectorAll('#modal-avaliar-frete .frt-star').forEach(s => s.classList.remove('on'));
+  document.getElementById('frt-av-media').textContent = '—';
+  document.getElementById('frt-av-comentario').value = '';
+  closeModal('modal-frete-detalhe');
+  openModal('modal-avaliar-frete');
+}
+function frtSetEstrela(criterio, val) {
+  _frtAvNotas[criterio] = val;
+  const row = document.querySelector(`#modal-avaliar-frete .frt-star-row[data-criterio="${criterio}"]`);
+  if (row) row.querySelectorAll('.frt-star').forEach(s => s.classList.toggle('on', parseInt(s.dataset.val) <= val));
+  const vals = Object.values(_frtAvNotas).filter(v => v > 0);
+  document.getElementById('frt-av-media').textContent = vals.length ? (vals.reduce((a, b) => a + b, 0) / vals.length).toFixed(1) : '—';
+}
+async function salvarAvaliacaoFrete() {
+  const id = document.getElementById('frt-av-id').value;
+  const n = _frtAvNotas;
+  if (!n.pontualidade || !n.qualidade || !n.cuidado || !n.comunicacao) return showToast('⚠️ Avalie todos os critérios.');
+  const media = (n.pontualidade + n.qualidade + n.cuidado + n.comunicacao) / 4;
+  const nome = (typeof currentUserData !== 'undefined' && currentUserData?.name) || null;
+  const f = _fretesCache.find(x => x.id === id);
+  try {
+    const hist = { acao: 'Frete avaliado — nota ' + media.toFixed(1), etapa: 'avaliado', por: nome, data: new Date().toISOString() };
+    const avaliacao = { ...n, media, comentario: document.getElementById('frt-av-comentario').value.trim(), avaliadoPor: nome, avaliadoEm: new Date().toISOString() };
+    await db.collection('fretes').doc(id).update({
+      etapaStatus: 'avaliado', avaliacao,
+      historico: firebase.firestore.FieldValue.arrayUnion(hist),
+      updatedBy: nome, updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+    });
+    if (f) { f.etapaStatus = 'avaliado'; f.avaliacao = avaliacao; f.historico = [...(Array.isArray(f.historico) ? f.historico : []), hist]; }
+    showToast('⭐ Avaliação salva!');
+    closeModal('modal-avaliar-frete');
+    renderFrtLista();
+  } catch (e) { console.error(e); showToast('❌ Erro: ' + e.message); }
+}
+window.abrirAvaliacaoFrete = abrirAvaliacaoFrete;
+window.frtSetEstrela = frtSetEstrela;
+window.salvarAvaliacaoFrete = salvarAvaliacaoFrete;
+
+// ── Página de Autorizações (fretes aguardando autorização) ──
+async function loadFrtAutorizacoes() {
+  const tb = document.getElementById('frt-aut-tbody');
+  if (tb) tb.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:24px;color:var(--text-muted);">Carregando…</td></tr>';
+  try {
+    if (!_fretesCache.length) {
+      const snap = await db.collection('fretes').get();
+      _fretesCache = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    }
+    const pend = _fretesCache.filter(f => f.status === 'solicitado')
+      .sort((a, b) => String(b.data || b.createdAt || '').localeCompare(String(a.data || a.createdAt || '')));
+    if (!tb) return;
+    tb.innerHTML = pend.length ? pend.map(f => `
+      <tr>
+        <td>${frtEsc(f.code || '—')}</td>
+        <td>${frtDataBR(f.data || f.createdAt)}</td>
+        <td>${frtEsc(f.freteiroNome || '—')}</td>
+        <td style="max-width:260px;">${frtEsc(f.origem || '—')} <span style="color:var(--text-muted);">→</span> ${frtEsc(f.destino || '—')}</td>
+        <td style="text-align:right;">${frtBRL(f.valor)}</td>
+        <td style="text-align:right;white-space:nowrap;">
+          <button class="btn btn-outline btn-sm" onclick="abrirFreteDetalhe('${f.id}')">Ver</button>
+          <button class="btn btn-primary btn-sm" onclick="frtAutorizar('${f.id}')">✅ Autorizar</button>
+        </td>
+      </tr>`).join('') : '<tr><td colspan="6" style="text-align:center;padding:24px;color:var(--text-muted);">Nenhum frete aguardando autorização. 🎉</td></tr>';
+  } catch (e) {
+    console.error('loadFrtAutorizacoes', e);
+    if (tb) tb.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:24px;color:var(--danger,#dc2626);">Erro: ${frtEsc(e.message)}</td></tr>`;
+  }
+}
+window.loadFrtAutorizacoes = loadFrtAutorizacoes;
 
 async function frtMarcarPago(id, fecharModalDepois) {
   const f = _fretesCache.find(x => x.id === id);
@@ -491,7 +627,7 @@ window.salvarPasSolicitacao = salvarPasSolicitacao;
    ══════════════════════════════════════════════════════════════════════ */
 
 // páginas dos módulos (hoje abertas a todos; o admin restringe na tela)
-const _MOD_PAGES = ['pas-solicitacoes', 'pas-nova', 'frt-lista', 'frt-novo', 'frt-freteiros', 'frt-metas'];
+const _MOD_PAGES = ['pas-solicitacoes', 'pas-nova', 'frt-lista', 'frt-novo', 'frt-autorizacoes', 'frt-freteiros', 'frt-metas'];
 // todas as páginas do Suprimentos (perfis de gestão têm tudo)
 const _SUP_PAGES = ['dashboard', 'users', 'houses', 'manage-houses', 'manage-cities', 'manage-products',
   'manage-cats', 'percapita-financeiro', 'manage-cc', 'all-orders', 'produtividade', 'kanban',
