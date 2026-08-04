@@ -429,6 +429,58 @@ function abrirPasDetalhe(id) {
 }
 window.abrirPasDetalhe = abrirPasDetalhe;
 
+// ── Nova solicitação de passagem (portado do sistema antigo) ──
+function loadPasNovaForm() {
+  const sol = document.getElementById('pas-n-solicitante');
+  if (sol) sol.value = (typeof currentUserData !== 'undefined' && currentUserData?.name) || '';
+}
+window.loadPasNovaForm = loadPasNovaForm;
+
+function pasGerarCodigo() { return 'PASS-' + Math.floor(1000 + Math.random() * 9000); }
+
+async function salvarPasSolicitacao() {
+  const tipo = document.querySelector('input[name="pas-tipo"]:checked')?.value || 'onibus';
+  const passageiro = document.getElementById('pas-n-passageiro').value.trim();
+  const origem = document.getElementById('pas-n-origem').value.trim();
+  const destino = document.getElementById('pas-n-destino').value.trim();
+  const saida = document.getElementById('pas-n-saida').value;
+  const turno = document.getElementById('pas-n-turno').value;
+  const motivo = document.getElementById('pas-n-motivo').value;
+  if (!passageiro || !origem || !destino || !saida || !turno || !motivo) {
+    return showToast('⚠️ Preencha todos os campos obrigatórios (*).');
+  }
+  const nome = (typeof currentUserData !== 'undefined' && currentUserData?.name) || '';
+  const btn = document.getElementById('pas-n-salvar');
+  if (btn) { btn.disabled = true; btn.textContent = 'Enviando…'; }
+  try {
+    await db.collection('passagens_solicitacoes').add({
+      codigo: pasGerarCodigo(), tipo,
+      solicitante: nome,
+      solicitanteUid: (typeof currentUserData !== 'undefined' && currentUserData?.id) || null,
+      passageiro, origem, destino, saida,
+      retorno: document.getElementById('pas-n-retorno').value || '',
+      turno, motivo,
+      bagagem: document.getElementById('pas-n-bagagem').value,
+      pix: document.getElementById('pas-n-pix').value.trim(),
+      obs: document.getElementById('pas-n-obs').value.trim(),
+      status: 'pendente',
+      orcamentos: [{}, {}, {}],
+      historico: [{ acao: 'Solicitação criada', usuario: nome, ts: new Date().toISOString() }],
+      valorFinal: null, fornecedor: null, dataCompra: null, ticketImg: null, numBilhete: null,
+      criadoEm: firebase.firestore.FieldValue.serverTimestamp(),
+    });
+    showToast('✅ Solicitação enviada! ✈️');
+    ['pas-n-passageiro', 'pas-n-origem', 'pas-n-destino', 'pas-n-saida', 'pas-n-retorno', 'pas-n-pix', 'pas-n-obs'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+    _pasCache = []; // força recarga da lista
+    goPage('pas-solicitacoes');
+  } catch (e) {
+    console.error(e); showToast('❌ Erro ao salvar: ' + e.message);
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '✈️ Enviar solicitação'; }
+  }
+}
+window.salvarPasSolicitacao = salvarPasSolicitacao;
+
 /* ══════════════════════════════════════════════════════════════════════
    U4 — PERMISSÕES EDITÁVEIS (perfil × página)
    Fonte da verdade: tabela role_permissions (uma linha por perfil, lista de
@@ -439,7 +491,7 @@ window.abrirPasDetalhe = abrirPasDetalhe;
    ══════════════════════════════════════════════════════════════════════ */
 
 // páginas dos módulos (hoje abertas a todos; o admin restringe na tela)
-const _MOD_PAGES = ['pas-solicitacoes', 'frt-lista', 'frt-novo', 'frt-freteiros', 'frt-metas'];
+const _MOD_PAGES = ['pas-solicitacoes', 'pas-nova', 'frt-lista', 'frt-novo', 'frt-freteiros', 'frt-metas'];
 // todas as páginas do Suprimentos (perfis de gestão têm tudo)
 const _SUP_PAGES = ['dashboard', 'users', 'houses', 'manage-houses', 'manage-cities', 'manage-products',
   'manage-cats', 'percapita-financeiro', 'manage-cc', 'all-orders', 'produtividade', 'kanban',

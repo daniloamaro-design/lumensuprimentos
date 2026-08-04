@@ -530,6 +530,7 @@ function goPage(page) {
   if (page === 'frt-metas') setTimeout(loadFrtMetas, 50);
   // Módulo Passagens (U3)
   if (page === 'pas-solicitacoes') setTimeout(loadPasSolic, 50);
+  if (page === 'pas-nova') setTimeout(loadPasNovaForm, 50);
   // Permissões (U4)
   if (page === 'permissoes') setTimeout(loadPermissoesUI, 50);
   if (page === 'dashboard') {
