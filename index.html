@@ -29,7 +29,7 @@
   <!-- SheetJS para leitura e exportação de Excel -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
-  <link rel="stylesheet" href="css/estilos.css?v=5">
+  <link rel="stylesheet" href="css/estilos.css?v=6">
 </head>
 <body>
 
@@ -570,6 +570,10 @@
       <button class="sidebar-item" data-page="pas-solicitacoes" onclick="goPageMobile('pas-solicitacoes')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.2c.4-.3.6-.7.5-1.2z"/></svg>
         Solicitações
+      </button>
+      <button class="sidebar-item" data-page="pas-calendario" onclick="goPageMobile('pas-calendario')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        Calendário
       </button>
       <button class="sidebar-item" data-page="pas-indicadores" onclick="goPageMobile('pas-indicadores')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="5" height="18" rx="1"/><rect x="10" y="8" width="5" height="13" rx="1"/><rect x="17" y="5" width="5" height="16" rx="1"/></svg>
@@ -2235,6 +2239,22 @@
     <div id="pas-ind-conteudo"><div class="loading-state"><div class="spinner spinner-dark"></div>Carregando...</div></div>
   </div>
 
+  <!-- PAGE: Calendário de Passagens -->
+  <div class="page" id="page-pas-calendario">
+    <div class="page-header" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+      <h1 class="page-title">✈️ Calendário de Passagens</h1>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <button class="btn btn-outline btn-sm" onclick="pasCalMudar(-1)">‹</button>
+        <b id="pas-cal-titulo" style="min-width:150px;text-align:center;">—</b>
+        <button class="btn btn-outline btn-sm" onclick="pasCalMudar(1)">›</button>
+      </div>
+    </div>
+    <div class="card"><div class="card-body">
+      <div style="color:var(--text-muted);font-size:12px;margin-bottom:10px;">Cada viagem aparece na sua <b>data de saída</b>. Clique numa viagem para ver os detalhes.</div>
+      <div id="pas-cal-grid"></div>
+    </div></div>
+  </div>
+
   </main>
 
   <!-- MODAL: detalhe do frete -->
@@ -2833,7 +2853,7 @@
 <script src="js/01-core.js?v=5"></script>
 <script src="js/02-auth.js?v=2"></script>
 <script src="js/03-navegacao.js?v=2"></script>
-<script src="js/04-percapita.js?v=5"></script>
+<script src="js/04-percapita.js?v=6"></script>
 <script src="js/05-cadastros.js?v=1"></script>
 <script src="js/06-pedidos.js?v=3"></script>
 <script src="js/07-estoque-ia-form.js?v=2"></script>
@@ -2847,7 +2867,7 @@
 <script src="js/15-fornecedores-metas.js?v=2"></script>
 <script src="js/16-chat-ia.js?v=2"></script>
 <script src="js/17-metas-wrappers.js?v=2"></script>
-<script src="js/18-erp.js?v=9"></script>
+<script src="js/18-erp.js?v=10"></script>
 <!-- CHAT IA FLUTUANTE -->
 <!-- ════════ GEMINI IA — botão movido para a barra superior (id: chat-ia-topbar-btn) ════════ -->
 

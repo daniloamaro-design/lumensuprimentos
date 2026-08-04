@@ -795,6 +795,64 @@ async function loadPasIndicadores() {
 }
 window.loadPasIndicadores = loadPasIndicadores;
 
+/* ══ Calendário de Passagens (por data de saída) ══ */
+let _pasCalMes = null;   // 'YYYY-MM' em exibição
+function pasCalCor(status) {
+  return { comprada: '#059669', aprovada: '#0D9488', pendente: '#D97706', em_analise: '#0284C7', 'Em Análise': '#0284C7', reprovada: '#DC2626', cancelada: '#6B7280' }[status] || '#6B7280';
+}
+async function loadPasCalendario() {
+  if (!_pasCache.length) {
+    try { const snap = await db.collection('passagens_solicitacoes').get(); _pasCache = snap.docs.map(d => ({ id: d.id, ...d.data() })); } catch (e) { console.error(e); }
+  }
+  if (!_pasCalMes) _pasCalMes = new Date().toISOString().slice(0, 7);
+  renderPasCalendario();
+}
+window.loadPasCalendario = loadPasCalendario;
+
+function pasCalMudar(delta) {
+  const [y, m] = (_pasCalMes || new Date().toISOString().slice(0, 7)).split('-').map(Number);
+  const d = new Date(y, m - 1 + delta, 1);
+  _pasCalMes = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+  renderPasCalendario();
+}
+window.pasCalMudar = pasCalMudar;
+
+function renderPasCalendario() {
+  const grid = document.getElementById('pas-cal-grid');
+  if (!grid) return;
+  const [ano, mes] = _pasCalMes.split('-').map(Number);
+  const nomeMes = new Date(ano, mes - 1, 1).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+  const tit = document.getElementById('pas-cal-titulo');
+  if (tit) tit.textContent = nomeMes.charAt(0).toUpperCase() + nomeMes.slice(1);
+
+  // agrupa por dia (saída) dentro do mês
+  const porDia = {};
+  _pasCache.forEach(s => {
+    const saida = (s.saida || '').slice(0, 10);
+    if (saida.startsWith(_pasCalMes)) {
+      const dia = parseInt(saida.slice(8, 10), 10);
+      (porDia[dia] = porDia[dia] || []).push(s);
+    }
+  });
+
+  const primeiroDiaSemana = new Date(ano, mes - 1, 1).getDay();  // 0=Dom
+  const diasNoMes = new Date(ano, mes, 0).getDate();
+  const hojeStr = new Date().toISOString().slice(0, 10);
+  const dow = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+
+  let html = '<div class="pas-cal">' + dow.map(d => `<div class="pas-cal-dow">${d}</div>`).join('');
+  for (let i = 0; i < primeiroDiaSemana; i++) html += '<div class="pas-cal-cell vazia"></div>';
+  for (let dia = 1; dia <= diasNoMes; dia++) {
+    const dataStr = `${_pasCalMes}-${String(dia).padStart(2, '0')}`;
+    const evs = porDia[dia] || [];
+    const eventos = evs.map(s => `<div class="pas-cal-ev" style="background:${pasCalCor(s.status)};" title="${frtEsc(s.passageiro || '')} — ${frtEsc(s.destino || '')}" onclick="abrirPasDetalhe('${s.id}')">${frtEsc(s.passageiro || s.codigo || '—')}</div>`).join('');
+    html += `<div class="pas-cal-cell${dataStr === hojeStr ? ' hoje' : ''}"><div class="pas-cal-dia">${dia}</div>${eventos}</div>`;
+  }
+  html += '</div>';
+  grid.innerHTML = html;
+}
+window.renderPasCalendario = renderPasCalendario;
+
 // ── Nova solicitação de passagem (portado do sistema antigo) ──
 function loadPasNovaForm() {
   const sol = document.getElementById('pas-n-solicitante');
@@ -857,7 +915,7 @@ window.salvarPasSolicitacao = salvarPasSolicitacao;
    ══════════════════════════════════════════════════════════════════════ */
 
 // páginas dos módulos (hoje abertas a todos; o admin restringe na tela)
-const _MOD_PAGES = ['pas-solicitacoes', 'pas-nova', 'pas-indicadores', 'frt-lista', 'frt-novo', 'frt-autorizacoes', 'frt-freteiros', 'frt-metas', 'frt-indicadores'];
+const _MOD_PAGES = ['pas-solicitacoes', 'pas-nova', 'pas-indicadores', 'pas-calendario', 'frt-lista', 'frt-novo', 'frt-autorizacoes', 'frt-freteiros', 'frt-metas', 'frt-indicadores'];
 // todas as páginas do Suprimentos (perfis de gestão têm tudo)
 const _SUP_PAGES = ['dashboard', 'users', 'houses', 'manage-houses', 'manage-cities', 'manage-products',
   'manage-cats', 'percapita-financeiro', 'manage-cc', 'all-orders', 'produtividade', 'kanban',

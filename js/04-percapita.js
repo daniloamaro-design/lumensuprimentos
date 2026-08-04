@@ -534,6 +534,7 @@ function goPage(page) {
   if (page === 'pas-solicitacoes') setTimeout(loadPasSolic, 50);
   if (page === 'pas-nova') setTimeout(loadPasNovaForm, 50);
   if (page === 'pas-indicadores') setTimeout(loadPasIndicadores, 50);
+  if (page === 'pas-calendario') setTimeout(loadPasCalendario, 50);
   // Permissões (U4)
   if (page === 'permissoes') setTimeout(loadPermissoesUI, 50);
   if (page === 'dashboard') {
