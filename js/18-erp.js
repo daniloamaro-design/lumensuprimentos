@@ -831,6 +831,9 @@ function _erpBarras(pares, fmt) {
     </div>`).join('');
 }
 const _erpGrid = 'display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:16px;';
+// compras_financeiro.pago vem com convenções diferentes por módulo (Suprimentos
+// grava 'Sim'/'Não', Passagens grava 'Pago'/'Pendente') — normaliza aqui.
+const _erpPago = (v) => v === 'Sim' || v === 'Pago';
 
 async function loadFrtIndicadores() {
   const cont = document.getElementById('frt-ind-conteudo');
@@ -910,13 +913,21 @@ async function loadIndGeral() {
       passagens:   { total: 0, pago: 0, qtd: 0 },
       frete:       { total: 0, pago: 0, qtd: 0 },
     };
+    // compras_financeiro cobre Suprimentos e Passagens; Fretes tem seu próprio
+    // financeiro na tabela 'fretes' (não foi migrado p/ compras_financeiro).
     finSnap.docs.forEach(d => {
       const f = d.data();
       const m = porModulo[f.modulo || 'suprimentos'];
       if (!m) return;
       const val = Number(f.valor) || 0;
       m.total += val; m.qtd += 1;
-      if (f.pago === 'Sim') m.pago += val;
+      if (_erpPago(f.pago)) m.pago += val;
+    });
+    fretesSnap.docs.forEach(d => {
+      const f = d.data();
+      const val = Number(f.valor) || 0;
+      porModulo.frete.total += val; porModulo.frete.qtd += 1;
+      if (f.statusPag === 'pago') porModulo.frete.pago += val;
     });
     const totalGeral = porModulo.suprimentos.total + porModulo.passagens.total + porModulo.frete.total;
     const pagoGeral  = porModulo.suprimentos.pago  + porModulo.passagens.pago  + porModulo.frete.pago;

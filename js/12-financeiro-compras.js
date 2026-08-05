@@ -12,6 +12,28 @@ let finPreviewDados = [];  // dados lidos do Excel antes de importar
 
 const FMT_FIN = v => 'R$ ' + (parseFloat(v)||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
 
+// compras_financeiro.pago vem com convenções diferentes por módulo (Suprimentos
+// grava 'Sim'/'Não'; Passagens, migrado da coleção antiga, grava 'Pago'/'Pendente').
+// Normaliza toda LEITURA por aqui — a escrita continua canônica ('Sim'/'').
+const FIN_PAGO = v => v === 'Sim' || v === 'Pago';
+
+// Fretes tem financeiro próprio (tabela 'fretes', não entra em compras_financeiro).
+// Carregado 1x p/ o card "Consolidado por Módulo" mostrar o total real de Fretes.
+let finFretesResumo = { total: 0, pago: 0, qtd: 0 };
+async function finCarregarResumoFretes() {
+  try {
+    const snap = await db.collection('fretes').get();
+    const r = { total: 0, pago: 0, qtd: 0 };
+    snap.docs.forEach(d => {
+      const f = d.data();
+      const val = Number(f.valor) || 0;
+      r.total += val; r.qtd += 1;
+      if (f.statusPag === 'pago') r.pago += val;
+    });
+    finFretesResumo = r;
+  } catch (e) { console.error('finCarregarResumoFretes:', e); }
+}
+
 const FIN_CLASS_MAP = {
   'Proteína': 'Alimentação - Proteínas - Casas',
   'Proteina': 'Alimentação - Proteínas - Casas',
@@ -38,6 +60,7 @@ function excelDateToStr(serial) {
 // ── Inicializa a página ────────────────────────────────────
 async function initFinanceiroCompras() {
   finSetTab('painel', document.getElementById('fin-tab-painel'));
+  await finCarregarResumoFretes();
   await finCarregarDados();
   await finCarregarNFs();
   pagInicializar();
@@ -117,8 +140,8 @@ function finFiltrarBase(dados, { semModulo } = {}) {
     if (forn && d.fornecedor  !== forn)  return false;
     if (casa && d.destinatario !== casa) return false;
     if (cls  && d.classificacao !== cls)  return false;
-    if (pago === 'Sim' && d.pago !== 'Sim') return false;
-    if (pago === 'nao' && d.pago === 'Sim') return false;
+    if (pago === 'Sim' && !FIN_PAGO(d.pago)) return false;
+    if (pago === 'nao' && FIN_PAGO(d.pago)) return false;
     if (modulo && (d.modulo || 'suprimentos') !== modulo) return false;
     return true;
   });
@@ -134,12 +157,16 @@ function finAplicarFiltros() {
 }
 
 function finAtualizarStatsModulo(dados) {
-  const porModulo = { suprimentos: { total: 0, qtd: 0 }, passagens: { total: 0, qtd: 0 }, frete: { total: 0, qtd: 0 } };
+  // Suprimentos e Passagens vêm de compras_financeiro (filtrado); Fretes tem
+  // financeiro próprio (tabela 'fretes'), carregado à parte em finFretesResumo —
+  // por isso não respeita os filtros de período/situação do painel (mesma
+  // limitação de hoje em Indicadores Gerais).
+  const porModulo = { suprimentos: { total: 0, qtd: 0 }, passagens: { total: 0, qtd: 0 }, frete: { total: finFretesResumo.total, qtd: finFretesResumo.qtd } };
   dados.forEach(d => {
-    const m = porModulo[d.modulo || 'suprimentos'];
-    if (!m) return;
-    m.total += parseFloat(d.valor) || 0;
-    m.qtd += 1;
+    const mod = d.modulo || 'suprimentos';
+    if (mod === 'frete' || !porModulo[mod]) return;
+    porModulo[mod].total += parseFloat(d.valor) || 0;
+    porModulo[mod].qtd += 1;
   });
   Object.entries(porModulo).forEach(([mod, { total, qtd }]) => {
     const elV = document.getElementById('fin-mod-' + mod);
@@ -158,7 +185,7 @@ function finLimparFiltros() {
 
 function finAtualizarStats(dados) {
   const total = dados.reduce((s,d) => s + (parseFloat(d.valor)||0), 0);
-  const pago  = dados.filter(d => d.pago === 'Sim').reduce((s,d) => s + (parseFloat(d.valor)||0), 0);
+  const pago  = dados.filter(d => FIN_PAGO(d.pago)).reduce((s,d) => s + (parseFloat(d.valor)||0), 0);
   const pend  = total - pago;
   const pctPago = total > 0 ? (pago/total*100) : 0;
   const pctPend = total > 0 ? (pend/total*100) : 0;
@@ -192,7 +219,7 @@ function finRenderizarTabela(dados) {
     return;
   }
   tb.innerHTML = dados.slice(0, 500).map(d => {
-    const isPago = d.pago === 'Sim';
+    const isPago = FIN_PAGO(d.pago);
     const badge = isPago
       ? `<button onclick="finTogglePago('${d.id}',false)" title="Clique para marcar como pendente"
            style="background:var(--ok-bg);color:var(--ok);border:1px solid var(--ok);border-radius:20px;padding:4px 12px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;">✅ Pago</button>`
@@ -571,7 +598,7 @@ async function pagAbrirRevisaoDuplicados() {
       .map(([chave, docs], idx) => {
         // sugestão de qual manter: prioriza o já marcado como Pago, depois Lançado SP, depois o mais antigo (importadoEm)
         const ordenados = [...docs].sort((a,b) => {
-          const score = x => (x.pago === 'Sim' ? 2 : 0) + (x.lancadoSP === 'Sim' ? 1 : 0);
+          const score = x => (FIN_PAGO(x.pago) ? 2 : 0) + (x.lancadoSP === 'Sim' ? 1 : 0);
           const sd = score(b) - score(a);
           if (sd !== 0) return sd;
           const ta = a.importadoEm?.toMillis ? a.importadoEm.toMillis() : 0;
@@ -598,7 +625,7 @@ async function pagAbrirRevisaoDuplicados() {
           <td style="text-align:center;"><input type="radio" name="keep-${g.gid}" value="${d.docId}" ${d.docId === g.manterSugerido ? 'checked' : ''} onchange="pagAtualizarResumoDup()"></td>
           <td style="font-size:11px;">${comp}</td>
           <td style="font-size:11px;">${d.vencimentoStr || '—'}</td>
-          <td style="font-size:11px;text-align:center;">${d.pago === 'Sim' ? '✅' : '—'}</td>
+          <td style="font-size:11px;text-align:center;">${FIN_PAGO(d.pago) ? '✅' : '—'}</td>
           <td style="font-size:11px;text-align:center;">${d.lancadoSP === 'Sim' || d.lancadoSP === true ? '✅' : '—'}</td>
           <td style="font-size:11px;color:var(--text-muted);">${imp}</td>
           <td style="font-size:10px;font-family:monospace;color:var(--text-muted);max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${d.docId}</td>
@@ -1093,7 +1120,7 @@ function pagInicializar() {
   if (selF) selF.innerHTML = '<option value="">Todos</option>' + forns.map(f => `<option>${f}</option>`).join('');
 
   // Atualiza badge da aba
-  const pendentes = finDados.filter(d => d.pago !== 'Sim');
+  const pendentes = finDados.filter(d => !FIN_PAGO(d.pago));
   const badge = document.getElementById('fin-badge-pendentes');
   if (badge) {
     badge.textContent = pendentes.length;
@@ -1109,9 +1136,9 @@ function pagAtualizarResumo() {
   const mesAtual = new Date().toLocaleString('pt-BR', { month: 'long' }).toUpperCase();
   const anoAtual = new Date().getFullYear();
 
-  const pendentes = finDados.filter(d => d.pago !== 'Sim');
+  const pendentes = finDados.filter(d => !FIN_PAGO(d.pago));
   const vencidos  = pendentes.filter(d => d.vencimentoSerial && d.vencimentoSerial < hoje);
-  const pagosMes  = finDados.filter(d => d.pago === 'Sim' &&
+  const pagosMes  = finDados.filter(d => FIN_PAGO(d.pago) &&
     String(d.mes).toUpperCase() === mesAtual && parseInt(d.ano) === anoAtual);
 
   const el = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };
@@ -1148,9 +1175,9 @@ function pagFiltrar() {
     if (forn && d.fornecedor !== forn) return false;
     if (mes  && d.mes !== mes)         return false;
     if (ano  && String(d.ano) !== ano) return false;
-    if (status === 'pendente') return d.pago !== 'Sim';
-    if (status === 'vencido')  return d.pago !== 'Sim' && d.vencimentoSerial && d.vencimentoSerial < hoje;
-    if (status === 'pago')     return d.pago === 'Sim';
+    if (status === 'pendente') return !FIN_PAGO(d.pago);
+    if (status === 'vencido')  return !FIN_PAGO(d.pago) && d.vencimentoSerial && d.vencimentoSerial < hoje;
+    if (status === 'pago')     return FIN_PAGO(d.pago);
     return true; // todos
   }).sort((a,b) => (a.vencimentoSerial||0) - (b.vencimentoSerial||0));
 
@@ -1172,7 +1199,7 @@ function pagRenderizarTabela() {
   }
 
   tb.innerHTML = pagDadosFiltrados.map(d => {
-    const isPago    = d.pago === 'Sim';
+    const isPago    = FIN_PAGO(d.pago);
     const isVencido = !isPago && d.vencimentoSerial && d.vencimentoSerial < hoje;
     const diasVenc  = isVencido ? Math.floor(hoje - d.vencimentoSerial) : null;
     const checked   = pagSelecionados.has(d.id) ? 'checked' : '';
@@ -1255,7 +1282,7 @@ async function pagMarcarSelecionados(pagar) {
     // Atualiza badge da aba
     const badge = document.getElementById('fin-badge-pendentes');
     if (badge) {
-      const n = finDados.filter(d => d.pago !== 'Sim').length;
+      const n = finDados.filter(d => !FIN_PAGO(d.pago)).length;
       badge.textContent = n;
       badge.style.display = n > 0 ? '' : 'none';
     }
@@ -1286,7 +1313,7 @@ async function finTogglePago(id, pagar) {
     // Atualiza badge
     const badge = document.getElementById('fin-badge-pendentes');
     if (badge) {
-      const n = finDados.filter(d => d.pago !== 'Sim').length;
+      const n = finDados.filter(d => !FIN_PAGO(d.pago)).length;
       badge.textContent = n;
       badge.style.display = n > 0 ? '' : 'none';
     }
@@ -1375,7 +1402,7 @@ function _caMontarLinhas(dados, mapaDocs){
     const desc   = ([cat,dest].filter(Boolean).join(' - ') || 'Lançamento') + periodo;
     const obsP   = [];
     if (d.pedidoRealizado) obsP.push(String(d.pedidoRealizado).trim());
-    obsP.push(d.pago === 'Sim' ? 'Pago' : 'Pendente');
+    obsP.push(FIN_PAGO(d.pago) ? 'Pago' : 'Pendente');
     // Centro de Custo: prefere o vínculo direto do lançamento, cai na casa de destino como fallback
     const cc = String(d.centroCustoNome || d.centroCusto || dest || '').trim();
     linhas.push([ dtComp || '', dtVenc || '', '', valor, cat, desc, forn, docFis, cc, obsP.join(' | ') ]);
@@ -1444,7 +1471,7 @@ function gerarPdfDetalhadoFin(dados, titulo, nomeArquivo){
           d.dataCompraStr || excelDateToStr(d.dataCompraSerial) || '—',
           d.vencimentoStr || excelDateToStr(d.vencimentoSerial) || '—',
           String(d.destinatario||'—'),
-          (d.pago === 'Sim' ? 'Pago' : 'Pendente'),
+          (FIN_PAGO(d.pago) ? 'Pago' : 'Pendente'),
           { content: fmt(parseFloat(d.valor)||0), styles:{ halign:'right' } }
         ]);
       });
