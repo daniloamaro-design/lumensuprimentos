@@ -149,33 +149,133 @@ function abrirFreteDetalhe(id) {
   const hist = Array.isArray(f.historico) ? f.historico : [];
   const linha = (rot, val) => `<div><span style="color:var(--text-muted);font-size:13px;">${rot}</span><br>${val}</div>`;
 
-  // Botões do fluxo conforme a situação
+  const semFreteiro = !f.freteiroNome;
+  const temTrajeto = f.origem && f.destino;
+
+  // Botões do fluxo conforme a situação (só autoriza com freteiro atribuído)
   const acoes = [];
-  if (f.status === 'solicitado') acoes.push(`<button class="btn btn-primary btn-sm" onclick="frtAutorizar('${f.id}')">✅ Autorizar</button>`);
+  if (f.status === 'solicitado' && !semFreteiro) acoes.push(`<button class="btn btn-primary btn-sm" onclick="frtAutorizar('${f.id}')">✅ Autorizar</button>`);
   if (f.status === 'transporte') acoes.push(`<button class="btn btn-primary btn-sm" onclick="frtMarcarEntregue('${f.id}')">📦 Marcar entregue</button>`);
   if (f.status === 'entregue' && f.etapaStatus !== 'avaliado') acoes.push(`<button class="btn btn-secondary btn-sm" onclick="abrirAvaliacaoFrete('${f.id}')">⭐ Avaliar</button>`);
-  if (f.statusPag !== 'pago' && f.status !== 'cancelado') acoes.push(`<button class="btn btn-secondary btn-sm" onclick="frtMarcarPago('${f.id}', true)">💰 Marcar pago</button>`);
+  if (f.statusPag !== 'pago' && f.status !== 'cancelado' && !semFreteiro) acoes.push(`<button class="btn btn-secondary btn-sm" onclick="frtMarcarPago('${f.id}', true)">💰 Marcar pago</button>`);
   if (f.status !== 'cancelado' && f.status !== 'entregue') acoes.push(`<button class="btn btn-outline btn-sm" onclick="frtCancelar('${f.id}')">❌ Cancelar</button>`);
+
+  // Form de atribuição de freteiro (rota criada sem freteiro)
+  const formAtrib = semFreteiro && f.status !== 'cancelado' ? `
+    <div style="border-top:1px dashed var(--border);padding-top:8px;">
+      <div style="font-weight:600;font-size:13px;margin-bottom:6px;">Atribuir freteiro e valor</div>
+      <div style="display:grid;grid-template-columns:1fr 110px auto;gap:8px;align-items:end;">
+        <div><label class="form-label">Freteiro</label><select class="form-select" id="frt-atrib-forn"><option value="">Selecione…</option></select></div>
+        <div><label class="form-label">Valor</label><input class="form-input" id="frt-atrib-valor" type="number" step="0.01" min="0" value="${f.valor || ''}"></div>
+        <div><button class="btn btn-primary btn-sm" onclick="frtAtribuirFreteiro('${f.id}')">Salvar</button></div>
+      </div>
+    </div>` : '';
 
   document.getElementById('frt-det-body').innerHTML = `
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
       ${linha('Situação', frtStatusBadge(f.status))}
       ${linha('Data', frtDataBR(f.data || f.createdAt))}
-      ${linha('Freteiro', frtEsc(f.freteiroNome || '—'))}
+      ${linha('Freteiro', frtEsc(f.freteiroNome || '— (a definir)'))}
       ${linha('Valor', frtBRL(f.valor))}
       ${linha('Pagamento', frtBadgePag(f.statusPag) + (Number(f.valorPago) ? ` (${frtBRL(f.valorPago)})` : ''))}
     </div>
     ${linha('Origem', frtEsc(f.origem || '—'))}
     ${paradas.length ? linha('Paradas', paradas.map(p => frtEsc(p)).join('<br>')) : ''}
     ${linha('Destino', frtEsc(f.destino || '—'))}
+    ${temTrajeto ? `<div><a href="${rotaGoogleMapsUrl(f.origem, f.destino, paradas)}" target="_blank" rel="noopener" style="color:var(--lumen);font-weight:600;">🗺️ Ver rota no Google Maps</a></div>` : ''}
     ${f.motivo ? linha('Motivo', frtEsc(f.motivo)) : ''}
     ${f.obs ? linha('Observações', frtEsc(f.obs)) : ''}
     ${av ? linha('Avaliação', `⭐ ${av.media ?? '—'} ${av.comentario ? '— ' + frtEsc(av.comentario) : ''}`) : ''}
     ${hist.length ? linha('Histórico', hist.map(h => `• ${frtEsc(typeof h === 'string' ? h : (h.texto || h.acao || JSON.stringify(h)))}`).join('<br>')) : ''}
+    ${formAtrib}
     ${acoes.length ? `<div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;">${acoes.join('')}</div>` : ''}
   `;
   openModal('modal-frete-detalhe');
+  if (semFreteiro && f.status !== 'cancelado') popularSelectFreteiros('frt-atrib-forn');
 }
+
+// Monta o link de direções do Google Maps a partir dos endereços (sem API)
+function rotaGoogleMapsUrl(origem, destino, paradas) {
+  const enc = s => encodeURIComponent(s || '');
+  let url = 'https://www.google.com/maps/dir/?api=1&origin=' + enc(origem) + '&destination=' + enc(destino);
+  const wp = (Array.isArray(paradas) ? paradas : []).filter(Boolean);
+  if (wp.length) url += '&waypoints=' + wp.map(enc).join('%7C');
+  return url;
+}
+window.rotaGoogleMapsUrl = rotaGoogleMapsUrl;
+
+async function frtAtribuirFreteiro(id) {
+  const sel = document.getElementById('frt-atrib-forn');
+  const fid = sel.value;
+  const fnome = sel.selectedOptions[0]?.dataset.nome || '';
+  const valor = Number(document.getElementById('frt-atrib-valor').value);
+  if (!fid) return showToast('⚠️ Selecione o freteiro.');
+  if (!(valor > 0)) return showToast('⚠️ Informe o valor.');
+  const f = _fretesCache.find(x => x.id === id);
+  const nome = (typeof currentUserData !== 'undefined' && currentUserData?.name) || null;
+  try {
+    const hist = { acao: `Freteiro atribuído: ${fnome} (${frtBRL(valor)})`, por: nome, data: new Date().toISOString() };
+    await db.collection('fretes').doc(id).update({
+      freteiroId: fid, freteiroNome: fnome, valor,
+      etapaStatus: 'aguardando_autorizacao',
+      historico: firebase.firestore.FieldValue.arrayUnion(hist),
+      updatedBy: nome, updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+    });
+    if (f) { f.freteiroId = fid; f.freteiroNome = fnome; f.valor = valor; f.historico = [...(Array.isArray(f.historico) ? f.historico : []), hist]; }
+    showToast('✅ Freteiro atribuído.');
+    abrirFreteDetalhe(id);
+    if (window._currentActivePage === 'frt-autorizacoes') loadFrtAutorizacoes(); else renderFrtLista();
+  } catch (e) { console.error(e); showToast('❌ Erro: ' + e.message); }
+}
+window.frtAtribuirFreteiro = frtAtribuirFreteiro;
+
+// ── Rotas: planejar um trajeto, ver no mapa e salvar como frete (sem freteiro) ──
+function frtVerNoMapaForm() {
+  const o = document.getElementById('frt-rota-origem').value.trim();
+  const d = document.getElementById('frt-rota-destino').value.trim();
+  if (!o || !d) return showToast('⚠️ Informe origem e destino.');
+  const paradas = document.getElementById('frt-rota-paradas').value.split('\n').map(s => s.trim()).filter(Boolean);
+  window.open(rotaGoogleMapsUrl(o, d, paradas), '_blank', 'noopener');
+}
+window.frtVerNoMapaForm = frtVerNoMapaForm;
+
+async function frtSalvarRota() {
+  const origem = document.getElementById('frt-rota-origem').value.trim();
+  const destino = document.getElementById('frt-rota-destino').value.trim();
+  if (!origem || !destino) return showToast('⚠️ Informe origem e destino.');
+  const paradas = document.getElementById('frt-rota-paradas').value.split('\n').map(s => s.trim()).filter(Boolean);
+  const motivo = document.getElementById('frt-rota-motivo').value.trim();
+  const data = new Date().toISOString().slice(0, 10);
+  const ymd = data.replace(/-/g, '');
+  const nome = (typeof currentUserData !== 'undefined' && currentUserData?.name) || null;
+  const btn = document.getElementById('frt-rota-salvar');
+  if (btn) { btn.disabled = true; btn.textContent = 'Salvando…'; }
+  try {
+    if (!_fretesCache.length) { const snap = await db.collection('fretes').get(); _fretesCache = snap.docs.map(x => ({ id: x.id, ...x.data() })); }
+    const seq = _fretesCache.filter(f => (f.dateStr || '') === ymd).length + 1;
+    const code = `LF-${ymd}-${String(seq).padStart(3, '0')}`;
+    await db.collection('fretes').add({
+      code, data, dateStr: ymd, origem, destino, paradas,
+      motivo: motivo || null, freteiroId: '', freteiroNome: '',
+      valor: 0, valorPago: 0, status: 'solicitado', statusPag: 'pendente',
+      etapaStatus: 'rota_criada', formaPag: 'pix', importado: false,
+      obs: document.getElementById('frt-rota-obs').value.trim() || null,
+      createdBy: nome,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+      historico: [{ acao: 'Rota criada e solicitada', etapa: 'rota_criada', por: nome, data: new Date().toISOString() }],
+    });
+    showToast(`✅ Rota ${code} salva! Atribua um freteiro em Autorizações.`);
+    ['frt-rota-origem', 'frt-rota-destino', 'frt-rota-paradas', 'frt-rota-motivo', 'frt-rota-obs'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+    _fretesCache = [];
+    goPage('frt-autorizacoes');
+  } catch (e) {
+    console.error(e); showToast('❌ Erro ao salvar: ' + e.message);
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = 'Salvar rota'; }
+  }
+}
+window.frtSalvarRota = frtSalvarRota;
 window.abrirFreteDetalhe = abrirFreteDetalhe;
 
 // Muda a situação do frete e registra no histórico
@@ -915,7 +1015,7 @@ window.salvarPasSolicitacao = salvarPasSolicitacao;
    ══════════════════════════════════════════════════════════════════════ */
 
 // páginas dos módulos (hoje abertas a todos; o admin restringe na tela)
-const _MOD_PAGES = ['pas-solicitacoes', 'pas-nova', 'pas-indicadores', 'pas-calendario', 'frt-lista', 'frt-novo', 'frt-autorizacoes', 'frt-freteiros', 'frt-metas', 'frt-indicadores'];
+const _MOD_PAGES = ['pas-solicitacoes', 'pas-nova', 'pas-indicadores', 'pas-calendario', 'frt-lista', 'frt-novo', 'frt-autorizacoes', 'frt-rotas', 'frt-freteiros', 'frt-metas', 'frt-indicadores'];
 // todas as páginas do Suprimentos (perfis de gestão têm tudo)
 const _SUP_PAGES = ['dashboard', 'users', 'houses', 'manage-houses', 'manage-cities', 'manage-products',
   'manage-cats', 'percapita-financeiro', 'manage-cc', 'all-orders', 'produtividade', 'kanban',
