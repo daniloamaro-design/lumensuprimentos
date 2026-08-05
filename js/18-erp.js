@@ -895,6 +895,172 @@ async function loadPasIndicadores() {
 }
 window.loadPasIndicadores = loadPasIndicadores;
 
+// ── Indicadores Gerais (transversal — Suprimentos + Passagens + Fretes) ──
+async function loadIndGeral() {
+  const cont = document.getElementById('ind-geral-conteudo');
+  if (!cont) return;
+  try {
+    const [finSnap, fretesSnap, pasSnap] = await Promise.all([
+      db.collection('compras_financeiro').get(),
+      db.collection('fretes').get(),
+      db.collection('passagens_solicitacoes').get(),
+    ]);
+    const porModulo = {
+      suprimentos: { total: 0, pago: 0, qtd: 0 },
+      passagens:   { total: 0, pago: 0, qtd: 0 },
+      frete:       { total: 0, pago: 0, qtd: 0 },
+    };
+    finSnap.docs.forEach(d => {
+      const f = d.data();
+      const m = porModulo[f.modulo || 'suprimentos'];
+      if (!m) return;
+      const val = Number(f.valor) || 0;
+      m.total += val; m.qtd += 1;
+      if (f.pago === 'Sim') m.pago += val;
+    });
+    const totalGeral = porModulo.suprimentos.total + porModulo.passagens.total + porModulo.frete.total;
+    const pagoGeral  = porModulo.suprimentos.pago  + porModulo.passagens.pago  + porModulo.frete.pago;
+
+    const fretesQtd = fretesSnap.size;
+    const pasQtd = pasSnap.size;
+    const pasCompradas = pasSnap.docs.filter(d => d.data().status === 'comprada').length;
+
+    const modPares = [
+      ['📦 Suprimentos', porModulo.suprimentos.total],
+      ['✈️ Passagens', porModulo.passagens.total],
+      ['🚚 Fretes', porModulo.frete.total],
+    ];
+    const qtdPares = [
+      ['📦 Suprimentos', porModulo.suprimentos.qtd],
+      ['✈️ Passagens', porModulo.passagens.qtd],
+      ['🚚 Fretes', porModulo.frete.qtd],
+    ];
+
+    cont.innerHTML = `
+      <div style="${_erpGrid}">
+        ${_erpStat('💰 Financeiro total (3 módulos)', frtBRL(totalGeral))}
+        ${_erpStat('✅ Pago', frtBRL(pagoGeral), '', 'stat-card-ok')}
+        ${_erpStat('⏳ Pendente', frtBRL(totalGeral - pagoGeral), '', 'stat-card-warn')}
+        ${_erpStat('🚚 Fretes cadastrados', fretesQtd)}
+        ${_erpStat('✈️ Passagens', pasQtd, pasCompradas + ' compradas')}
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;">
+        <div class="card"><div class="card-header"><b>Financeiro por módulo</b></div><div class="card-body">${_erpBarras(modPares, frtBRL)}</div></div>
+        <div class="card"><div class="card-header"><b>Lançamentos financeiros por módulo</b></div><div class="card-body">${_erpBarras(qtdPares)}</div></div>
+      </div>`;
+  } catch (e) {
+    cont.innerHTML = `<div class="card"><div class="card-body" style="color:var(--danger,#dc2626);">Erro: ${frtEsc(e.message)}</div></div>`;
+  }
+}
+window.loadIndGeral = loadIndGeral;
+
+/* ══════════════════════════════════════════════════════════════════════
+   PLANO DE AÇÃO / PENDÊNCIAS — módulo transversal novo (quadro de tarefas
+   compartilhado entre os 3 módulos; todos veem e criam)
+   ══════════════════════════════════════════════════════════════════════ */
+let _planoAcaoCache = [];
+const PL_STATUS_LABEL = { a_fazer: '⬜ A fazer', em_andamento: '🔵 Em andamento', concluido: '✅ Concluído' };
+const PL_MODULO_LABEL = { geral: 'Geral', suprimentos: '📦 Suprimentos', passagens: '✈️ Passagens', frete: '🚚 Fretes' };
+
+async function loadPlanoAcao() {
+  const tb = document.getElementById('pl-tbody');
+  if (tb) tb.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:24px;color:var(--text-muted);">Carregando…</td></tr>';
+  try {
+    const [plSnap, usersSnap] = await Promise.all([
+      db.collection('plano_acao').get(),
+      db.collection('users').get(),
+    ]);
+    _planoAcaoCache = plSnap.docs.map(d => ({ id: d.id, ...d.data() }))
+      .sort((a, b) => String(a.prazo || '9999').localeCompare(String(b.prazo || '9999')));
+
+    const sel = document.getElementById('pl-responsavel');
+    if (sel) {
+      const aprovados = usersSnap.docs.map(d => ({ id: d.id, ...d.data() })).filter(u => u.status === 'approved').sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+      sel.innerHTML = '<option value="">—</option>' + aprovados.map(u => `<option value="${u.id}">${frtEsc(u.name || u.email || u.id)}</option>`).join('');
+    }
+    filtrarPlanoAcao();
+  } catch (e) {
+    console.error('loadPlanoAcao', e);
+    if (tb) tb.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:24px;color:var(--danger,#dc2626);">Erro: ${frtEsc(e.message)}</td></tr>`;
+  }
+}
+window.loadPlanoAcao = loadPlanoAcao;
+
+function filtrarPlanoAcao() {
+  const status = document.getElementById('pl-filtro-status')?.value || '';
+  const modulo = document.getElementById('pl-filtro-modulo')?.value || '';
+  const filtrados = _planoAcaoCache.filter(t => (!status || t.status === status) && (!modulo || t.modulo === modulo));
+  renderPlanoAcao(filtrados);
+}
+window.filtrarPlanoAcao = filtrarPlanoAcao;
+
+function renderPlanoAcao(tarefas) {
+  const tb = document.getElementById('pl-tbody');
+  if (!tb) return;
+  if (!tarefas.length) {
+    tb.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:24px;color:var(--text-muted);">Nenhuma tarefa encontrada.</td></tr>';
+    return;
+  }
+  const hoje = new Date().toISOString().slice(0, 10);
+  tb.innerHTML = tarefas.map(t => {
+    const atrasada = t.status !== 'concluido' && t.prazo && t.prazo < hoje;
+    const statusOpts = Object.entries(PL_STATUS_LABEL).map(([k, v]) => `<option value="${k}"${t.status === k ? ' selected' : ''}>${v}</option>`).join('');
+    return `<tr style="${atrasada ? 'background:rgba(198,40,40,0.07);' : ''}">
+      <td style="font-weight:700;">${frtEsc(t.titulo || '—')}${t.descricao ? `<div style="font-size:11px;color:var(--text-muted);font-weight:400;">${frtEsc(t.descricao)}</div>` : ''}</td>
+      <td>${frtEsc(t.responsavelNome || '—')}</td>
+      <td style="font-size:12px;${atrasada ? 'color:var(--danger,#dc2626);font-weight:700;' : ''}">${t.prazo || '—'}</td>
+      <td>${PL_MODULO_LABEL[t.modulo] || t.modulo || '—'}</td>
+      <td><select class="form-select" style="font-size:12px;padding:4px 8px;" onchange="plAtualizarStatus('${t.id}',this.value)">${statusOpts}</select></td>
+      <td style="text-align:center;"><button class="btn btn-outline btn-sm" onclick="plExcluir('${t.id}')" title="Excluir">🗑️</button></td>
+    </tr>`;
+  }).join('');
+}
+
+async function salvarPlanoAcao() {
+  const titulo = document.getElementById('pl-titulo').value.trim();
+  if (!titulo) return showToast('⚠️ Informe o título.');
+  const selResp = document.getElementById('pl-responsavel');
+  const responsavelId = selResp.value || null;
+  const responsavelNome = responsavelId ? selResp.options[selResp.selectedIndex].textContent : null;
+  try {
+    await db.collection('plano_acao').add({
+      titulo,
+      descricao: document.getElementById('pl-descricao').value.trim() || null,
+      responsavelId,
+      responsavelNome,
+      prazo: document.getElementById('pl-prazo').value || null,
+      modulo: document.getElementById('pl-modulo').value || 'geral',
+      status: 'a_fazer',
+      criadoPor: (typeof currentUserData !== 'undefined' && currentUserData?.name) || null,
+    });
+    showToast('✅ Tarefa criada.');
+    ['pl-titulo', 'pl-descricao', 'pl-prazo'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+    document.getElementById('pl-responsavel').value = '';
+    document.getElementById('pl-modulo').value = 'geral';
+    loadPlanoAcao();
+  } catch (e) { console.error(e); showToast('❌ Erro ao salvar: ' + e.message); }
+}
+window.salvarPlanoAcao = salvarPlanoAcao;
+
+async function plAtualizarStatus(id, status) {
+  try {
+    await db.collection('plano_acao').doc(id).update({ status, atualizadoEm: firebase.firestore.FieldValue.serverTimestamp() });
+    const t = _planoAcaoCache.find(x => x.id === id); if (t) t.status = status;
+    showToast('✅ Status atualizado.');
+  } catch (e) { console.error(e); showToast('❌ Erro: ' + e.message); loadPlanoAcao(); }
+}
+window.plAtualizarStatus = plAtualizarStatus;
+
+async function plExcluir(id) {
+  if (!confirm('Excluir esta tarefa?')) return;
+  try {
+    await db.collection('plano_acao').doc(id).delete();
+    showToast('🗑️ Tarefa excluída.');
+    loadPlanoAcao();
+  } catch (e) { console.error(e); showToast('❌ Erro: ' + e.message); }
+}
+window.plExcluir = plExcluir;
+
 /* ══ Calendário de Passagens (por data de saída) ══ */
 let _pasCalMes = null;   // 'YYYY-MM' em exibição
 function pasCalCor(status) {
@@ -1015,7 +1181,7 @@ window.salvarPasSolicitacao = salvarPasSolicitacao;
    ══════════════════════════════════════════════════════════════════════ */
 
 // páginas dos módulos (hoje abertas a todos; o admin restringe na tela)
-const _MOD_PAGES = ['pas-solicitacoes', 'pas-nova', 'pas-indicadores', 'pas-calendario', 'frt-lista', 'frt-novo', 'frt-autorizacoes', 'frt-rotas', 'frt-freteiros', 'frt-metas', 'frt-indicadores'];
+const _MOD_PAGES = ['pas-solicitacoes', 'pas-nova', 'pas-indicadores', 'pas-calendario', 'frt-lista', 'frt-novo', 'frt-autorizacoes', 'frt-rotas', 'frt-freteiros', 'frt-metas', 'frt-indicadores', 'ind-geral', 'plano-acao'];
 // todas as páginas do Suprimentos (perfis de gestão têm tudo)
 const _SUP_PAGES = ['dashboard', 'users', 'houses', 'manage-houses', 'manage-cities', 'manage-products',
   'manage-cats', 'percapita-financeiro', 'manage-cc', 'all-orders', 'produtividade', 'kanban',
@@ -1082,7 +1248,7 @@ function aplicarPermissoesSidebar(role) {
   document.querySelectorAll('#sidebar .sidebar-item[data-page]').forEach(it => {
     it.style.display = ps.has(it.dataset.page) ? '' : 'none';
   });
-  document.querySelectorAll('#sidebar .sidebar-section[data-modulo]').forEach(sec => {
+  document.querySelectorAll('#sidebar .sidebar-section').forEach(sec => {
     const algum = [...sec.querySelectorAll('.sidebar-item[data-page]')].some(it => it.style.display !== 'none');
     if (!algum) sec.style.display = 'none';          // some se ficou sem itens p/ o perfil
   });
