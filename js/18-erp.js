@@ -895,6 +895,65 @@ async function loadPasIndicadores() {
 }
 window.loadPasIndicadores = loadPasIndicadores;
 
+// ── Indicadores Gerais (transversal — Suprimentos + Passagens + Fretes) ──
+async function loadIndGeral() {
+  const cont = document.getElementById('ind-geral-conteudo');
+  if (!cont) return;
+  try {
+    const [finSnap, fretesSnap, pasSnap] = await Promise.all([
+      db.collection('compras_financeiro').get(),
+      db.collection('fretes').get(),
+      db.collection('passagens_solicitacoes').get(),
+    ]);
+    const porModulo = {
+      suprimentos: { total: 0, pago: 0, qtd: 0 },
+      passagens:   { total: 0, pago: 0, qtd: 0 },
+      frete:       { total: 0, pago: 0, qtd: 0 },
+    };
+    finSnap.docs.forEach(d => {
+      const f = d.data();
+      const m = porModulo[f.modulo || 'suprimentos'];
+      if (!m) return;
+      const val = Number(f.valor) || 0;
+      m.total += val; m.qtd += 1;
+      if (f.pago === 'Sim') m.pago += val;
+    });
+    const totalGeral = porModulo.suprimentos.total + porModulo.passagens.total + porModulo.frete.total;
+    const pagoGeral  = porModulo.suprimentos.pago  + porModulo.passagens.pago  + porModulo.frete.pago;
+
+    const fretesQtd = fretesSnap.size;
+    const pasQtd = pasSnap.size;
+    const pasCompradas = pasSnap.docs.filter(d => d.data().status === 'comprada').length;
+
+    const modPares = [
+      ['📦 Suprimentos', porModulo.suprimentos.total],
+      ['✈️ Passagens', porModulo.passagens.total],
+      ['🚚 Fretes', porModulo.frete.total],
+    ];
+    const qtdPares = [
+      ['📦 Suprimentos', porModulo.suprimentos.qtd],
+      ['✈️ Passagens', porModulo.passagens.qtd],
+      ['🚚 Fretes', porModulo.frete.qtd],
+    ];
+
+    cont.innerHTML = `
+      <div style="${_erpGrid}">
+        ${_erpStat('💰 Financeiro total (3 módulos)', frtBRL(totalGeral))}
+        ${_erpStat('✅ Pago', frtBRL(pagoGeral), '', 'stat-card-ok')}
+        ${_erpStat('⏳ Pendente', frtBRL(totalGeral - pagoGeral), '', 'stat-card-warn')}
+        ${_erpStat('🚚 Fretes cadastrados', fretesQtd)}
+        ${_erpStat('✈️ Passagens', pasQtd, pasCompradas + ' compradas')}
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;">
+        <div class="card"><div class="card-header"><b>Financeiro por módulo</b></div><div class="card-body">${_erpBarras(modPares, frtBRL)}</div></div>
+        <div class="card"><div class="card-header"><b>Lançamentos financeiros por módulo</b></div><div class="card-body">${_erpBarras(qtdPares)}</div></div>
+      </div>`;
+  } catch (e) {
+    cont.innerHTML = `<div class="card"><div class="card-body" style="color:var(--danger,#dc2626);">Erro: ${frtEsc(e.message)}</div></div>`;
+  }
+}
+window.loadIndGeral = loadIndGeral;
+
 /* ══ Calendário de Passagens (por data de saída) ══ */
 let _pasCalMes = null;   // 'YYYY-MM' em exibição
 function pasCalCor(status) {
@@ -1015,7 +1074,7 @@ window.salvarPasSolicitacao = salvarPasSolicitacao;
    ══════════════════════════════════════════════════════════════════════ */
 
 // páginas dos módulos (hoje abertas a todos; o admin restringe na tela)
-const _MOD_PAGES = ['pas-solicitacoes', 'pas-nova', 'pas-indicadores', 'pas-calendario', 'frt-lista', 'frt-novo', 'frt-autorizacoes', 'frt-rotas', 'frt-freteiros', 'frt-metas', 'frt-indicadores'];
+const _MOD_PAGES = ['pas-solicitacoes', 'pas-nova', 'pas-indicadores', 'pas-calendario', 'frt-lista', 'frt-novo', 'frt-autorizacoes', 'frt-rotas', 'frt-freteiros', 'frt-metas', 'frt-indicadores', 'ind-geral'];
 // todas as páginas do Suprimentos (perfis de gestão têm tudo)
 const _SUP_PAGES = ['dashboard', 'users', 'houses', 'manage-houses', 'manage-cities', 'manage-products',
   'manage-cats', 'percapita-financeiro', 'manage-cc', 'all-orders', 'produtividade', 'kanban',
@@ -1082,7 +1141,7 @@ function aplicarPermissoesSidebar(role) {
   document.querySelectorAll('#sidebar .sidebar-item[data-page]').forEach(it => {
     it.style.display = ps.has(it.dataset.page) ? '' : 'none';
   });
-  document.querySelectorAll('#sidebar .sidebar-section[data-modulo]').forEach(sec => {
+  document.querySelectorAll('#sidebar .sidebar-section').forEach(sec => {
     const algum = [...sec.querySelectorAll('.sidebar-item[data-page]')].some(it => it.style.display !== 'none');
     if (!algum) sec.style.display = 'none';          // some se ficou sem itens p/ o perfil
   });

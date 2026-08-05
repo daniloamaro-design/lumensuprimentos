@@ -283,6 +283,13 @@
       <button class="modulo-btn" data-mod="passagens" onclick="selecionarModulo('passagens')" title="Passagens">✈️ Passagens</button>
       <button class="modulo-btn" data-mod="frete" onclick="selecionarModulo('frete')" title="Fretes">🚚 Fretes</button>
     </div>
+    <div class="sidebar-section" id="sidebar-transversal">
+      <div class="sidebar-section-title">Visão Geral</div>
+      <button class="sidebar-item" data-page="ind-geral" onclick="goPageMobile('ind-geral')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg>
+        Indicadores Gerais
+      </button>
+    </div>
     <div class="sidebar-section" data-modulo="suprimentos" id="sidebar-admin" style="display:none;">
       <div class="sidebar-section-title">Administração</div>
       <button class="sidebar-item" data-page="dashboard" onclick="goPageMobile('dashboard')">
@@ -2253,6 +2260,12 @@
     <div class="card"><div class="card-body"><div id="permissoes-conteudo">Carregando…</div></div></div>
   </div>
 
+  <!-- PAGE: Indicadores Gerais (transversal — Suprimentos + Passagens + Fretes) -->
+  <div class="page" id="page-ind-geral">
+    <div class="page-header"><h1 class="page-title">📊 Indicadores Gerais</h1></div>
+    <div id="ind-geral-conteudo"><div class="loading-state"><div class="spinner spinner-dark"></div>Carregando...</div></div>
+  </div>
+
   <!-- PAGE: Painel do Frete (indicadores) -->
   <div class="page" id="page-frt-indicadores">
     <div class="page-header"><h1 class="page-title">🚚 Painel do Frete</h1></div>
@@ -2374,7 +2387,7 @@
 </div>
 
 <!-- FORNECEDORES / COMPARATIVO / pages are in the main content area -->
-<script src="js/paginas-html.js?v=1"></script>
+<script src="js/paginas-html.js?v=2"></script>
 
 <!-- ════════ MODAL: REGISTRAR TRANSFERÊNCIA FINANCEIRA ════════ -->
 <div class="modal-overlay hidden" id="modal-transf-financeira">
@@ -2879,7 +2892,7 @@
 <script src="js/01-core.js?v=5"></script>
 <script src="js/02-auth.js?v=2"></script>
 <script src="js/03-navegacao.js?v=2"></script>
-<script src="js/04-percapita.js?v=6"></script>
+<script src="js/04-percapita.js?v=7"></script>
 <script src="js/05-cadastros.js?v=1"></script>
 <script src="js/06-pedidos.js?v=3"></script>
 <script src="js/07-estoque-ia-form.js?v=2"></script>
@@ -2887,13 +2900,13 @@
 <script src="js/09-indicadores-transf.js?v=2"></script>
 <script src="js/10-produtos-orcamento.js?v=3"></script>
 <script src="js/11-fornecedores-pendentes.js?v=2"></script>
-<script src="js/12-financeiro-compras.js?v=2"></script>
+<script src="js/12-financeiro-compras.js?v=3"></script>
 <script src="js/13-ia-avancada.js?v=2"></script>
 <script src="js/14-gestao.js?v=3"></script>
 <script src="js/15-fornecedores-metas.js?v=2"></script>
 <script src="js/16-chat-ia.js?v=2"></script>
 <script src="js/17-metas-wrappers.js?v=2"></script>
-<script src="js/18-erp.js?v=11"></script>
+<script src="js/18-erp.js?v=12"></script>
 <!-- CHAT IA FLUTUANTE -->
 <!-- ════════ GEMINI IA — botão movido para a barra superior (id: chat-ia-topbar-btn) ════════ -->
 
