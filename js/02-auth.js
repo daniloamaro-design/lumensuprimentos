@@ -13,6 +13,7 @@ auth.onAuthStateChanged(async (user) => {
     if (window._pageListenerPending) { clearTimeout(window._pageListenerPending); window._pageListenerPending = null; }
     if (window._pageListener) { window._pageListener(); window._pageListener = null; }
     if (window._pageTimer)    { clearInterval(window._pageTimer); window._pageTimer = null; }
+    window._appJaIniciado = false; // próximo login deve navegar pra pagina inicial de novo
     showAuthScreen('login');
     return;
   }
@@ -340,16 +341,25 @@ async function showApp() {
   await loadDynamicData();
   populateHouseSelects();
 
+  // U4: filtra a barra lateral pelas permissões do perfil (esconde itens/seções
+  // não permitidos). Roda por último para sobrepor a visibilidade padrão acima.
+  if (typeof aplicarPermissoesSidebar === 'function') { aplicarPermissoesSidebar(role); }
+
+  // showApp() roda de novo a cada evento de auth do Supabase — inclusive a
+  // renovação automática de token (acontece sozinha em background, e também
+  // quando a aba volta a ficar visível). Sem essa guarda, o usuário era
+  // jogado de volta pra página inicial do perfil no meio do uso, perdendo a
+  // página em que estava. A navegação de entrada (módulo Suprimentos + página
+  // inicial do perfil) só deve acontecer no primeiro show da sessão.
+  if (window._appJaIniciado) return;
+  window._appJaIniciado = true;
+
   // ERP (U3): o login começa sempre no módulo Suprimentos (a navegação abaixo
   // cai numa página do Suprimentos). O usuário troca de módulo pelo seletor.
   const _navShell = document.getElementById('sidebar');
   if (_navShell) _navShell.dataset.mod = 'suprimentos';
   document.querySelectorAll('.modulo-btn').forEach(b =>
     b.classList.toggle('ativo', b.dataset.mod === 'suprimentos'));
-
-  // U4: filtra a barra lateral pelas permissões do perfil (esconde itens/seções
-  // não permitidos). Roda por último para sobrepor a visibilidade padrão acima.
-  if (typeof aplicarPermissoesSidebar === 'function') { aplicarPermissoesSidebar(role); }
 
   if (isAdminLevel) {
     goPage('dashboard');

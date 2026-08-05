@@ -66,7 +66,7 @@
   const tabelaDe = (col) => TABELA[col] || col;
 
   // Chave primária por tabela (default 'id'). Algumas usam chave natural.
-  const PK = { cidades: 'nome', categorias: 'key', casas_tipo_compra: 'nome', role_permissions: 'role' };
+  const PK = { cidades: 'nome', categorias: 'key', casas_tipo_compra: 'nome', role_permissions: 'role', config: 'chave' };
   const pkDe = (col) => PK[tabelaDe(col)] || 'id';
 
   // Aliases: nome EXATO do campo no app (camelCase) → coluna real do banco (snake).
@@ -231,6 +231,32 @@
       };
     }
 
+    // Caso especial: config. No Firestore era 1 doc por chave com campos soltos
+    // no topo (ex.: {casas:[...], updatedBy, updatedAt}). No Postgres a tabela
+    // tem só (chave, valor jsonb) — guarda/reconstrói o objeto solto em 'valor'.
+    if (tab === 'config') {
+      const gravar = async (dados, opts) => {
+        let valor = resolverSentinelas(dados);
+        if (opts && opts.merge) {
+          const { data } = await _sb.from('config').select('valor').eq('chave', id).maybeSingle();
+          valor = { ...(data?.valor || {}), ...valor };
+        }
+        const { error } = await _sb.from('config').upsert({ chave: id, valor }, { onConflict: 'chave' });
+        if (error) throw traduzErro(error);
+      };
+      return {
+        id,
+        async get() {
+          const { data, error } = await _sb.from('config').select('valor').eq('chave', id).maybeSingle();
+          if (error) throw traduzErro(error);
+          return { exists: !!data, id, data: () => (data ? data.valor : undefined) };
+        },
+        set: gravar,
+        update: (dados) => gravar(dados, { merge: true }),
+        async delete() { await _sb.from('config').delete().eq('chave', id); },
+      };
+    }
+
     return {
       id,
       async get() {
@@ -268,7 +294,11 @@
     const ordens = [];
     let _limit = null;
     const b = {
-      where(campo, op, val) { filtros.push([campoParaColuna(col, campo), OP[op] || 'eq', val]); return b; },
+      // Objeto Date passado direto (herança do Firestore, que aceitava Date
+      // nativamente) vira o toString() do JS — não um formato que o Postgres
+      // entenda — então normaliza p/ ISO aqui, no único lugar por onde todo
+      // filtro passa.
+      where(campo, op, val) { filtros.push([campoParaColuna(col, campo), OP[op] || 'eq', val instanceof Date ? val.toISOString() : val]); return b; },
       orderBy(campo, dir = 'asc') { ordens.push([campoParaColuna(col, campo), dir]); return b; },
       limit(n) { _limit = n; return b; },
       // doc() sem id → gera um id (UUID) no cliente para inserção via .set()
