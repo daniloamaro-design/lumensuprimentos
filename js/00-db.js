@@ -211,15 +211,15 @@
         for (const [catKey, m] of Object.entries(dados)) {
           if (!m || typeof m !== 'object') continue;
           const { error } = await _sb.from('metas').upsert(
-            { ano, cat_key: catKey, meta_semana: m.metaSemana || 0, meta_mes: m.metaMes || 0, meta_ano: m.metaAno || 0 },
-            { onConflict: 'ano,cat_key' });
+            { ano, cat_key: catKey, modulo: 'suprimentos', meta_semana: m.metaSemana || 0, meta_mes: m.metaMes || 0, meta_ano: m.metaAno || 0 },
+            { onConflict: 'ano,cat_key,modulo' });
           if (error) throw traduzErro(error);
         }
       };
       return {
         id,
         async get() {
-          const { data, error } = await _sb.from('metas').select('*').eq('ano', ano);
+          const { data, error } = await _sb.from('metas').select('*').eq('ano', ano).eq('modulo', 'suprimentos');
           if (error) throw traduzErro(error);
           const obj = {};
           for (const r of (data || [])) obj[r.cat_key] = { metaSemana: r.meta_semana, metaMes: r.meta_mes, metaAno: r.meta_ano };
@@ -227,7 +227,7 @@
         },
         set: gravar,
         update: gravar,
-        async delete() { await _sb.from('metas').delete().eq('ano', ano); },
+        async delete() { await _sb.from('metas').delete().eq('ano', ano).eq('modulo', 'suprimentos'); },
       };
     }
 
