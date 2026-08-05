@@ -1230,3 +1230,13 @@
 .frt-star-row{display:inline-flex;gap:2px;}
 .frt-star{font-size:22px;color:var(--border);cursor:pointer;transition:color .1s;line-height:1;}
 .frt-star.on,.frt-star:hover{color:#F5B301;}
+
+/* ══ Calendário de Passagens (U3) ══ */
+.pas-cal{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;}
+.pas-cal-dow{text-align:center;font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;padding:4px 0;}
+.pas-cal-cell{min-height:82px;border:1px solid var(--border);border-radius:8px;padding:4px;background:var(--surface);overflow:hidden;}
+.pas-cal-cell.vazia{background:transparent;border:none;}
+.pas-cal-cell.hoje{border-color:var(--lumen);box-shadow:0 0 0 1px var(--lumen) inset;}
+.pas-cal-dia{font-size:12px;font-weight:700;color:var(--text-muted);margin-bottom:2px;}
+.pas-cal-ev{font-size:11px;padding:2px 4px;border-radius:4px;margin-bottom:2px;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer;}
+@media(max-width:640px){.pas-cal-cell{min-height:60px;}.pas-cal-ev{font-size:10px;}}
