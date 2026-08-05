@@ -417,8 +417,41 @@ async function loadFrtNovoForm() {
   const d = document.getElementById('frt-n-data');
   if (d && !d.value) d.value = new Date().toISOString().slice(0, 10);
   await popularSelectFreteiros('frt-n-freteiro');
+  await popularCasasFrete();
 }
 window.loadFrtNovoForm = loadFrtNovoForm;
+
+// Casas (nome + endereço) p/ sugerir em Origem/Destino (datalist) e Paradas (select).
+async function popularCasasFrete() {
+  try {
+    const snap = await db.collection('houses').get();
+    const casas = snap.docs.map(d => d.data())
+      .filter(h => h.ativo !== false && h.nome)
+      .map(h => ({ nome: h.nome, endereco: h.endereco || '' }))
+      .sort((a, b) => a.nome.localeCompare(b.nome));
+    const rotulo = h => h.nome + (h.endereco ? ' — ' + h.endereco : '');
+
+    const dl = document.getElementById('frt-n-casas-list');
+    if (dl) dl.innerHTML = casas.map(h => `<option value="${frtEsc(rotulo(h))}">`).join('');
+
+    const sel = document.getElementById('frt-n-parada-casa');
+    if (sel) sel.innerHTML = '<option value="">Adicionar casa como parada…</option>' +
+      casas.map(h => `<option value="${frtEsc(rotulo(h))}">${frtEsc(h.nome)}</option>`).join('');
+  } catch (e) { console.error('popularCasasFrete', e); }
+}
+
+function frtAdicionarParada() {
+  const sel = document.getElementById('frt-n-parada-casa');
+  const val = sel?.value;
+  if (!val) return;
+  const ta = document.getElementById('frt-n-paradas');
+  if (!ta) return;
+  const linhas = ta.value.split('\n').map(s => s.trim()).filter(Boolean);
+  if (!linhas.includes(val)) linhas.push(val);
+  ta.value = linhas.join('\n');
+  sel.value = '';
+}
+window.frtAdicionarParada = frtAdicionarParada;
 
 async function popularSelectFreteiros(selId) {
   const sel = document.getElementById(selId);

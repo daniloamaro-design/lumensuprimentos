@@ -2195,9 +2195,17 @@
         <div><label class="form-label">Freteiro *</label><select class="form-select" id="frt-n-freteiro"><option value="">Selecione…</option></select></div>
         <div><label class="form-label">Data *</label><input type="date" class="form-input" id="frt-n-data"></div>
       </div>
-      <div><label class="form-label">Origem *</label><input type="text" class="form-input" id="frt-n-origem" placeholder="Endereço de coleta"></div>
-      <div><label class="form-label">Destino *</label><input type="text" class="form-input" id="frt-n-destino" placeholder="Endereço de entrega"></div>
-      <div><label class="form-label">Paradas (uma por linha)</label><textarea class="form-input" id="frt-n-paradas" rows="2" placeholder="Endereços intermediários (opcional)" style="resize:vertical;"></textarea></div>
+      <datalist id="frt-n-casas-list"></datalist>
+      <div><label class="form-label">Origem *</label><input type="text" class="form-input" id="frt-n-origem" list="frt-n-casas-list" placeholder="Selecione uma casa ou digite o endereço de coleta"></div>
+      <div><label class="form-label">Destino *</label><input type="text" class="form-input" id="frt-n-destino" list="frt-n-casas-list" placeholder="Selecione uma casa ou digite o endereço de entrega"></div>
+      <div>
+        <label class="form-label">Paradas (uma por linha)</label>
+        <div style="display:flex;gap:8px;margin-bottom:6px;">
+          <select class="form-select" id="frt-n-parada-casa" style="flex:1;"><option value="">Adicionar casa como parada…</option></select>
+          <button type="button" class="btn btn-outline btn-sm" onclick="frtAdicionarParada()">+ Adicionar</button>
+        </div>
+        <textarea class="form-input" id="frt-n-paradas" rows="2" placeholder="Endereços intermediários (opcional) — ou use o seletor acima" style="resize:vertical;"></textarea>
+      </div>
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;">
         <div><label class="form-label">Motivo</label><input type="text" class="form-input" id="frt-n-motivo" placeholder="Ex: Rota das casas"></div>
         <div><label class="form-label">Valor (R$) *</label><input type="number" step="0.01" min="0" class="form-input" id="frt-n-valor" placeholder="0,00"></div>
@@ -2959,7 +2967,7 @@
 <script src="js/15-fornecedores-metas.js?v=2"></script>
 <script src="js/16-chat-ia.js?v=2"></script>
 <script src="js/17-metas-wrappers.js?v=2"></script>
-<script src="js/18-erp.js?v=15"></script>
+<script src="js/18-erp.js?v=16"></script>
 <!-- CHAT IA FLUTUANTE -->
 <!-- ════════ GEMINI IA — botão movido para a barra superior (id: chat-ia-topbar-btn) ════════ -->
 
