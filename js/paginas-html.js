@@ -1789,6 +1789,14 @@ document.querySelector('.main-content').insertAdjacentHTML('beforeend', `
               <option value="nao">Não Pago</option>
             </select>
           </div>
+          <div class="form-group"><label class="form-label">Módulo</label>
+            <select class="form-select" id="fin-filtro-modulo" onchange="finAplicarFiltros()">
+              <option value="">Todos</option>
+              <option value="suprimentos">Suprimentos</option>
+              <option value="passagens">Passagens</option>
+              <option value="frete">Fretes</option>
+            </select>
+          </div>
           <div style="align-self:flex-end;display:flex;gap:8px;">
             <button class="btn btn-outline btn-sm" onclick="finLimparFiltros()">Limpar</button>
             <button class="export-btn" onclick="finExportarSP()">
@@ -1833,6 +1841,30 @@ document.querySelector('.main-content').insertAdjacentHTML('beforeend', `
         <div class="fin-stat-label">📦 Registros Filtrados</div>
         <div class="fin-stat-value" id="fin-s-filtrados" style="color:var(--text);">0</div>
         <div class="fin-stat-sub" id="fin-s-periodo">—</div>
+      </div>
+    </div>
+
+    <!-- Consolidado por módulo (ignora o filtro de Módulo, mas respeita os demais) -->
+    <div class="card" style="margin-bottom:20px;">
+      <div class="card-header"><div class="card-header-title">💼 Consolidado por Módulo</div></div>
+      <div class="card-body">
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;" id="fin-stats-modulo-grid">
+          <div class="fin-stat">
+            <div class="fin-stat-label">📦 Suprimentos</div>
+            <div class="fin-stat-value" id="fin-mod-suprimentos" style="color:var(--lumen);">R$ 0,00</div>
+            <div class="fin-stat-sub" id="fin-mod-suprimentos-qtd">0 registros</div>
+          </div>
+          <div class="fin-stat">
+            <div class="fin-stat-label">✈️ Passagens</div>
+            <div class="fin-stat-value" id="fin-mod-passagens" style="color:var(--lumen);">R$ 0,00</div>
+            <div class="fin-stat-sub" id="fin-mod-passagens-qtd">0 registros</div>
+          </div>
+          <div class="fin-stat">
+            <div class="fin-stat-label">🚚 Fretes</div>
+            <div class="fin-stat-value" id="fin-mod-frete" style="color:var(--lumen);">R$ 0,00</div>
+            <div class="fin-stat-sub" id="fin-mod-frete-qtd">0 registros</div>
+          </div>
+        </div>
       </div>
     </div>
 

@@ -102,15 +102,16 @@ function finPopularFiltrosDinamicos() {
 
 function v(id) { const el = document.getElementById(id); return el ? el.value : ''; }
 
-function finAplicarFiltros() {
-  const mes   = v('fin-filtro-mes');
-  const ano   = v('fin-filtro-ano');
-  const forn  = v('fin-filtro-forn');
-  const casa  = v('fin-filtro-casa');
-  const cls   = v('fin-filtro-class');
-  const pago  = v('fin-filtro-pago');
+function finFiltrarBase(dados, { semModulo } = {}) {
+  const mes    = v('fin-filtro-mes');
+  const ano    = v('fin-filtro-ano');
+  const forn   = v('fin-filtro-forn');
+  const casa   = v('fin-filtro-casa');
+  const cls    = v('fin-filtro-class');
+  const pago   = v('fin-filtro-pago');
+  const modulo = semModulo ? '' : v('fin-filtro-modulo');
 
-  finFiltrados = finDados.filter(d => {
+  return dados.filter(d => {
     if (mes  && d.mes  !== mes)  return false;
     if (ano  && String(d.ano) !== String(ano)) return false;
     if (forn && d.fornecedor  !== forn)  return false;
@@ -118,16 +119,38 @@ function finAplicarFiltros() {
     if (cls  && d.classificacao !== cls)  return false;
     if (pago === 'Sim' && d.pago !== 'Sim') return false;
     if (pago === 'nao' && d.pago === 'Sim') return false;
+    if (modulo && (d.modulo || 'suprimentos') !== modulo) return false;
     return true;
   });
+}
+
+function finAplicarFiltros() {
+  finFiltrados = finFiltrarBase(finDados);
 
   finAtualizarStats(finFiltrados);
+  finAtualizarStatsModulo(finFiltrarBase(finDados, { semModulo: true }));
   finRenderizarTabela(finFiltrados);
   finAtualizarGraficos(finFiltrados);
 }
 
+function finAtualizarStatsModulo(dados) {
+  const porModulo = { suprimentos: { total: 0, qtd: 0 }, passagens: { total: 0, qtd: 0 }, frete: { total: 0, qtd: 0 } };
+  dados.forEach(d => {
+    const m = porModulo[d.modulo || 'suprimentos'];
+    if (!m) return;
+    m.total += parseFloat(d.valor) || 0;
+    m.qtd += 1;
+  });
+  Object.entries(porModulo).forEach(([mod, { total, qtd }]) => {
+    const elV = document.getElementById('fin-mod-' + mod);
+    const elQ = document.getElementById('fin-mod-' + mod + '-qtd');
+    if (elV) elV.textContent = FMT_FIN(total);
+    if (elQ) elQ.textContent = qtd + ' registros';
+  });
+}
+
 function finLimparFiltros() {
-  ['fin-filtro-mes','fin-filtro-ano','fin-filtro-forn','fin-filtro-casa','fin-filtro-class','fin-filtro-pago'].forEach(id => {
+  ['fin-filtro-mes','fin-filtro-ano','fin-filtro-forn','fin-filtro-casa','fin-filtro-class','fin-filtro-pago','fin-filtro-modulo'].forEach(id => {
     const el = document.getElementById(id); if (el) el.value = '';
   });
   finAplicarFiltros();
