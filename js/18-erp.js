@@ -535,14 +535,59 @@ function renderPasSolic() {
 }
 window.renderPasSolic = renderPasSolic;
 
+let _pasDetId = null;   // solicitação aberta no detalhe
+let _pasOrcSel = -1;    // índice da cotação selecionada
+
+function pasOrcamentosDe(s) {
+  return Array.isArray(s.orcamentos) ? s.orcamentos.filter(o => o && Object.keys(o).length) : [];
+}
+
 function abrirPasDetalhe(id) {
   const s = _pasCache.find(x => x.id === id);
   if (!s) return;
-  document.getElementById('pas-det-titulo').textContent = `Solicitação ${s.codigo || ''}`.trim();
+  _pasDetId = id;
   const hist = Array.isArray(s.historico) ? s.historico : [];
-  const orcs = Array.isArray(s.orcamentos) ? s.orcamentos.filter(o => o && Object.keys(o).length) : [];
+  const orcs = pasOrcamentosDe(s);
+  _pasOrcSel = orcs.findIndex(o => o.selecionada);
   const vf = s.valorFinal && (s.valorFinal.valor ?? s.valorFinal);
+  const podeEditar = ['pendente', 'em_analise', 'Em Análise'].includes(s.status);
   const linha = (rot, val) => `<div><span style="color:var(--text-muted);font-size:13px;">${rot}</span><br>${val}</div>`;
+  document.getElementById('pas-det-titulo').textContent = `Solicitação ${s.codigo || ''}`.trim();
+
+  // Lista de cotações (com seleção quando editável)
+  const orcHtml = orcs.length ? orcs.map((o, i) => {
+    const nome = o.fornecedorNome || o.fornecedor || o.empresa || '—';
+    const radio = podeEditar
+      ? `<input type="radio" name="pas-orc-sel" value="${i}" ${o.selecionada ? 'checked' : ''} onclick="_pasOrcSel=${i}" style="cursor:pointer;">`
+      : (o.selecionada ? '✅' : '');
+    return `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);">
+      ${radio}<div style="flex:1;">${frtEsc(nome)} — <b>${frtBRL(o.valor)}</b>${o.obs ? ` <span style="color:var(--text-muted);font-size:12px;">(${frtEsc(o.obs)})</span>` : ''}</div>
+      ${podeEditar ? `<button class="btn btn-outline btn-sm" onclick="pasExcluirOrcamento(${i})" title="Excluir">✕</button>` : ''}
+    </div>`;
+  }).join('') : '<div style="color:var(--text-muted);font-size:13px;">Nenhuma cotação ainda.</div>';
+
+  const formAdd = (podeEditar && orcs.length < 3) ? `
+    <div style="border-top:1px dashed var(--border);margin-top:8px;padding-top:8px;">
+      <div style="font-weight:600;font-size:13px;margin-bottom:6px;">Adicionar cotação (${orcs.length}/3)</div>
+      <div style="display:grid;grid-template-columns:1fr 110px auto;gap:8px;align-items:end;">
+        <div><label class="form-label">Fornecedor</label><select class="form-select" id="pas-orc-forn"><option value="">Selecione…</option></select></div>
+        <div><label class="form-label">Valor</label><input class="form-input" id="pas-orc-valor" type="number" step="0.01" min="0"></div>
+        <div><button class="btn btn-primary btn-sm" onclick="pasAddOrcamento()">+ Add</button></div>
+      </div>
+      <input class="form-input" id="pas-orc-obs" placeholder="Observação (opcional)" style="margin-top:6px;">
+    </div>` : (podeEditar ? '<div style="color:var(--text-muted);font-size:12px;margin-top:6px;">Máximo de 3 cotações atingido.</div>' : '');
+
+  // Botões de ação por status
+  const acoes = [];
+  if (['pendente', 'em_analise', 'Em Análise'].includes(s.status)) {
+    acoes.push(`<button class="btn btn-primary btn-sm" onclick="pasAprovarOrcamento()">✅ Aprovar selecionada</button>`);
+    acoes.push(`<button class="btn btn-outline btn-sm" onclick="pasReprovar()">⛔ Reprovar</button>`);
+  }
+  if (s.status === 'aprovada') {
+    acoes.push(`<button class="btn btn-primary btn-sm" onclick="pasMarcarComprada()">🎫 Marcar comprada</button>`);
+    acoes.push(`<button class="btn btn-outline btn-sm" onclick="pasReprovar()">⛔ Reprovar</button>`);
+  }
+
   document.getElementById('pas-det-body').innerHTML = `
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
       ${linha('Solicitante', frtEsc(s.solicitante || '—'))}
@@ -550,20 +595,125 @@ function abrirPasDetalhe(id) {
       ${linha('Tipo', frtEsc(s.tipo || '—'))}
       ${linha('Status', pasBadge(s.status))}
       ${linha('Saída', frtEsc(s.saida || '—'))}
-      ${linha('Retorno', frtEsc(s.retorno || '—') || '—')}
+      ${linha('Retorno', frtEsc(s.retorno) || '—')}
     </div>
     ${linha('Trajeto', `${frtEsc(s.origem || '—')} → ${frtEsc(s.destino || '—')}`)}
     ${s.motivo ? linha('Motivo', frtEsc(s.motivo)) : ''}
     ${s.obs ? linha('Observações', frtEsc(s.obs)) : ''}
     ${vf != null ? linha('Valor final', frtBRL(vf)) : ''}
+    ${s.numBilhete ? linha('Bilhete', frtEsc(typeof s.numBilhete === 'object' ? (s.numBilhete.num || JSON.stringify(s.numBilhete)) : s.numBilhete)) : ''}
     ${s.motivoReprovacao ? linha('Motivo da reprovação', frtEsc(s.motivoReprovacao)) : ''}
-    ${s.motivoCancelamento ? linha('Motivo do cancelamento', frtEsc(s.motivoCancelamento)) : ''}
-    ${orcs.length ? linha('Orçamentos', orcs.map(o => `• ${frtEsc(o.fornecedor || o.empresa || '')} ${o.valor != null ? frtBRL(o.valor) : ''}`).join('<br>')) : ''}
+    <div>
+      <span style="color:var(--text-muted);font-size:13px;">Cotações</span>
+      <div style="margin-top:4px;">${orcHtml}</div>
+      ${formAdd}
+    </div>
     ${hist.length ? linha('Histórico', hist.map(h => `• ${frtEsc(h.acao || h.texto || '')}${h.usuario ? ' — ' + frtEsc(h.usuario) : ''}`).join('<br>')) : ''}
+    ${acoes.length ? `<div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;border-top:1px solid var(--border);padding-top:10px;">${acoes.join('')}</div>` : ''}
   `;
   openModal('modal-pas-detalhe');
+  if (podeEditar && orcs.length < 3) pasPopularFornecedores('pas-orc-forn');
 }
 window.abrirPasDetalhe = abrirPasDetalhe;
+
+async function pasPopularFornecedores(selId) {
+  const sel = document.getElementById(selId);
+  if (!sel) return;
+  try {
+    const snap = await db.collection('suppliers').orderBy('nome').get();
+    const todos = snap.docs.map(x => ({ id: x.id, ...x.data() }));
+    let forn = todos.filter(f => Array.isArray(f.tipos) && f.tipos.includes('passagens'));
+    if (!forn.length) forn = todos;   // fallback: todos os fornecedores
+    sel.innerHTML = '<option value="">Selecione…</option>' +
+      forn.map(f => `<option value="${f.id}" data-nome="${frtEsc(f.nome)}">${frtEsc(f.nome)}</option>`).join('');
+  } catch (e) { console.error('pasPopularFornecedores', e); }
+}
+
+// Atualiza a solicitação + registra no histórico + re-renderiza
+async function pasAtualizar(id, patch, histAcao) {
+  const s = _pasCache.find(x => x.id === id);
+  if (!s) return;
+  const nome = (typeof currentUserData !== 'undefined' && currentUserData?.name) || null;
+  try {
+    const hist = { acao: histAcao, usuario: nome, ts: new Date().toISOString() };
+    await db.collection('passagens_solicitacoes').doc(id).update({
+      ...patch,
+      historico: firebase.firestore.FieldValue.arrayUnion(hist),
+    });
+    Object.assign(s, patch);
+    s.historico = [...(Array.isArray(s.historico) ? s.historico : []), hist];
+    showToast('✅ ' + histAcao);
+    abrirPasDetalhe(id);
+    renderPasSolic();
+  } catch (e) { console.error(e); showToast('❌ Erro: ' + e.message); }
+}
+
+async function pasAddOrcamento() {
+  const s = _pasCache.find(x => x.id === _pasDetId);
+  if (!s) return;
+  const selF = document.getElementById('pas-orc-forn');
+  const fornId = selF.value;
+  const fornNome = selF.selectedOptions[0]?.dataset.nome || '';
+  const valor = Number(document.getElementById('pas-orc-valor').value);
+  const obs = document.getElementById('pas-orc-obs').value.trim();
+  if (!fornId) return showToast('⚠️ Selecione o fornecedor.');
+  if (!(valor > 0)) return showToast('⚠️ Informe um valor válido.');
+  const orcs = pasOrcamentosDe(s);
+  if (orcs.length >= 3) return showToast('⚠️ Máximo de 3 cotações.');
+  orcs.push({ fornecedorId: fornId, fornecedorNome: fornNome, valor, obs, selecionada: false });
+  const patch = { orcamentos: orcs };
+  if (s.status === 'pendente') patch.status = 'em_analise';
+  await pasAtualizar(_pasDetId, patch, `Cotação adicionada: ${fornNome} ${frtBRL(valor)}`);
+}
+window.pasAddOrcamento = pasAddOrcamento;
+
+async function pasExcluirOrcamento(idx) {
+  const s = _pasCache.find(x => x.id === _pasDetId);
+  if (!s) return;
+  const orcs = pasOrcamentosDe(s);
+  if (!orcs[idx]) return;
+  if (!confirm('Excluir esta cotação?')) return;
+  orcs.splice(idx, 1);
+  await pasAtualizar(_pasDetId, { orcamentos: orcs }, 'Cotação removida');
+}
+window.pasExcluirOrcamento = pasExcluirOrcamento;
+
+async function pasAprovarOrcamento() {
+  const s = _pasCache.find(x => x.id === _pasDetId);
+  if (!s) return;
+  const orcs = pasOrcamentosDe(s);
+  if (_pasOrcSel == null || _pasOrcSel < 0 || !orcs[_pasOrcSel]) return showToast('⚠️ Selecione uma cotação para aprovar.');
+  orcs.forEach((o, i) => o.selecionada = (i === _pasOrcSel));
+  const sel = orcs[_pasOrcSel];
+  await pasAtualizar(_pasDetId, {
+    orcamentos: orcs, status: 'aprovada',
+    valorFinal: sel.valor, fornecedor: { id: sel.fornecedorId, nome: sel.fornecedorNome },
+  }, `Cotação aprovada: ${sel.fornecedorNome} ${frtBRL(sel.valor)}`);
+}
+window.pasAprovarOrcamento = pasAprovarOrcamento;
+
+async function pasReprovar() {
+  const motivo = prompt('Motivo da reprovação:');
+  if (motivo == null) return;
+  await pasAtualizar(_pasDetId, { status: 'reprovada', motivoReprovacao: motivo.trim() }, 'Solicitação reprovada');
+}
+window.pasReprovar = pasReprovar;
+
+async function pasMarcarComprada() {
+  const s = _pasCache.find(x => x.id === _pasDetId);
+  if (!s) return;
+  const num = (prompt('Número do bilhete / localizador (opcional):') || '').trim();
+  const orcs = pasOrcamentosDe(s);
+  const sel = orcs.find(o => o.selecionada);
+  const vf = (s.valorFinal != null) ? s.valorFinal : (sel ? sel.valor : null);
+  await pasAtualizar(_pasDetId, {
+    status: 'comprada',
+    dataCompra: new Date().toISOString().slice(0, 10),
+    numBilhete: num || null,
+    valorFinal: vf,
+  }, 'Passagem comprada' + (num ? ` — bilhete ${num}` : ''));
+}
+window.pasMarcarComprada = pasMarcarComprada;
 
 // ── Nova solicitação de passagem (portado do sistema antigo) ──
 function loadPasNovaForm() {
