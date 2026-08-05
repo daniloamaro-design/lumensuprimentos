@@ -130,7 +130,7 @@ function renderFrtLista() {
       <td>${frtDataBR(f.data || f.createdAt)}</td>
       <td>${frtEsc(f.freteiroNome || '—')}</td>
       <td style="max-width:280px;">${frtEsc(f.origem || '—')} <span style="color:var(--text-muted);">→</span> ${frtEsc(f.destino || '—')}</td>
-      <td style="text-align:right;">${frtBRL(f.valor)}</td>
+      <td style="text-align:right;">${f.valor > 0 ? frtBRL(f.valor) : '<span style="color:var(--warn);font-size:12px;">a informar</span>'}</td>
       <td>${frtStatusBadge(f.status)}<br><span style="font-size:11px;">${frtBadgePag(f.statusPag)}</span></td>
       <td style="text-align:right;white-space:nowrap;">
         <button class="btn btn-outline btn-sm" onclick="abrirFreteDetalhe('${f.id}')">Ver</button>
@@ -171,12 +171,24 @@ function abrirFreteDetalhe(id) {
       </div>
     </div>` : '';
 
+  // Form de informar/alterar valor (freteiro já definido — quando não, quem
+  // define o valor é o form de atribuição acima). Freteiros muitas vezes só
+  // informam o valor depois do transporte.
+  const formValor = (!semFreteiro && f.status !== 'cancelado') ? `
+    <div style="border-top:1px dashed var(--border);padding-top:8px;">
+      <div style="font-weight:600;font-size:13px;margin-bottom:6px;">${f.valor > 0 ? 'Alterar valor' : '💰 Informar valor do frete'}</div>
+      <div style="display:grid;grid-template-columns:1fr auto;gap:8px;align-items:end;">
+        <div><label class="form-label">Valor (R$)</label><input class="form-input" id="frt-det-valor" type="number" step="0.01" min="0" value="${f.valor || ''}"></div>
+        <div><button class="btn btn-primary btn-sm" onclick="frtSalvarValor('${f.id}')">Salvar</button></div>
+      </div>
+    </div>` : '';
+
   document.getElementById('frt-det-body').innerHTML = `
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
       ${linha('Situação', frtStatusBadge(f.status))}
       ${linha('Data', frtDataBR(f.data || f.createdAt))}
       ${linha('Freteiro', frtEsc(f.freteiroNome || '— (a definir)'))}
-      ${linha('Valor', frtBRL(f.valor))}
+      ${linha('Valor', f.valor > 0 ? frtBRL(f.valor) : '<span style="color:var(--warn);">— (a informar)</span>')}
       ${linha('Pagamento', frtBadgePag(f.statusPag) + (Number(f.valorPago) ? ` (${frtBRL(f.valorPago)})` : ''))}
     </div>
     ${linha('Origem', frtEsc(f.origem || '—'))}
@@ -188,11 +200,32 @@ function abrirFreteDetalhe(id) {
     ${av ? linha('Avaliação', `⭐ ${av.media ?? '—'} ${av.comentario ? '— ' + frtEsc(av.comentario) : ''}`) : ''}
     ${hist.length ? linha('Histórico', hist.map(h => `• ${frtEsc(typeof h === 'string' ? h : (h.texto || h.acao || JSON.stringify(h)))}`).join('<br>')) : ''}
     ${formAtrib}
+    ${formValor}
     ${acoes.length ? `<div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;">${acoes.join('')}</div>` : ''}
   `;
   openModal('modal-frete-detalhe');
   if (semFreteiro && f.status !== 'cancelado') popularSelectFreteiros('frt-atrib-forn');
 }
+
+async function frtSalvarValor(id) {
+  const valor = Number(document.getElementById('frt-det-valor').value);
+  if (!(valor > 0)) return showToast('⚠️ Informe um valor válido.');
+  const f = _fretesCache.find(x => x.id === id);
+  const nome = (typeof currentUserData !== 'undefined' && currentUserData?.name) || null;
+  try {
+    const hist = { acao: `Valor ${f?.valor > 0 ? 'alterado' : 'definido'}: ${frtBRL(valor)}`, por: nome, data: new Date().toISOString() };
+    await db.collection('fretes').doc(id).update({
+      valor,
+      historico: firebase.firestore.FieldValue.arrayUnion(hist),
+      updatedBy: nome, updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+    });
+    if (f) { f.valor = valor; f.historico = [...(Array.isArray(f.historico) ? f.historico : []), hist]; }
+    showToast('✅ Valor atualizado.');
+    abrirFreteDetalhe(id);
+    renderFrtLista();
+  } catch (e) { console.error(e); showToast('❌ Erro: ' + e.message); }
+}
+window.frtSalvarValor = frtSalvarValor;
 
 // Monta o link de direções do Google Maps a partir dos endereços (sem API)
 function rotaGoogleMapsUrl(origem, destino, paradas) {
@@ -380,7 +413,7 @@ async function loadFrtAutorizacoes() {
         <td>${frtDataBR(f.data || f.createdAt)}</td>
         <td>${frtEsc(f.freteiroNome || '—')}</td>
         <td style="max-width:260px;">${frtEsc(f.origem || '—')} <span style="color:var(--text-muted);">→</span> ${frtEsc(f.destino || '—')}</td>
-        <td style="text-align:right;">${frtBRL(f.valor)}</td>
+        <td style="text-align:right;">${f.valor > 0 ? frtBRL(f.valor) : '<span style="color:var(--warn);font-size:12px;">a informar</span>'}</td>
         <td style="text-align:right;white-space:nowrap;">
           <button class="btn btn-outline btn-sm" onclick="abrirFreteDetalhe('${f.id}')">Ver</button>
           <button class="btn btn-primary btn-sm" onclick="frtAutorizar('${f.id}')">✅ Autorizar</button>
@@ -471,11 +504,14 @@ async function salvarNovoFrete() {
   const data = document.getElementById('frt-n-data').value;
   const origem = document.getElementById('frt-n-origem').value.trim();
   const destino = document.getElementById('frt-n-destino').value.trim();
-  const valor = Number(document.getElementById('frt-n-valor').value);
+  const valorRaw = document.getElementById('frt-n-valor').value;
+  const valor = valorRaw ? Number(valorRaw) : 0;
   if (!freteiroId) return showToast('⚠️ Selecione o freteiro.');
   if (!data) return showToast('⚠️ Informe a data.');
   if (!origem || !destino) return showToast('⚠️ Informe origem e destino.');
-  if (!(valor > 0)) return showToast('⚠️ Informe um valor válido.');
+  if (valorRaw && !(valor > 0)) return showToast('⚠️ Valor inválido.');
+  // Valor pode ficar em branco (freteiro muitas vezes só informa depois) —
+  // dá pra completar no detalhe do frete (frtSalvarValor).
 
   const paradas = document.getElementById('frt-n-paradas').value.split('\n').map(s => s.trim()).filter(Boolean);
   const ymd = data.replace(/-/g, '');
