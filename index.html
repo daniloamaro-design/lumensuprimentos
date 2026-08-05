@@ -571,6 +571,10 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.2c.4-.3.6-.7.5-1.2z"/></svg>
         Solicitações
       </button>
+      <button class="sidebar-item" data-page="pas-indicadores" onclick="goPageMobile('pas-indicadores')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="5" height="18" rx="1"/><rect x="10" y="8" width="5" height="13" rx="1"/><rect x="17" y="5" width="5" height="16" rx="1"/></svg>
+        Indicadores
+      </button>
       <button class="sidebar-item" data-page="financeiro-compras" onclick="goPageMobile('financeiro-compras')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
         Financeiro
@@ -599,6 +603,10 @@
       <button class="sidebar-item" data-page="frt-metas" onclick="goPageMobile('frt-metas')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
         Metas do Frete
+      </button>
+      <button class="sidebar-item" data-page="frt-indicadores" onclick="goPageMobile('frt-indicadores')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="5" height="18" rx="1"/><rect x="10" y="8" width="5" height="13" rx="1"/><rect x="17" y="5" width="5" height="16" rx="1"/></svg>
+        Painel do Frete
       </button>
     </div>
   </nav>
@@ -2215,6 +2223,18 @@
     <div class="card"><div class="card-body"><div id="permissoes-conteudo">Carregando…</div></div></div>
   </div>
 
+  <!-- PAGE: Painel do Frete (indicadores) -->
+  <div class="page" id="page-frt-indicadores">
+    <div class="page-header"><h1 class="page-title">🚚 Painel do Frete</h1></div>
+    <div id="frt-ind-conteudo"><div class="loading-state"><div class="spinner spinner-dark"></div>Carregando...</div></div>
+  </div>
+
+  <!-- PAGE: Indicadores de Passagens -->
+  <div class="page" id="page-pas-indicadores">
+    <div class="page-header"><h1 class="page-title">✈️ Indicadores de Passagens</h1></div>
+    <div id="pas-ind-conteudo"><div class="loading-state"><div class="spinner spinner-dark"></div>Carregando...</div></div>
+  </div>
+
   </main>
 
   <!-- MODAL: detalhe do frete -->
@@ -2813,7 +2833,7 @@
 <script src="js/01-core.js?v=5"></script>
 <script src="js/02-auth.js?v=2"></script>
 <script src="js/03-navegacao.js?v=2"></script>
-<script src="js/04-percapita.js?v=4"></script>
+<script src="js/04-percapita.js?v=5"></script>
 <script src="js/05-cadastros.js?v=1"></script>
 <script src="js/06-pedidos.js?v=3"></script>
 <script src="js/07-estoque-ia-form.js?v=2"></script>
@@ -2827,7 +2847,7 @@
 <script src="js/15-fornecedores-metas.js?v=2"></script>
 <script src="js/16-chat-ia.js?v=2"></script>
 <script src="js/17-metas-wrappers.js?v=2"></script>
-<script src="js/18-erp.js?v=8"></script>
+<script src="js/18-erp.js?v=9"></script>
 <!-- CHAT IA FLUTUANTE -->
 <!-- ════════ GEMINI IA — botão movido para a barra superior (id: chat-ia-topbar-btn) ════════ -->
 
