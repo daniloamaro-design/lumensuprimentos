@@ -600,6 +600,10 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12l2 2 4-4"/><path d="M21 12c0 4.97-4.03 9-9 9s-9-4.03-9-9 4.03-9 9-9c1.5 0 2.9.36 4.14 1"/></svg>
         Autorizações
       </button>
+      <button class="sidebar-item" data-page="frt-rotas" onclick="goPageMobile('frt-rotas')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="6" cy="19" r="3"/><circle cx="18" cy="5" r="3"/><path d="M9 19h6a4 4 0 0 0 4-4V9M15 5H9a4 4 0 0 0-4 4v6"/></svg>
+        Rotas
+      </button>
       <button class="sidebar-item" data-page="frt-freteiros" onclick="goPageMobile('frt-freteiros')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
         Freteiros
@@ -2150,6 +2154,28 @@
     </div></div>
   </div>
 
+  <!-- PAGE: Rotas -->
+  <div class="page" id="page-frt-rotas">
+    <div class="page-header"><h1 class="page-title">🚚 Rotas</h1></div>
+    <div class="card" style="max-width:720px;"><div class="card-body" style="display:flex;flex-direction:column;gap:14px;">
+      <div style="color:var(--text-muted);font-size:13px;">
+        Planeje um trajeto (origem, destino e paradas), veja no Google Maps e salve como
+        um frete solicitado. Depois é só <b>atribuir o freteiro</b> e autorizar em Autorizações.
+      </div>
+      <div><label class="form-label">Origem *</label><input class="form-input" id="frt-rota-origem" placeholder="Endereço de partida"></div>
+      <div><label class="form-label">Paradas (uma por linha)</label><textarea class="form-input" id="frt-rota-paradas" rows="2" style="resize:vertical;" placeholder="Endereços intermediários (opcional)"></textarea></div>
+      <div><label class="form-label">Destino *</label><input class="form-input" id="frt-rota-destino" placeholder="Endereço de entrega"></div>
+      <div style="display:grid;grid-template-columns:1fr;gap:12px;">
+        <div><label class="form-label">Motivo</label><input class="form-input" id="frt-rota-motivo" placeholder="Ex: Rota das casas"></div>
+        <div><label class="form-label">Observações</label><textarea class="form-input" id="frt-rota-obs" rows="2" style="resize:vertical;"></textarea></div>
+      </div>
+      <div style="display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap;">
+        <button class="btn btn-secondary" onclick="frtVerNoMapaForm()">🗺️ Ver no Google Maps</button>
+        <button class="btn btn-primary" id="frt-rota-salvar" onclick="frtSalvarRota()">Salvar rota</button>
+      </div>
+    </div></div>
+  </div>
+
   <!-- PAGE: Novo Frete -->
   <div class="page" id="page-frt-novo">
     <div class="page-header"><h1 class="page-title">🚚 Novo Frete</h1></div>
@@ -2867,7 +2893,7 @@
 <script src="js/15-fornecedores-metas.js?v=2"></script>
 <script src="js/16-chat-ia.js?v=2"></script>
 <script src="js/17-metas-wrappers.js?v=2"></script>
-<script src="js/18-erp.js?v=10"></script>
+<script src="js/18-erp.js?v=11"></script>
 <!-- CHAT IA FLUTUANTE -->
 <!-- ════════ GEMINI IA — botão movido para a barra superior (id: chat-ia-topbar-btn) ════════ -->
 
