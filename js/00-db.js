@@ -407,6 +407,10 @@
       const { error } = await _sb.auth.resetPasswordForEmail(email);
       if (error) throw traduzErro(error);
     },
+    async resendConfirmationEmail(email) {
+      const { error } = await _sb.auth.resend({ type: 'signup', email });
+      if (error) throw traduzErro(error);
+    },
     async signInAnonymously() {
       const { data, error } = await _sb.auth.signInAnonymously();
       if (error) throw traduzErro(error);

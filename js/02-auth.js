@@ -187,11 +187,27 @@ async function doLogin() {
   if (!email || !password) { showAlert('login-alert','Preencha e-mail e senha.','danger'); return; }
   setBtnLoading('btn-login', true);
   hideAlert('login-alert');
+  document.getElementById('login-reenviar-wrap').style.display = 'none';
   try {
     await auth.signInWithEmailAndPassword(email, password);
   } catch (e) {
     showAlert('login-alert', friendlyAuthError(e.code), 'danger');
+    if (e.code === 'auth/email-not-verified') {
+      document.getElementById('login-reenviar-wrap').style.display = '';
+    }
     setBtnLoading('btn-login', false);
+  }
+}
+
+async function reenviarConfirmacaoEmail() {
+  const email = v('login-email');
+  if (!email) { showAlert('login-alert', 'Digite seu e-mail no campo acima antes de reenviar.', 'danger'); return; }
+  try {
+    await auth.resendConfirmationEmail(email);
+    showAlert('login-alert', '✅ E-mail de confirmação reenviado! Verifique sua caixa de entrada (e a pasta de spam).', 'success');
+    document.getElementById('login-reenviar-wrap').style.display = 'none';
+  } catch (e) {
+    showAlert('login-alert', friendlyAuthError(e.code), 'danger');
   }
 }
 
@@ -239,7 +255,7 @@ async function doRegister() {
       createdAt: firebase.firestore.FieldValue.serverTimestamp()
     });
     notifyAdminNewUser(name, email);
-    showAlert('register-alert','Solicitação enviada! Aguarde a aprovação do administrador.','success');
+    showAlert('register-alert','Solicitação enviada! Se pedirmos, confirme seu e-mail (confira a caixa de entrada/spam) — depois é só aguardar a aprovação do administrador.','success');
   } catch (e) {
     showAlert('register-alert', friendlyAuthError(e.code), 'danger');
   }
@@ -254,6 +270,7 @@ function friendlyAuthError(code) {
     'auth/email-already-in-use': 'Este e-mail já está em uso.',
     'auth/too-many-requests': 'Muitas tentativas. Tente novamente em alguns minutos.',
     'auth/invalid-credential': 'E-mail ou senha incorretos.',
+    'auth/email-not-verified': 'Seu e-mail ainda não foi confirmado. Verifique sua caixa de entrada (e o spam) — ou clique em "Reenviar e-mail de confirmação" abaixo.',
   };
   return msgs[code] || 'Erro: ' + code;
 }

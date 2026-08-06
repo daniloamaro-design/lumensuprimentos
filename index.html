@@ -13,7 +13,7 @@
 
   <!-- Supabase (substitui o Firebase) + camada de compatibilidade -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="js/00-db.js?v=16"></script>
+  <script src="js/00-db.js?v=17"></script>
 <script src="js/propostas-semanais.js?v=2"></script>
 
   <!-- jsPDF para geração de PDF -->
@@ -64,6 +64,9 @@
     </div>
 
     <div id="login-alert" class="alert alert-danger"></div>
+    <div id="login-reenviar-wrap" style="display:none;margin:-10px 0 14px;">
+      <a onclick="reenviarConfirmacaoEmail()" style="color:var(--lumen);font-size:13px;font-weight:700;cursor:pointer;">📧 Reenviar e-mail de confirmação</a>
+    </div>
 
     <div class="form-group">
       <label class="form-label">E-MAIL</label>
@@ -902,6 +905,13 @@
         <div class="table-wrap"><table>
           <thead><tr><th>Nome</th><th>E-mail</th><th>Casa</th><th>Perfil</th><th>Ações</th></tr></thead>
           <tbody id="active-users-tbody"></tbody>
+        </table></div>
+      </div>
+      <div class="card">
+        <div class="card-header"><div class="card-header-title">🚫 Acesso Revogado</div></div>
+        <div class="table-wrap"><table>
+          <thead><tr><th>Nome</th><th>E-mail</th><th>Casa</th><th>Perfil</th><th>Ações</th></tr></thead>
+          <tbody id="revoked-users-tbody"></tbody>
         </table></div>
       </div>
     </div>
@@ -2296,8 +2306,8 @@
         <div class="dashdir-header-right">
           <div class="dashdir-periodo-label">Período</div>
           <div class="dashdir-periodo-selects">
-            <select class="dashdir-select"><option>📅 Mês Atual</option></select>
-            <select class="dashdir-select"><option>📅 Ano: 2026</option></select>
+            <select class="dashdir-select" id="dashdir-mes" onchange="dashdirAtualizarPerCapita()"></select>
+            <select class="dashdir-select" id="dashdir-ano" onchange="dashdirAtualizarPerCapita()"></select>
           </div>
         </div>
       </div>
@@ -2306,10 +2316,10 @@
         <div class="dashdir-kpi">
           <div class="dashdir-kpi-icon">💰</div>
           <div class="dashdir-kpi-label">Gasto Per Capita</div>
-          <div class="dashdir-kpi-sub">(Compras + Doações nas Casas Atendidas)</div>
-          <div class="dashdir-kpi-value">R$ 1.150</div>
-          <div class="dashdir-kpi-delta good">↓ -5,2% <span>vs. mês anterior</span></div>
-          <div class="dashdir-kpi-meta">Meta: &lt; R$ 1.200</div>
+          <div class="dashdir-kpi-sub">(todas as casas — dado real)</div>
+          <div class="dashdir-kpi-value" id="dashdir-kpi-percapita-valor">—</div>
+          <div class="dashdir-kpi-delta" id="dashdir-kpi-percapita-delta"></div>
+          <div class="dashdir-kpi-meta" id="dashdir-kpi-percapita-qtd"></div>
         </div>
         <div class="dashdir-kpi alerta">
           <div class="dashdir-kpi-icon">📈</div>
@@ -2349,12 +2359,12 @@
         </div>
         <div class="dashdir-card">
           <div class="dashdir-card-title">📈 Evolução Temporal do Gasto Per Capita (Multi-Linhas)</div>
-          <div class="dashdir-card-sub">Comparativo por categoria e origem, mês a mês</div>
+          <div class="dashdir-card-sub">Per capita real por categoria, últimos 12 meses (todas as casas)</div>
           <div style="position:relative;height:260px;"><canvas id="dashdir-linhas"></canvas></div>
         </div>
       </div>
 
-      <div class="dashdir-aviso">📊 Dados ilustrativos por enquanto — os indicadores reais serão conectados às fontes de dados quando definirmos juntos, indicador por indicador, como cada um deve ser calculado.</div>
+      <div class="dashdir-aviso">📊 Gasto Per Capita (card + gráfico de evolução) já usa dados reais. Os outros indicadores (Desvio Orçamentário, Entregas no Prazo, Acuracidade, Passagens por Motivo) ainda são ilustrativos — serão conectados quando definirmos juntos, indicador por indicador, como cada um deve ser calculado.</div>
     </div>
   </div>
 
@@ -3088,10 +3098,10 @@
      SCRIPTS
      ════════════════════════════════════════════════════════════ -->
 <script src="js/01-core.js?v=5"></script>
-<script src="js/02-auth.js?v=3"></script>
+<script src="js/02-auth.js?v=4"></script>
 <script src="js/03-navegacao.js?v=2"></script>
 <script src="js/04-percapita.js?v=10"></script>
-<script src="js/05-cadastros.js?v=1"></script>
+<script src="js/05-cadastros.js?v=2"></script>
 <script src="js/06-pedidos.js?v=3"></script>
 <script src="js/07-estoque-ia-form.js?v=2"></script>
 <script src="js/08-orcamento-casas.js?v=2"></script>
@@ -3105,7 +3115,7 @@
 <script src="js/16-chat-ia.js?v=2"></script>
 <script src="js/17-metas-wrappers.js?v=2"></script>
 <script src="js/18-erp.js?v=19"></script>
-<script src="js/19-dashboard-diretoria.js?v=1"></script>
+<script src="js/19-dashboard-diretoria.js?v=2"></script>
 <script src="js/20-percapita-diretoria.js?v=2"></script>
 <!-- CHAT IA FLUTUANTE -->
 <!-- ════════ GEMINI IA — botão movido para a barra superior (id: chat-ia-topbar-btn) ════════ -->
