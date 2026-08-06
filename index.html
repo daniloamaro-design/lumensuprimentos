@@ -29,7 +29,7 @@
   <!-- SheetJS para leitura e exportação de Excel -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
-  <link rel="stylesheet" href="css/estilos.css?v=6">
+  <link rel="stylesheet" href="css/estilos.css?v=7">
 </head>
 <body>
 
@@ -282,8 +282,10 @@
       <button class="modulo-btn ativo" data-mod="suprimentos" onclick="selecionarModulo('suprimentos')" title="Suprimentos">📦 Suprimentos</button>
       <button class="modulo-btn" data-mod="passagens" onclick="selecionarModulo('passagens')" title="Passagens">✈️ Passagens</button>
       <button class="modulo-btn" data-mod="frete" onclick="selecionarModulo('frete')" title="Fretes">🚚 Fretes</button>
+      <button class="modulo-btn" data-mod="financeiro" onclick="selecionarModulo('financeiro')" title="Financeiro">💰 Financeiro</button>
+      <button class="modulo-btn" data-mod="diretoria" onclick="selecionarModulo('diretoria')" title="Diretoria">🏛️ Diretoria</button>
     </div>
-    <div class="sidebar-section" id="sidebar-transversal">
+    <div class="sidebar-section" data-modulo="diretoria" id="sidebar-transversal">
       <div class="sidebar-section-title">Visão Geral</div>
       <button class="sidebar-item" data-page="ind-geral" onclick="goPageMobile('ind-geral')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg>
@@ -487,7 +489,7 @@
     </div>
 
     <!-- SIDEBAR: FINANCEIRO -->
-    <div class="sidebar-section" data-modulo="suprimentos" id="sidebar-financeiro" style="display:none;">
+    <div class="sidebar-section" data-modulo="financeiro" id="sidebar-financeiro" style="display:none;">
       <div class="sidebar-section-title">Financeiro</div>
       <button class="sidebar-item" data-page="financeiro-compras" onclick="goPageMobile('financeiro-compras')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
