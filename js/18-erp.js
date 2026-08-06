@@ -1294,14 +1294,16 @@ const _ROLES_EDIT = ['diretor', 'gerente', 'coordenador', 'compras', 'estoque', 
 const _ROLES_ROTULO = { diretor: 'Diretor', gerente: 'Gerente', coordenador: 'Coordenador', compras: 'Compras', estoque: 'Estoque', financeiro: 'Financeiro', escritorio: 'Escritório', csl: 'CSL', coord_csl: 'Coord. CSL', usuario: 'Usuário' };
 
 // Conjunto de páginas permitidas p/ um perfil: banco → fallback. 'ALL' p/ admin.
-// _MOD_PAGES é SEMPRE incluída, mesmo com um snapshot salvo no banco: são
-// "abertas a todos" por design, e um snapshot salvo antes de uma página de
-// módulo nova existir não pode escondê-la para sempre (já aconteceu — ver PR
-// fix pós-U4). Quem quiser restringi-las precisa de um mecanismo à parte.
+// Se existe snapshot salvo no banco pro perfil, ele é a fonte da verdade
+// inteira (inclusive páginas de módulo) — a tela Permissões monta os
+// checkboxes a partir da própria sidebar, então qualquer página nova já
+// aparece lá (desmarcada) na primeira vez que o admin abrir a tela; não
+// precisa mais forçar _MOD_PAGES sempre aberta por baixo dos panos, e isso
+// permitia desmarcar Passagens/Fretes/Diretoria sem efeito nenhum.
 function permSetDe(role) {
   if (role === 'admin') return 'ALL';
   const m = window.PERMISSOES;
-  if (m && m[role]) return new Set([...m[role], ..._MOD_PAGES]); // Set vindo do banco + módulo sempre aberto
+  if (m && m[role]) return new Set(m[role]);        // Set vindo do banco, tal como salvo
   const fb = window.FALLBACK_PERMS && window.FALLBACK_PERMS[role];
   if (fb) return new Set(fb);
   return null;                                     // perfil desconhecido: não bloqueia
@@ -1366,8 +1368,7 @@ function loadPermissoesUI() {
 
   const permDe = r => {
     const m = window.PERMISSOES;
-    const base = (m && m[r]) ? new Set([...m[r], ..._MOD_PAGES]) : new Set((window.FALLBACK_PERMS && window.FALLBACK_PERMS[r]) || []);
-    return base;
+    return (m && m[r]) ? new Set(m[r]) : new Set((window.FALLBACK_PERMS && window.FALLBACK_PERMS[r]) || []);
   };
   const cur = {}; _ROLES_EDIT.forEach(r => cur[r] = permDe(r));
 
