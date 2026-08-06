@@ -134,7 +134,8 @@ function renderFrtLista() {
       <td>${frtStatusBadge(f.status)}<br><span style="font-size:11px;">${frtBadgePag(f.statusPag)}</span></td>
       <td style="text-align:right;white-space:nowrap;">
         <button class="btn btn-outline btn-sm" onclick="abrirFreteDetalhe('${f.id}')">Ver</button>
-        ${f.statusPag !== 'pago' ? `<button class="btn btn-secondary btn-sm" onclick="frtMarcarPago('${f.id}')">Marcar pago</button>` : ''}
+        ${f.statusPag !== 'pago' && f.status !== 'cancelado' ? `<button class="btn btn-secondary btn-sm" onclick="frtMarcarPago('${f.id}')">Marcar pago</button>` : ''}
+        ${f.status !== 'cancelado' && f.status !== 'entregue' ? `<button class="btn btn-outline btn-sm" onclick="frtCancelar('${f.id}')">Cancelar</button>` : ''}
       </td>
     </tr>`).join('');
 }
@@ -152,9 +153,8 @@ function abrirFreteDetalhe(id) {
   const semFreteiro = !f.freteiroNome;
   const temTrajeto = f.origem && f.destino;
 
-  // Botões do fluxo conforme a situação (só autoriza com freteiro atribuído)
+  // Botões do fluxo conforme a situação
   const acoes = [];
-  if (f.status === 'solicitado' && !semFreteiro) acoes.push(`<button class="btn btn-primary btn-sm" onclick="frtAutorizar('${f.id}')">✅ Autorizar</button>`);
   if (f.status === 'transporte') acoes.push(`<button class="btn btn-primary btn-sm" onclick="frtMarcarEntregue('${f.id}')">📦 Marcar entregue</button>`);
   if (f.status === 'entregue' && f.etapaStatus !== 'avaliado') acoes.push(`<button class="btn btn-secondary btn-sm" onclick="abrirAvaliacaoFrete('${f.id}')">⭐ Avaliar</button>`);
   if (f.statusPag !== 'pago' && f.status !== 'cancelado' && !semFreteiro) acoes.push(`<button class="btn btn-secondary btn-sm" onclick="frtMarcarPago('${f.id}', true)">💰 Marcar pago</button>`);
@@ -247,17 +247,17 @@ async function frtAtribuirFreteiro(id) {
   const f = _fretesCache.find(x => x.id === id);
   const nome = (typeof currentUserData !== 'undefined' && currentUserData?.name) || null;
   try {
-    const hist = { acao: `Freteiro atribuído: ${fnome} (${frtBRL(valor)})`, por: nome, data: new Date().toISOString() };
+    const hist = { acao: `Freteiro atribuído: ${fnome} (${frtBRL(valor)}) — liberado para transporte`, status: 'transporte', por: nome, data: new Date().toISOString() };
     await db.collection('fretes').doc(id).update({
       freteiroId: fid, freteiroNome: fnome, valor,
-      etapaStatus: 'aguardando_autorizacao',
+      status: 'transporte', etapaStatus: 'transporte', statusPag: 'pendente',
       historico: firebase.firestore.FieldValue.arrayUnion(hist),
       updatedBy: nome, updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
     });
-    if (f) { f.freteiroId = fid; f.freteiroNome = fnome; f.valor = valor; f.historico = [...(Array.isArray(f.historico) ? f.historico : []), hist]; }
-    showToast('✅ Freteiro atribuído.');
+    if (f) { f.freteiroId = fid; f.freteiroNome = fnome; f.valor = valor; f.status = 'transporte'; f.etapaStatus = 'transporte'; f.statusPag = 'pendente'; f.historico = [...(Array.isArray(f.historico) ? f.historico : []), hist]; }
+    showToast('✅ Freteiro atribuído — frete em transporte.');
     abrirFreteDetalhe(id);
-    if (window._currentActivePage === 'frt-autorizacoes') loadFrtAutorizacoes(); else renderFrtLista();
+    renderFrtLista();
   } catch (e) { console.error(e); showToast('❌ Erro: ' + e.message); }
 }
 window.frtAtribuirFreteiro = frtAtribuirFreteiro;
@@ -298,10 +298,10 @@ async function frtSalvarRota() {
       updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
       historico: [{ acao: 'Rota criada e solicitada', etapa: 'rota_criada', por: nome, data: new Date().toISOString() }],
     });
-    showToast(`✅ Rota ${code} salva! Atribua um freteiro em Autorizações.`);
+    showToast(`✅ Rota ${code} salva! Atribua um freteiro na lista de Fretes para liberar o transporte.`);
     ['frt-rota-origem', 'frt-rota-destino', 'frt-rota-paradas', 'frt-rota-motivo', 'frt-rota-obs'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
     _fretesCache = [];
-    goPage('frt-autorizacoes');
+    goPage('frt-lista');
   } catch (e) {
     console.error(e); showToast('❌ Erro ao salvar: ' + e.message);
   } finally {
@@ -330,13 +330,8 @@ async function frtMudarStatus(id, novoStatus, rotulo, extra) {
     if (extra) Object.assign(f, extra);
     showToast('✅ ' + rotulo);
     closeModal('modal-frete-detalhe');
-    if (window._currentActivePage === 'frt-autorizacoes') loadFrtAutorizacoes(); else renderFrtLista();
+    renderFrtLista();
   } catch (e) { console.error(e); showToast('❌ Erro: ' + e.message); }
-}
-async function frtAutorizar(id) {
-  const f = _fretesCache.find(x => x.id === id);
-  if (!confirm(`Autorizar e liberar o frete ${f?.code || ''} para transporte?`)) return;
-  frtMudarStatus(id, 'transporte', 'Frete autorizado', { statusPag: 'pendente' });
 }
 async function frtMarcarEntregue(id) {
   const f = _fretesCache.find(x => x.id === id);
@@ -348,7 +343,6 @@ async function frtCancelar(id) {
   if (!confirm(`Cancelar o frete ${f?.code || ''}? Esta ação registra o cancelamento.`)) return;
   frtMudarStatus(id, 'cancelado', 'Frete cancelado');
 }
-window.frtAutorizar = frtAutorizar;
 window.frtMarcarEntregue = frtMarcarEntregue;
 window.frtCancelar = frtCancelar;
 
@@ -394,37 +388,6 @@ async function salvarAvaliacaoFrete() {
 window.abrirAvaliacaoFrete = abrirAvaliacaoFrete;
 window.frtSetEstrela = frtSetEstrela;
 window.salvarAvaliacaoFrete = salvarAvaliacaoFrete;
-
-// ── Página de Autorizações (fretes aguardando autorização) ──
-async function loadFrtAutorizacoes() {
-  const tb = document.getElementById('frt-aut-tbody');
-  if (tb) tb.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:24px;color:var(--text-muted);">Carregando…</td></tr>';
-  try {
-    if (!_fretesCache.length) {
-      const snap = await db.collection('fretes').get();
-      _fretesCache = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-    }
-    const pend = _fretesCache.filter(f => f.status === 'solicitado')
-      .sort((a, b) => String(b.data || b.createdAt || '').localeCompare(String(a.data || a.createdAt || '')));
-    if (!tb) return;
-    tb.innerHTML = pend.length ? pend.map(f => `
-      <tr>
-        <td>${frtEsc(f.code || '—')}</td>
-        <td>${frtDataBR(f.data || f.createdAt)}</td>
-        <td>${frtEsc(f.freteiroNome || '—')}</td>
-        <td style="max-width:260px;">${frtEsc(f.origem || '—')} <span style="color:var(--text-muted);">→</span> ${frtEsc(f.destino || '—')}</td>
-        <td style="text-align:right;">${f.valor > 0 ? frtBRL(f.valor) : '<span style="color:var(--warn);font-size:12px;">a informar</span>'}</td>
-        <td style="text-align:right;white-space:nowrap;">
-          <button class="btn btn-outline btn-sm" onclick="abrirFreteDetalhe('${f.id}')">Ver</button>
-          <button class="btn btn-primary btn-sm" onclick="frtAutorizar('${f.id}')">✅ Autorizar</button>
-        </td>
-      </tr>`).join('') : '<tr><td colspan="6" style="text-align:center;padding:24px;color:var(--text-muted);">Nenhum frete aguardando autorização. 🎉</td></tr>';
-  } catch (e) {
-    console.error('loadFrtAutorizacoes', e);
-    if (tb) tb.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:24px;color:var(--danger,#dc2626);">Erro: ${frtEsc(e.message)}</td></tr>`;
-  }
-}
-window.loadFrtAutorizacoes = loadFrtAutorizacoes;
 
 async function frtMarcarPago(id, fecharModalDepois) {
   const f = _fretesCache.find(x => x.id === id);
@@ -536,7 +499,7 @@ async function salvarNovoFrete() {
       origem, destino, paradas,
       motivo: document.getElementById('frt-n-motivo').value.trim() || null,
       valor, valorPago: 0,
-      status: 'solicitado', statusPag: 'pendente', etapaStatus: 'novo',
+      status: 'transporte', statusPag: 'pendente', etapaStatus: 'transporte',
       formaPag: document.getElementById('frt-n-forma').value,
       obs: document.getElementById('frt-n-obs').value.trim() || null,
       importado: false,
@@ -1261,7 +1224,7 @@ window.salvarPasSolicitacao = salvarPasSolicitacao;
    ══════════════════════════════════════════════════════════════════════ */
 
 // páginas dos módulos (hoje abertas a todos; o admin restringe na tela)
-const _MOD_PAGES = ['pas-solicitacoes', 'pas-nova', 'pas-indicadores', 'pas-calendario', 'frt-lista', 'frt-novo', 'frt-autorizacoes', 'frt-rotas', 'frt-freteiros', 'frt-metas', 'frt-indicadores', 'ind-geral', 'plano-acao', 'diretoria-dashboard', 'diretoria-percapita'];
+const _MOD_PAGES = ['pas-solicitacoes', 'pas-nova', 'pas-indicadores', 'pas-calendario', 'frt-lista', 'frt-novo', 'frt-rotas', 'frt-freteiros', 'frt-metas', 'frt-indicadores', 'ind-geral', 'plano-acao', 'diretoria-dashboard', 'diretoria-percapita'];
 // todas as páginas do Suprimentos (perfis de gestão têm tudo)
 const _SUP_PAGES = ['dashboard', 'users', 'houses', 'manage-houses', 'manage-cities', 'manage-products',
   'manage-cats', 'percapita-financeiro', 'manage-cc', 'all-orders', 'produtividade', 'kanban',
