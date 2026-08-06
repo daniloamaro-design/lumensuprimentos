@@ -1242,3 +1242,55 @@
 .pas-cal-dia{font-size:12px;font-weight:700;color:var(--text-muted);margin-bottom:2px;}
 .pas-cal-ev{font-size:11px;padding:2px 4px;border-radius:4px;margin-bottom:2px;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer;}
 @media(max-width:640px){.pas-cal-cell{min-height:60px;}.pas-cal-ev{font-size:10px;}}
+
+/* ══════════════════════════════════════════════════════════════════════
+   Dashboard de Performance (Diretoria) — visual fixo (navy/dourado), não
+   segue o tema claro/escuro do resto do app; é um "painel" autocontido.
+   ══════════════════════════════════════════════════════════════════════ */
+.dashdir{--dd-navy:#101d40;--dd-navy2:#16224a;--dd-gold:#e0a72e;--dd-gold-lt:#f0c419;
+  --dd-good:#1f9d55;--dd-bad:#d64545;--dd-bad-bg:#fbe4e4;--dd-text:#1a2138;--dd-muted:#7a8296;
+  --dd-border:#e6e8ee;color:var(--dd-text);}
+.dashdir-header{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;
+  background:linear-gradient(135deg,var(--dd-navy),var(--dd-navy2));border-left:5px solid var(--dd-gold-lt);
+  border-radius:14px;padding:18px 22px;margin-bottom:18px;}
+.dashdir-header-left{display:flex;align-items:center;gap:14px;}
+.dashdir-icon{width:46px;height:46px;border-radius:50%;background:var(--dd-gold-lt);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;}
+.dashdir-title{color:#fff;font-weight:800;font-size:17px;}
+.dashdir-subtitle{color:var(--dd-gold-lt);font-size:12.5px;margin-top:3px;}
+.dashdir-header-right{text-align:right;}
+.dashdir-periodo-label{color:#9fb0d8;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;}
+.dashdir-periodo-selects{display:flex;gap:8px;}
+.dashdir-select{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.25);color:#fff;
+  border-radius:8px;padding:7px 12px;font-size:12.5px;font-weight:600;cursor:pointer;}
+.dashdir-select option{color:#000;}
+
+.dashdir-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:14px;margin-bottom:18px;}
+.dashdir-kpi{background:#fff;border:1px solid var(--dd-border);border-radius:12px;padding:16px 18px;box-shadow:0 1px 3px rgba(16,29,64,.06);}
+.dashdir-kpi-icon{width:34px;height:34px;border-radius:50%;background:var(--dd-navy);color:#fff;display:flex;align-items:center;justify-content:center;font-size:15px;margin-bottom:10px;}
+.dashdir-kpi-label{font-weight:700;font-size:13px;color:var(--dd-text);}
+.dashdir-kpi-sub{font-size:10.5px;color:var(--dd-muted);margin:2px 0 10px;}
+.dashdir-kpi-value{font-size:26px;font-weight:800;color:var(--dd-navy);}
+.dashdir-kpi-value.ruim{color:var(--dd-bad);}
+.dashdir-kpi-delta{font-size:12px;font-weight:700;margin-top:6px;color:var(--dd-good);}
+.dashdir-kpi-delta.ruim{color:var(--dd-bad);}
+.dashdir-kpi-delta span{color:var(--dd-muted);font-weight:500;margin-left:2px;}
+.dashdir-kpi-meta{font-size:11.5px;color:var(--dd-gold);font-weight:700;margin-top:10px;}
+.dashdir-kpi-meta.faixa-alerta{background:var(--dd-bad-bg);color:var(--dd-bad);border-radius:6px;padding:6px 8px;margin-top:10px;}
+.dashdir-kpi.alerta{border-color:#f3c9c9;}
+
+.dashdir-charts{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:14px;}
+@media(max-width:900px){.dashdir-charts{grid-template-columns:1fr;}}
+.dashdir-card{background:#fff;border:1px solid var(--dd-border);border-radius:12px;padding:18px;box-shadow:0 1px 3px rgba(16,29,64,.06);}
+.dashdir-card-title{font-weight:700;font-size:14px;color:var(--dd-navy);}
+.dashdir-card-sub{font-size:11.5px;color:var(--dd-muted);margin:2px 0 14px;}
+.dashdir-donut-wrap{position:relative;max-width:230px;margin:0 auto 10px;}
+.dashdir-donut-center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none;}
+.dashdir-donut-total{font-size:22px;font-weight:800;color:var(--dd-navy);}
+.dashdir-donut-total-label{font-size:10.5px;color:var(--dd-muted);}
+.dashdir-legend{display:flex;flex-direction:column;gap:8px;margin-top:8px;}
+.dashdir-legend-item{display:flex;align-items:center;gap:8px;font-size:12.5px;}
+.dashdir-legend-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
+.dashdir-legend-label{flex:1;color:var(--dd-text);}
+.dashdir-legend-val{color:var(--dd-muted);font-weight:600;white-space:nowrap;}
+
+.dashdir-aviso{background:#fff8e8;border:1px solid #f0dca8;color:#8a6a1a;border-radius:10px;padding:10px 14px;font-size:12px;font-weight:600;}

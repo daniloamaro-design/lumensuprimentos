@@ -29,7 +29,7 @@
   <!-- SheetJS para leitura e exportação de Excel -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
-  <link rel="stylesheet" href="css/estilos.css?v=7">
+  <link rel="stylesheet" href="css/estilos.css?v=8">
 </head>
 <body>
 
@@ -287,6 +287,10 @@
     </div>
     <div class="sidebar-section" data-modulo="diretoria" id="sidebar-transversal">
       <div class="sidebar-section-title">Visão Geral</div>
+      <button class="sidebar-item" data-page="diretoria-dashboard" onclick="goPageMobile('diretoria-dashboard')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg>
+        Dashboard
+      </button>
       <button class="sidebar-item" data-page="ind-geral" onclick="goPageMobile('ind-geral')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg>
         Indicadores Gerais
@@ -2274,6 +2278,82 @@
     <div class="card"><div class="card-body"><div id="permissoes-conteudo">Carregando…</div></div></div>
   </div>
 
+  <!-- PAGE: Dashboard de Performance (Diretoria) -->
+  <div class="page" id="page-diretoria-dashboard">
+    <div class="dashdir">
+      <div class="dashdir-header">
+        <div class="dashdir-header-left">
+          <div class="dashdir-icon">🛒</div>
+          <div>
+            <div class="dashdir-title">Dashboard de Performance — Setor Suprimentos</div>
+            <div class="dashdir-subtitle">Responsável: <b>Mariana</b></div>
+          </div>
+        </div>
+        <div class="dashdir-header-right">
+          <div class="dashdir-periodo-label">Período</div>
+          <div class="dashdir-periodo-selects">
+            <select class="dashdir-select"><option>📅 Mês Atual</option></select>
+            <select class="dashdir-select"><option>📅 Ano: 2026</option></select>
+          </div>
+        </div>
+      </div>
+
+      <div class="dashdir-kpis">
+        <div class="dashdir-kpi">
+          <div class="dashdir-kpi-icon">💰</div>
+          <div class="dashdir-kpi-label">Gasto Per Capita</div>
+          <div class="dashdir-kpi-sub">(Compras + Doações nas Casas Atendidas)</div>
+          <div class="dashdir-kpi-value">R$ 1.150</div>
+          <div class="dashdir-kpi-delta good">↓ -5,2% <span>vs. mês anterior</span></div>
+          <div class="dashdir-kpi-meta">Meta: &lt; R$ 1.200</div>
+        </div>
+        <div class="dashdir-kpi alerta">
+          <div class="dashdir-kpi-icon">📈</div>
+          <div class="dashdir-kpi-label">Desvio Orçamentário de Passagens</div>
+          <div class="dashdir-kpi-sub">(Foco: Eventos e Convida)</div>
+          <div class="dashdir-kpi-value ruim">21,8%</div>
+          <div class="dashdir-kpi-delta ruim">↑ +12,4 p.p. <span>vs. mês anterior</span></div>
+          <div class="dashdir-kpi-meta faixa-alerta">Meta: &lt; 15%</div>
+        </div>
+        <div class="dashdir-kpi">
+          <div class="dashdir-kpi-icon">🚚</div>
+          <div class="dashdir-kpi-label">% de Entregas no Prazo</div>
+          <div class="dashdir-kpi-sub">(SLA dos Fornecedores nos CSLs)</div>
+          <div class="dashdir-kpi-value">91,5%</div>
+          <div class="dashdir-kpi-delta ruim">↓ -1,2 p.p. <span>vs. mês anterior</span></div>
+          <div class="dashdir-kpi-meta">Meta: &gt; 90%</div>
+        </div>
+        <div class="dashdir-kpi">
+          <div class="dashdir-kpi-icon">📋</div>
+          <div class="dashdir-kpi-label">% de Acuracidade do Estoque</div>
+          <div class="dashdir-kpi-sub">(Físico vs. Sistema no SF)</div>
+          <div class="dashdir-kpi-value">98,3%</div>
+          <div class="dashdir-kpi-delta good">↑ +0,5 p.p. <span>vs. mês anterior</span></div>
+          <div class="dashdir-kpi-meta">Meta: &gt; 98%</div>
+        </div>
+      </div>
+
+      <div class="dashdir-charts">
+        <div class="dashdir-card">
+          <div class="dashdir-card-title">📏 Passagens por Motivo de Solicitação</div>
+          <div class="dashdir-card-sub">Participação de cada categoria no total emitido</div>
+          <div class="dashdir-donut-wrap">
+            <canvas id="dashdir-donut"></canvas>
+            <div class="dashdir-donut-center"><div class="dashdir-donut-total" id="dashdir-donut-total">—</div><div class="dashdir-donut-total-label">Total Emissões</div></div>
+          </div>
+          <div class="dashdir-legend" id="dashdir-legend-donut"></div>
+        </div>
+        <div class="dashdir-card">
+          <div class="dashdir-card-title">📈 Evolução Temporal do Gasto Per Capita (Multi-Linhas)</div>
+          <div class="dashdir-card-sub">Comparativo por categoria e origem, mês a mês</div>
+          <div style="position:relative;height:260px;"><canvas id="dashdir-linhas"></canvas></div>
+        </div>
+      </div>
+
+      <div class="dashdir-aviso">📊 Dados ilustrativos por enquanto — os indicadores reais serão conectados às fontes de dados quando definirmos juntos, indicador por indicador, como cada um deve ser calculado.</div>
+    </div>
+  </div>
+
   <!-- PAGE: Indicadores Gerais (transversal — Suprimentos + Passagens + Fretes) -->
   <div class="page" id="page-ind-geral">
     <div class="page-header"><h1 class="page-title">📊 Indicadores Gerais</h1></div>
@@ -2955,7 +3035,7 @@
 <script src="js/01-core.js?v=5"></script>
 <script src="js/02-auth.js?v=3"></script>
 <script src="js/03-navegacao.js?v=2"></script>
-<script src="js/04-percapita.js?v=8"></script>
+<script src="js/04-percapita.js?v=9"></script>
 <script src="js/05-cadastros.js?v=1"></script>
 <script src="js/06-pedidos.js?v=3"></script>
 <script src="js/07-estoque-ia-form.js?v=2"></script>
@@ -2969,7 +3049,8 @@
 <script src="js/15-fornecedores-metas.js?v=2"></script>
 <script src="js/16-chat-ia.js?v=2"></script>
 <script src="js/17-metas-wrappers.js?v=2"></script>
-<script src="js/18-erp.js?v=17"></script>
+<script src="js/18-erp.js?v=18"></script>
+<script src="js/19-dashboard-diretoria.js?v=1"></script>
 <!-- CHAT IA FLUTUANTE -->
 <!-- ════════ GEMINI IA — botão movido para a barra superior (id: chat-ia-topbar-btn) ════════ -->
 
