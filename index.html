@@ -636,10 +636,6 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
         Novo Frete
       </button>
-      <button class="sidebar-item" data-page="frt-autorizacoes" onclick="goPageMobile('frt-autorizacoes')">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12l2 2 4-4"/><path d="M21 12c0 4.97-4.03 9-9 9s-9-4.03-9-9 4.03-9 9-9c1.5 0 2.9.36 4.14 1"/></svg>
-        Autorizações
-      </button>
       <button class="sidebar-item" data-page="frt-rotas" onclick="goPageMobile('frt-rotas')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="6" cy="19" r="3"/><circle cx="18" cy="5" r="3"/><path d="M9 19h6a4 4 0 0 0 4-4V9M15 5H9a4 4 0 0 0-4 4v6"/></svg>
         Rotas
@@ -2187,27 +2183,13 @@
     </div></div>
   </div>
 
-  <!-- PAGE: Autorizações de Frete -->
-  <div class="page" id="page-frt-autorizacoes">
-    <div class="page-header"><h1 class="page-title">🚚 Autorizações de Frete</h1></div>
-    <div class="card" style="margin-bottom:12px;"><div class="card-body" style="color:var(--text-muted);font-size:13px;">
-      Fretes aguardando <b>autorização</b>. Ao autorizar, o frete vai para <b>Em transporte</b>.
-    </div></div>
-    <div class="card"><div class="card-body">
-      <div class="table-wrap"><table class="fin-table">
-        <thead><tr><th>Código</th><th>Data</th><th>Freteiro</th><th>Trajeto</th><th style="text-align:right;">Valor</th><th></th></tr></thead>
-        <tbody id="frt-aut-tbody"><tr><td colspan="6" style="text-align:center;padding:24px;color:var(--text-muted);">Carregando…</td></tr></tbody>
-      </table></div>
-    </div></div>
-  </div>
-
   <!-- PAGE: Rotas -->
   <div class="page" id="page-frt-rotas">
     <div class="page-header"><h1 class="page-title">🚚 Rotas</h1></div>
     <div class="card" style="max-width:720px;"><div class="card-body" style="display:flex;flex-direction:column;gap:14px;">
       <div style="color:var(--text-muted);font-size:13px;">
         Planeje um trajeto (origem, destino e paradas), veja no Google Maps e salve como
-        um frete solicitado. Depois é só <b>atribuir o freteiro</b> e autorizar em Autorizações.
+        um frete solicitado. Depois é só <b>atribuir o freteiro</b> — o frete já vai direto para Em transporte.
       </div>
       <div><label class="form-label">Origem *</label><input class="form-input" id="frt-rota-origem" placeholder="Endereço de partida"></div>
       <div><label class="form-label">Paradas (uma por linha)</label><textarea class="form-input" id="frt-rota-paradas" rows="2" style="resize:vertical;" placeholder="Endereços intermediários (opcional)"></textarea></div>
@@ -3116,7 +3098,7 @@
 <script src="js/01-core.js?v=5"></script>
 <script src="js/02-auth.js?v=5"></script>
 <script src="js/03-navegacao.js?v=2"></script>
-<script src="js/04-percapita.js?v=10"></script>
+<script src="js/04-percapita.js?v=11"></script>
 <script src="js/05-cadastros.js?v=2"></script>
 <script src="js/06-pedidos.js?v=4"></script>
 <script src="js/07-estoque-ia-form.js?v=2"></script>
@@ -3130,7 +3112,7 @@
 <script src="js/15-fornecedores-metas.js?v=2"></script>
 <script src="js/16-chat-ia.js?v=2"></script>
 <script src="js/17-metas-wrappers.js?v=2"></script>
-<script src="js/18-erp.js?v=20"></script>
+<script src="js/18-erp.js?v=21"></script>
 <script src="js/19-dashboard-diretoria.js?v=2"></script>
 <script src="js/20-percapita-diretoria.js?v=2"></script>
 <!-- CHAT IA FLUTUANTE -->
