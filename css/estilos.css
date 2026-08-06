@@ -1213,7 +1213,9 @@
 /* Mostra só as seções do módulo ativo (o !important vence o display inline por perfil das seções não-ativas) */
 .sidebar[data-mod="suprimentos"] .sidebar-section[data-modulo]:not([data-modulo="suprimentos"]),
 .sidebar[data-mod="passagens"]   .sidebar-section[data-modulo]:not([data-modulo="passagens"]),
-.sidebar[data-mod="frete"]       .sidebar-section[data-modulo]:not([data-modulo="frete"]){display:none !important;}
+.sidebar[data-mod="frete"]       .sidebar-section[data-modulo]:not([data-modulo="frete"]),
+.sidebar[data-mod="financeiro"]  .sidebar-section[data-modulo]:not([data-modulo="financeiro"]),
+.sidebar[data-mod="diretoria"]   .sidebar-section[data-modulo]:not([data-modulo="diretoria"]){display:none !important;}
 
 /* ══ Tabela de Permissões (U4) — cabeçalho e coluna fixos, tema escuro ══ */
 #permissoes-conteudo .perm-scroll{max-height:calc(100vh - 240px);overflow:auto;border:1px solid var(--border);border-radius:10px;}
