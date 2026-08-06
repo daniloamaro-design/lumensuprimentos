@@ -16,7 +16,8 @@ async function loadPendingCount() {
 async function loadUsers() {
   const snap = await db.collection('users').orderBy('createdAt','desc').get();
   const pending = snap.docs.filter(d => d.data().status === 'pending');
-  const approved = snap.docs.filter(d => d.data().status !== 'pending');
+  const approved = snap.docs.filter(d => d.data().status === 'approved');
+  const revoked = snap.docs.filter(d => d.data().status === 'rejected');
 
   const pendingEl = document.getElementById('pending-users-list');
   if (pending.length === 0) {
@@ -94,7 +95,21 @@ async function loadUsers() {
         ${u.email !== ADMIN_EMAIL ? `<button class="btn btn-danger btn-sm" onclick="updateUserStatus('${d.id}','rejected','','')">Revogar acesso</button>` : ''}
       </td>
     </tr>`;
-  }).join('') || '<tr><td colspan="5" class="text-muted" style="text-align:center;padding:24px;">Nenhum usuário.</td></tr>';
+  }).join('') || '<tr><td colspan="5" class="text-muted" style="text-align:center;padding:24px;">Nenhum usuário ativo.</td></tr>';
+
+  const revokedTbody = document.getElementById('revoked-users-tbody');
+  if (revokedTbody) {
+    revokedTbody.innerHTML = revoked.map(d => {
+      const u = d.data();
+      return `<tr>
+        <td><strong>${u.name}</strong></td>
+        <td>${u.email}</td>
+        <td>${u.house || '—'}</td>
+        <td>${roleBadge(u.role)}</td>
+        <td><button class="btn btn-secondary btn-sm" onclick="updateUserStatus('${d.id}','approved','','')">↩️ Reativar acesso</button></td>
+      </tr>`;
+    }).join('') || '<tr><td colspan="5" class="text-muted" style="text-align:center;padding:24px;">Nenhum acesso revogado.</td></tr>';
+  }
 }
 
 function onApproveRoleChange(uid) {

@@ -19,8 +19,26 @@ auth.onAuthStateChanged(async (user) => {
   }
   currentUser = user;
   try {
-    const snap = await db.collection('users').doc(user.uid).get();
-    if (!snap.exists) { showAuthScreen('pending'); return; }
+    let snap = await db.collection('users').doc(user.uid).get();
+    if (!snap.exists) {
+      if (user.isAnonymous) { showAuthScreen('pending'); return; }
+      // Primeiro login via provedor social (Google etc.) — não passou pelo
+      // formulário de cadastro, então não existe linha em 'users' ainda.
+      // Cria o registro automaticamente (mesmo fluxo de aprovação do
+      // cadastro por e-mail/senha: pendente até o admin aprovar, exceto se
+      // for o ADMIN_EMAIL) e cai nos mesmos checks de status abaixo.
+      const nome = user.displayName || (user.email ? user.email.split('@')[0] : 'Novo usuário');
+      await db.collection('users').doc(user.uid).set({
+        name: nome, email: user.email || '', house: '',
+        role: user.email === ADMIN_EMAIL ? 'admin' : 'usuario',
+        status: user.email === ADMIN_EMAIL ? 'approved' : 'pending',
+        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+      });
+      if (user.email !== ADMIN_EMAIL && typeof notifyAdminNewUser === 'function') {
+        notifyAdminNewUser(nome, user.email || '');
+      }
+      snap = await db.collection('users').doc(user.uid).get();
+    }
     currentUserData = snap.data();
 
     if (currentUserData.status === 'pending') { showAuthScreen('pending'); return; }
@@ -187,11 +205,38 @@ async function doLogin() {
   if (!email || !password) { showAlert('login-alert','Preencha e-mail e senha.','danger'); return; }
   setBtnLoading('btn-login', true);
   hideAlert('login-alert');
+  document.getElementById('login-reenviar-wrap').style.display = 'none';
   try {
     await auth.signInWithEmailAndPassword(email, password);
   } catch (e) {
     showAlert('login-alert', friendlyAuthError(e.code), 'danger');
+    if (e.code === 'auth/email-not-verified') {
+      document.getElementById('login-reenviar-wrap').style.display = '';
+    }
     setBtnLoading('btn-login', false);
+  }
+}
+
+async function reenviarConfirmacaoEmail() {
+  const email = v('login-email');
+  if (!email) { showAlert('login-alert', 'Digite seu e-mail no campo acima antes de reenviar.', 'danger'); return; }
+  try {
+    await auth.resendConfirmationEmail(email);
+    showAlert('login-alert', '✅ E-mail de confirmação reenviado! Verifique sua caixa de entrada (e a pasta de spam).', 'success');
+    document.getElementById('login-reenviar-wrap').style.display = 'none';
+  } catch (e) {
+    showAlert('login-alert', friendlyAuthError(e.code), 'danger');
+  }
+}
+
+async function doLoginGoogle() {
+  hideAlert('login-alert');
+  try {
+    await auth.signInWithGoogle();
+    // A partir daqui o navegador redireciona pro Google; ao voltar, a sessão
+    // já vem pronta e quem trata o resto é o auth.onAuthStateChanged normal.
+  } catch (e) {
+    showAlert('login-alert', 'Não foi possível iniciar o login com Google agora. Tente novamente em instantes.', 'danger');
   }
 }
 
@@ -239,7 +284,7 @@ async function doRegister() {
       createdAt: firebase.firestore.FieldValue.serverTimestamp()
     });
     notifyAdminNewUser(name, email);
-    showAlert('register-alert','Solicitação enviada! Aguarde a aprovação do administrador.','success');
+    showAlert('register-alert','Solicitação enviada! Se pedirmos, confirme seu e-mail (confira a caixa de entrada/spam) — depois é só aguardar a aprovação do administrador.','success');
   } catch (e) {
     showAlert('register-alert', friendlyAuthError(e.code), 'danger');
   }
@@ -254,6 +299,7 @@ function friendlyAuthError(code) {
     'auth/email-already-in-use': 'Este e-mail já está em uso.',
     'auth/too-many-requests': 'Muitas tentativas. Tente novamente em alguns minutos.',
     'auth/invalid-credential': 'E-mail ou senha incorretos.',
+    'auth/email-not-verified': 'Seu e-mail ainda não foi confirmado. Verifique sua caixa de entrada (e o spam) — ou clique em "Reenviar e-mail de confirmação" abaixo.',
   };
   return msgs[code] || 'Erro: ' + code;
 }

@@ -13,7 +13,7 @@
 
   <!-- Supabase (substitui o Firebase) + camada de compatibilidade -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="js/00-db.js?v=16"></script>
+  <script src="js/00-db.js?v=18"></script>
 <script src="js/propostas-semanais.js?v=2"></script>
 
   <!-- jsPDF para geração de PDF -->
@@ -64,6 +64,9 @@
     </div>
 
     <div id="login-alert" class="alert alert-danger"></div>
+    <div id="login-reenviar-wrap" style="display:none;margin:-10px 0 14px;">
+      <a onclick="reenviarConfirmacaoEmail()" style="color:var(--lumen);font-size:13px;font-weight:700;cursor:pointer;">📧 Reenviar e-mail de confirmação</a>
+    </div>
 
     <div class="form-group">
       <label class="form-label">E-MAIL</label>
@@ -75,6 +78,22 @@
     </div>
 
     <button class="btn btn-primary" onclick="doLogin()" id="btn-login">Entrar no Sistema</button>
+
+    <div style="display:flex;align-items:center;gap:10px;margin:16px 0;">
+      <div style="flex:1;height:1px;background:#e0e0e0;"></div>
+      <span style="font-size:12px;color:#888;">ou</span>
+      <div style="flex:1;height:1px;background:#e0e0e0;"></div>
+    </div>
+    <button type="button" class="btn" onclick="doLoginGoogle()" id="btn-login-google"
+      style="width:100%;background:#fff;color:#3c4043;border:1.5px solid #dadce0;display:flex;align-items:center;justify-content:center;gap:10px;font-weight:600;">
+      <svg width="18" height="18" viewBox="0 0 48 48">
+        <path fill="#FFC107" d="M43.611,20.083H42V20H24v8h11.303c-1.649,4.657-6.08,8-11.303,8c-6.627,0-12-5.373-12-12s5.373-12,12-12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C12.955,4,4,12.955,4,24s8.955,20,20,20s20-8.955,20-20C44,22.659,43.862,21.35,43.611,20.083z"/>
+        <path fill="#FF3D00" d="M6.306,14.691l6.571,4.819C14.655,15.108,18.961,12,24,12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C16.318,4,9.656,8.337,6.306,14.691z"/>
+        <path fill="#4CAF50" d="M24,44c5.166,0,9.86-1.977,13.409-5.192l-6.19-5.238C29.211,35.091,26.715,36,24,36c-5.202,0-9.619-3.317-11.283-7.946l-6.522,5.025C9.505,39.556,16.227,44,24,44z"/>
+        <path fill="#1976D2" d="M43.611,20.083H42V20H24v8h11.303c-0.792,2.237-2.231,4.166-4.087,5.571c0.001-0.001,0.002-0.001,0.003-0.002l6.19,5.238C36.971,39.205,44,34,44,24C44,22.659,43.862,21.35,43.611,20.083z"/>
+      </svg>
+      Continuar com Google
+    </button>
 
     <div class="auth-switch" style="margin-top:14px;">
       <a onclick="showForm('reset')" style="color:var(--text-muted);font-size:13px;">Esqueceu sua senha?</a>
@@ -902,6 +921,13 @@
         <div class="table-wrap"><table>
           <thead><tr><th>Nome</th><th>E-mail</th><th>Casa</th><th>Perfil</th><th>Ações</th></tr></thead>
           <tbody id="active-users-tbody"></tbody>
+        </table></div>
+      </div>
+      <div class="card">
+        <div class="card-header"><div class="card-header-title">🚫 Acesso Revogado</div></div>
+        <div class="table-wrap"><table>
+          <thead><tr><th>Nome</th><th>E-mail</th><th>Casa</th><th>Perfil</th><th>Ações</th></tr></thead>
+          <tbody id="revoked-users-tbody"></tbody>
         </table></div>
       </div>
     </div>
@@ -2296,8 +2322,8 @@
         <div class="dashdir-header-right">
           <div class="dashdir-periodo-label">Período</div>
           <div class="dashdir-periodo-selects">
-            <select class="dashdir-select"><option>📅 Mês Atual</option></select>
-            <select class="dashdir-select"><option>📅 Ano: 2026</option></select>
+            <select class="dashdir-select" id="dashdir-mes" onchange="dashdirAtualizarPerCapita()"></select>
+            <select class="dashdir-select" id="dashdir-ano" onchange="dashdirAtualizarPerCapita()"></select>
           </div>
         </div>
       </div>
@@ -2306,10 +2332,10 @@
         <div class="dashdir-kpi">
           <div class="dashdir-kpi-icon">💰</div>
           <div class="dashdir-kpi-label">Gasto Per Capita</div>
-          <div class="dashdir-kpi-sub">(Compras + Doações nas Casas Atendidas)</div>
-          <div class="dashdir-kpi-value">R$ 1.150</div>
-          <div class="dashdir-kpi-delta good">↓ -5,2% <span>vs. mês anterior</span></div>
-          <div class="dashdir-kpi-meta">Meta: &lt; R$ 1.200</div>
+          <div class="dashdir-kpi-sub">(todas as casas — dado real)</div>
+          <div class="dashdir-kpi-value" id="dashdir-kpi-percapita-valor">—</div>
+          <div class="dashdir-kpi-delta" id="dashdir-kpi-percapita-delta"></div>
+          <div class="dashdir-kpi-meta" id="dashdir-kpi-percapita-qtd"></div>
         </div>
         <div class="dashdir-kpi alerta">
           <div class="dashdir-kpi-icon">📈</div>
@@ -2349,12 +2375,12 @@
         </div>
         <div class="dashdir-card">
           <div class="dashdir-card-title">📈 Evolução Temporal do Gasto Per Capita (Multi-Linhas)</div>
-          <div class="dashdir-card-sub">Comparativo por categoria e origem, mês a mês</div>
+          <div class="dashdir-card-sub">Per capita real por categoria, últimos 12 meses (todas as casas)</div>
           <div style="position:relative;height:260px;"><canvas id="dashdir-linhas"></canvas></div>
         </div>
       </div>
 
-      <div class="dashdir-aviso">📊 Dados ilustrativos por enquanto — os indicadores reais serão conectados às fontes de dados quando definirmos juntos, indicador por indicador, como cada um deve ser calculado.</div>
+      <div class="dashdir-aviso">📊 Gasto Per Capita (card + gráfico de evolução) já usa dados reais. Os outros indicadores (Desvio Orçamentário, Entregas no Prazo, Acuracidade, Passagens por Motivo) ainda são ilustrativos — serão conectados quando definirmos juntos, indicador por indicador, como cada um deve ser calculado.</div>
     </div>
   </div>
 
@@ -3088,10 +3114,10 @@
      SCRIPTS
      ════════════════════════════════════════════════════════════ -->
 <script src="js/01-core.js?v=5"></script>
-<script src="js/02-auth.js?v=3"></script>
+<script src="js/02-auth.js?v=5"></script>
 <script src="js/03-navegacao.js?v=2"></script>
 <script src="js/04-percapita.js?v=10"></script>
-<script src="js/05-cadastros.js?v=1"></script>
+<script src="js/05-cadastros.js?v=2"></script>
 <script src="js/06-pedidos.js?v=3"></script>
 <script src="js/07-estoque-ia-form.js?v=2"></script>
 <script src="js/08-orcamento-casas.js?v=2"></script>
@@ -3105,7 +3131,7 @@
 <script src="js/16-chat-ia.js?v=2"></script>
 <script src="js/17-metas-wrappers.js?v=2"></script>
 <script src="js/18-erp.js?v=19"></script>
-<script src="js/19-dashboard-diretoria.js?v=1"></script>
+<script src="js/19-dashboard-diretoria.js?v=2"></script>
 <script src="js/20-percapita-diretoria.js?v=2"></script>
 <!-- CHAT IA FLUTUANTE -->
 <!-- ════════ GEMINI IA — botão movido para a barra superior (id: chat-ia-topbar-btn) ════════ -->

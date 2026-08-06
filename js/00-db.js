@@ -376,7 +376,10 @@
   // ── Shim de autenticação (auth.*) ──────────────────────────────────
   function mapUser(u) {
     if (!u) return null;
-    return { uid: u.id, email: u.email || '', displayName: u.user_metadata?.name || '', isAnonymous: !!u.is_anonymous };
+    // login social (Google etc.) costuma vir em user_metadata.full_name / .name,
+    // dependendo do provedor — tenta os dois antes de cair pro e-mail.
+    const nome = u.user_metadata?.name || u.user_metadata?.full_name || '';
+    return { uid: u.id, email: u.email || '', displayName: nome, isAnonymous: !!u.is_anonymous };
   }
   const authShim = {
     get currentUser() { return mapUser(authShim._user); },
@@ -407,10 +410,23 @@
       const { error } = await _sb.auth.resetPasswordForEmail(email);
       if (error) throw traduzErro(error);
     },
+    async resendConfirmationEmail(email) {
+      const { error } = await _sb.auth.resend({ type: 'signup', email });
+      if (error) throw traduzErro(error);
+    },
     async signInAnonymously() {
       const { data, error } = await _sb.auth.signInAnonymously();
       if (error) throw traduzErro(error);
       return { user: mapUser(data.user) };
+    },
+    // Redireciona pro consentimento do Google; a volta é tratada pelo listener
+    // onAuthStateChanged normal (a página recarrega com a sessão já criada).
+    async signInWithGoogle() {
+      const { error } = await _sb.auth.signInWithOAuth({
+        provider: 'google',
+        options: { redirectTo: window.location.origin + window.location.pathname },
+      });
+      if (error) throw traduzErro(error);
     },
     async signOut() {
       await _sb.auth.signOut();
