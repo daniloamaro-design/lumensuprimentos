@@ -2369,12 +2369,20 @@
         <a href="#" onclick="pcdCasaClearAll();return false;">Limpar</a>
         <span id="pcd-casa-count"></span>
       </div>
+      <label class="form-label">Atalho de período <span style="color:var(--text-muted);font-weight:400;">(preenche as datas abaixo — Período A = atual, Período B = imediatamente anterior)</span></label>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;">
+        <button type="button" class="btn btn-outline btn-sm pcd-gran-btn" data-gran="mensal" onclick="pcdAplicarPeriodoFixo('mensal')">Mensal</button>
+        <button type="button" class="btn btn-outline btn-sm pcd-gran-btn" data-gran="trimestral" onclick="pcdAplicarPeriodoFixo('trimestral')">Trimestral</button>
+        <button type="button" class="btn btn-outline btn-sm pcd-gran-btn" data-gran="semestral" onclick="pcdAplicarPeriodoFixo('semestral')">Semestral</button>
+        <button type="button" class="btn btn-outline btn-sm pcd-gran-btn" data-gran="anual" onclick="pcdAplicarPeriodoFixo('anual')">Anual</button>
+      </div>
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;">
         <div><label class="form-label">Período A · Início</label><input type="date" class="form-input" id="pcd-a-ini"></div>
         <div><label class="form-label">Período A · Fim</label><input type="date" class="form-input" id="pcd-a-fim"></div>
         <div><label class="form-label">Período B · Início <span style="color:var(--text-muted);font-weight:400;">(opcional, p/ comparar)</span></label><input type="date" class="form-input" id="pcd-b-ini"></div>
         <div><label class="form-label">Período B · Fim</label><input type="date" class="form-input" id="pcd-b-fim"></div>
       </div>
+      <div style="font-size:11px;color:var(--text-muted);margin-top:6px;">Use os atalhos acima pra preencher rápido, ou digite/edite as datas manualmente — as duas formas funcionam juntas.</div>
       <div style="margin-top:14px;"><button class="btn btn-primary" onclick="pcdCalcular()">Calcular</button></div>
     </div></div>
 
@@ -3098,7 +3106,7 @@
 <script src="js/17-metas-wrappers.js?v=2"></script>
 <script src="js/18-erp.js?v=19"></script>
 <script src="js/19-dashboard-diretoria.js?v=1"></script>
-<script src="js/20-percapita-diretoria.js?v=1"></script>
+<script src="js/20-percapita-diretoria.js?v=2"></script>
 <!-- CHAT IA FLUTUANTE -->
 <!-- ════════ GEMINI IA — botão movido para a barra superior (id: chat-ia-topbar-btn) ════════ -->
 

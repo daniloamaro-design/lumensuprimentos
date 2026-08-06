@@ -60,6 +60,37 @@ function pcdCasasSelecionadas() {
   return (_pcdCasasSel.size === 0 || _pcdCasasSel.size === CASAS.length) ? [...CASAS] : [..._pcdCasasSel];
 }
 
+// Bucket atual + bucket imediatamente anterior (mesma duração), alinhados ao
+// calendário — ex.: trimestral segue Jan-Mar/Abr-Jun/Jul-Set/Out-Dez, não uma
+// janela rolante de 90 dias.
+function pcdBucketAtualEAnterior(gran, hoje) {
+  const mesesPorBucket = { mensal: 1, trimestral: 3, semestral: 6, anual: 12 }[gran] || 1;
+  const ano = hoje.getFullYear(), mes = hoje.getMonth();
+
+  const mesInicioAtual = Math.floor(mes / mesesPorBucket) * mesesPorBucket;
+  const iniAtual = new Date(ano, mesInicioAtual, 1);
+  const fimAtual = hoje;
+
+  const mesInicioAnteriorTotal = mesInicioAtual - mesesPorBucket;
+  const anoAnterior = ano + Math.floor(mesInicioAnteriorTotal / 12);
+  const mesAnterior = ((mesInicioAnteriorTotal % 12) + 12) % 12;
+  const iniAnterior = new Date(anoAnterior, mesAnterior, 1);
+  const fimAnterior = new Date(iniAtual.getTime() - 86400000); // véspera do início do atual
+
+  return { iniAtual, fimAtual, iniAnterior, fimAnterior };
+}
+
+function pcdAplicarPeriodoFixo(gran) {
+  document.querySelectorAll('.pcd-gran-btn').forEach(b => b.classList.toggle('btn-primary', b.dataset.gran === gran));
+  const fmt = d => d.toISOString().slice(0, 10);
+  const { iniAtual, fimAtual, iniAnterior, fimAnterior } = pcdBucketAtualEAnterior(gran, new Date());
+  document.getElementById('pcd-a-ini').value = fmt(iniAtual);
+  document.getElementById('pcd-a-fim').value = fmt(fimAtual);
+  document.getElementById('pcd-b-ini').value = fmt(iniAnterior);
+  document.getElementById('pcd-b-fim').value = fmt(fimAnterior);
+}
+window.pcdAplicarPeriodoFixo = pcdAplicarPeriodoFixo;
+
 function pcdSetGranularidade(g) {
   _pcdGranularidade = g;
   document.getElementById('pcd-btn-mensal')?.classList.toggle('btn-primary', g === 'mensal');
