@@ -19,8 +19,26 @@ auth.onAuthStateChanged(async (user) => {
   }
   currentUser = user;
   try {
-    const snap = await db.collection('users').doc(user.uid).get();
-    if (!snap.exists) { showAuthScreen('pending'); return; }
+    let snap = await db.collection('users').doc(user.uid).get();
+    if (!snap.exists) {
+      if (user.isAnonymous) { showAuthScreen('pending'); return; }
+      // Primeiro login via provedor social (Google etc.) — não passou pelo
+      // formulário de cadastro, então não existe linha em 'users' ainda.
+      // Cria o registro automaticamente (mesmo fluxo de aprovação do
+      // cadastro por e-mail/senha: pendente até o admin aprovar, exceto se
+      // for o ADMIN_EMAIL) e cai nos mesmos checks de status abaixo.
+      const nome = user.displayName || (user.email ? user.email.split('@')[0] : 'Novo usuário');
+      await db.collection('users').doc(user.uid).set({
+        name: nome, email: user.email || '', house: '',
+        role: user.email === ADMIN_EMAIL ? 'admin' : 'usuario',
+        status: user.email === ADMIN_EMAIL ? 'approved' : 'pending',
+        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+      });
+      if (user.email !== ADMIN_EMAIL && typeof notifyAdminNewUser === 'function') {
+        notifyAdminNewUser(nome, user.email || '');
+      }
+      snap = await db.collection('users').doc(user.uid).get();
+    }
     currentUserData = snap.data();
 
     if (currentUserData.status === 'pending') { showAuthScreen('pending'); return; }
@@ -208,6 +226,17 @@ async function reenviarConfirmacaoEmail() {
     document.getElementById('login-reenviar-wrap').style.display = 'none';
   } catch (e) {
     showAlert('login-alert', friendlyAuthError(e.code), 'danger');
+  }
+}
+
+async function doLoginGoogle() {
+  hideAlert('login-alert');
+  try {
+    await auth.signInWithGoogle();
+    // A partir daqui o navegador redireciona pro Google; ao voltar, a sessão
+    // já vem pronta e quem trata o resto é o auth.onAuthStateChanged normal.
+  } catch (e) {
+    showAlert('login-alert', 'Não foi possível iniciar o login com Google agora. Tente novamente em instantes.', 'danger');
   }
 }
 
