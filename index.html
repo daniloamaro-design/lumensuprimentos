@@ -291,6 +291,10 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg>
         Dashboard
       </button>
+      <button class="sidebar-item" data-page="diretoria-percapita" onclick="goPageMobile('diretoria-percapita')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        Per Capita
+      </button>
       <button class="sidebar-item" data-page="ind-geral" onclick="goPageMobile('ind-geral')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg>
         Indicadores Gerais
@@ -2354,6 +2358,49 @@
     </div>
   </div>
 
+  <!-- PAGE: Per Capita (Diretoria) -->
+  <div class="page" id="page-diretoria-percapita">
+    <div class="page-header"><h1 class="page-title">👥 Per Capita</h1></div>
+    <div class="card" style="margin-bottom:16px;"><div class="card-body">
+      <label class="form-label">Casas</label>
+      <div id="pcd-casa-chips" style="display:flex;flex-wrap:wrap;gap:6px;max-height:100px;overflow:auto;padding:4px 0;"></div>
+      <div style="font-size:11px;color:var(--text-muted);margin:4px 0 14px;">
+        <a href="#" onclick="pcdCasaSelectAll();return false;">Selecionar todas</a> ·
+        <a href="#" onclick="pcdCasaClearAll();return false;">Limpar</a>
+        <span id="pcd-casa-count"></span>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;">
+        <div><label class="form-label">Período A · Início</label><input type="date" class="form-input" id="pcd-a-ini"></div>
+        <div><label class="form-label">Período A · Fim</label><input type="date" class="form-input" id="pcd-a-fim"></div>
+        <div><label class="form-label">Período B · Início <span style="color:var(--text-muted);font-weight:400;">(opcional, p/ comparar)</span></label><input type="date" class="form-input" id="pcd-b-ini"></div>
+        <div><label class="form-label">Período B · Fim</label><input type="date" class="form-input" id="pcd-b-fim"></div>
+      </div>
+      <div style="margin-top:14px;"><button class="btn btn-primary" onclick="pcdCalcular()">Calcular</button></div>
+    </div></div>
+
+    <div id="pcd-resultado" style="display:none;">
+      <div id="pcd-kpis" style="margin-bottom:16px;"></div>
+      <div class="card" style="margin-bottom:16px;"><div class="card-header"><b>Per capita por categoria</b></div>
+        <div class="card-body"><div class="table-wrap"><table class="fin-table">
+          <thead><tr><th>Categoria</th><th style="text-align:right;">Período A</th><th style="text-align:right;">Período B</th><th style="text-align:right;">Variação</th></tr></thead>
+          <tbody id="pcd-tbody-cat"></tbody>
+        </table></div>
+        <div style="font-size:11px;color:var(--text-muted);margin-top:8px;">Pedidos com mais de uma categoria têm o valor e a quantidade de pessoas rateados igualmente entre as categorias do pedido (não há registro de quanto de cada categoria dentro de um pedido misto).</div>
+        </div>
+      </div>
+      <div class="card"><div class="card-header" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+          <b>Evolução do per capita</b>
+          <div style="display:flex;gap:6px;">
+            <button class="btn btn-outline btn-sm" id="pcd-btn-mensal" onclick="pcdSetGranularidade('mensal')">Mensal</button>
+            <button class="btn btn-outline btn-sm" id="pcd-btn-anual" onclick="pcdSetGranularidade('anual')">Anual</button>
+          </div>
+        </div>
+        <div class="card-body"><div style="position:relative;height:280px;"><canvas id="pcd-chart-evolucao"></canvas></div></div>
+      </div>
+    </div>
+    <div id="pcd-vazio" class="empty-state"><div class="empty-state-icon">👥</div><div class="empty-state-title">Selecione as casas e o Período A, depois clique em Calcular.</div></div>
+  </div>
+
   <!-- PAGE: Indicadores Gerais (transversal — Suprimentos + Passagens + Fretes) -->
   <div class="page" id="page-ind-geral">
     <div class="page-header"><h1 class="page-title">📊 Indicadores Gerais</h1></div>
@@ -3035,7 +3082,7 @@
 <script src="js/01-core.js?v=5"></script>
 <script src="js/02-auth.js?v=3"></script>
 <script src="js/03-navegacao.js?v=2"></script>
-<script src="js/04-percapita.js?v=9"></script>
+<script src="js/04-percapita.js?v=10"></script>
 <script src="js/05-cadastros.js?v=1"></script>
 <script src="js/06-pedidos.js?v=3"></script>
 <script src="js/07-estoque-ia-form.js?v=2"></script>
@@ -3049,8 +3096,9 @@
 <script src="js/15-fornecedores-metas.js?v=2"></script>
 <script src="js/16-chat-ia.js?v=2"></script>
 <script src="js/17-metas-wrappers.js?v=2"></script>
-<script src="js/18-erp.js?v=18"></script>
+<script src="js/18-erp.js?v=19"></script>
 <script src="js/19-dashboard-diretoria.js?v=1"></script>
+<script src="js/20-percapita-diretoria.js?v=1"></script>
 <!-- CHAT IA FLUTUANTE -->
 <!-- ════════ GEMINI IA — botão movido para a barra superior (id: chat-ia-topbar-btn) ════════ -->
 

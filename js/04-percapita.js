@@ -537,6 +537,7 @@ function goPage(page) {
   if (page === 'pas-calendario') setTimeout(loadPasCalendario, 50);
   if (page === 'ind-geral') setTimeout(loadIndGeral, 50);
   if (page === 'diretoria-dashboard') setTimeout(initDashboardDiretoria, 50);
+  if (page === 'diretoria-percapita') setTimeout(initDiretoriaPercapita, 50);
   if (page === 'plano-acao') setTimeout(loadPlanoAcao, 50);
   // Permissões (U4)
   if (page === 'permissoes') setTimeout(loadPermissoesUI, 50);
