@@ -1575,7 +1575,7 @@ async function saveAttachment() {
 
   const update = {
     nfNumero, nfValor: parseFloat(nfValor)||0,
-    boletoVencimento: boletoVenc,
+    boletoVencimento: boletoVenc || null,
     fornecedorId, fornecedorNome, attachObs,
     updatedAt: firebase.firestore.FieldValue.serverTimestamp()
   };
