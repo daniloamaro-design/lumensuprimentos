@@ -728,7 +728,7 @@ async function opcGerenteDecisao(cotId, valor) {
             fornecedorId: cotData.fornecedorId || '',
             fornecedorNome: cotData.fornecedorNome || '',
             nfValor: parseFloat(cotData.valor) || 0,
-            boletoVencimento,
+            boletoVencimento: boletoVencimento || null,
           };
           await db.collection('orders').doc(orderId).update(orderUpdateData);
 
