@@ -164,9 +164,10 @@ function abrirFreteDetalhe(id) {
   const formAtrib = semFreteiro && f.status !== 'cancelado' ? `
     <div style="border-top:1px dashed var(--border);padding-top:8px;">
       <div style="font-weight:600;font-size:13px;margin-bottom:6px;">Atribuir freteiro e valor</div>
-      <div style="display:grid;grid-template-columns:1fr 110px auto;gap:8px;align-items:end;">
+      <div style="display:grid;grid-template-columns:1fr 110px 140px auto;gap:8px;align-items:end;">
         <div><label class="form-label">Freteiro</label><select class="form-select" id="frt-atrib-forn"><option value="">Selecione…</option></select></div>
         <div><label class="form-label">Valor</label><input class="form-input" id="frt-atrib-valor" type="number" step="0.01" min="0" value="${f.valor || ''}"></div>
+        <div><label class="form-label">Previsão entrega</label><input class="form-input" id="frt-atrib-previsao" type="date" value="${f.previsaoEntrega || ''}"></div>
         <div><button class="btn btn-primary btn-sm" onclick="frtAtribuirFreteiro('${f.id}')">Salvar</button></div>
       </div>
     </div>` : '';
@@ -183,6 +184,28 @@ function abrirFreteDetalhe(id) {
       </div>
     </div>` : '';
 
+  // Form de informar/alterar previsão de entrega (enquanto ainda não foi entregue).
+  const formPrevisao = (!semFreteiro && f.status !== 'cancelado' && f.status !== 'entregue') ? `
+    <div style="border-top:1px dashed var(--border);padding-top:8px;">
+      <div style="font-weight:600;font-size:13px;margin-bottom:6px;">${f.previsaoEntrega ? 'Alterar previsão de entrega' : '📅 Informar previsão de entrega'}</div>
+      <div style="display:grid;grid-template-columns:1fr auto;gap:8px;align-items:end;">
+        <div><label class="form-label">Previsão de entrega</label><input class="form-input" id="frt-det-previsao" type="date" value="${f.previsaoEntrega || ''}"></div>
+        <div><button class="btn btn-primary btn-sm" onclick="frtSalvarPrevisao('${f.id}')">Salvar</button></div>
+      </div>
+    </div>` : '';
+
+  // Uma vez entregue, mostra se cumpriu a previsão (comparando com a data
+  // real registrada no histórico quando "Marcar entregue" foi clicado).
+  let linhaPrazo = '';
+  if (f.status === 'entregue' && f.previsaoEntrega) {
+    const histEntrega = hist.slice().reverse().find(h => h.status === 'entregue');
+    const dataEntregaReal = histEntrega ? String(histEntrega.data || '').slice(0, 10) : null;
+    if (dataEntregaReal) {
+      const noPrazo = dataEntregaReal <= f.previsaoEntrega;
+      linhaPrazo = linha('Cumprimento do prazo', `<span style="font-weight:700;color:${noPrazo ? 'var(--ok,#059669)' : 'var(--danger,#dc2626)'};">${noPrazo ? '✅ No prazo' : '⚠️ Atrasado'}</span> <span style="color:var(--text-muted);font-size:12px;">(entregue em ${frtDataBR(dataEntregaReal)})</span>`);
+    }
+  }
+
   document.getElementById('frt-det-body').innerHTML = `
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
       ${linha('Situação', frtStatusBadge(f.status))}
@@ -190,7 +213,9 @@ function abrirFreteDetalhe(id) {
       ${linha('Freteiro', frtEsc(f.freteiroNome || '— (a definir)'))}
       ${linha('Valor', f.valor > 0 ? frtBRL(f.valor) : '<span style="color:var(--warn);">— (a informar)</span>')}
       ${linha('Pagamento', frtBadgePag(f.statusPag) + (Number(f.valorPago) ? ` (${frtBRL(f.valorPago)})` : ''))}
+      ${linha('Previsão de entrega', f.previsaoEntrega ? frtDataBR(f.previsaoEntrega) : '— (não informada)')}
     </div>
+    ${linhaPrazo}
     ${linha('Origem', frtEsc(f.origem || '—'))}
     ${paradas.length ? linha('Paradas', paradas.map(p => frtEsc(p)).join('<br>')) : ''}
     ${linha('Destino', frtEsc(f.destino || '—'))}
@@ -201,6 +226,7 @@ function abrirFreteDetalhe(id) {
     ${hist.length ? linha('Histórico', hist.map(h => `• ${frtEsc(typeof h === 'string' ? h : (h.texto || h.acao || JSON.stringify(h)))}`).join('<br>')) : ''}
     ${formAtrib}
     ${formValor}
+    ${formPrevisao}
     ${acoes.length ? `<div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;">${acoes.join('')}</div>` : ''}
   `;
   openModal('modal-frete-detalhe');
@@ -227,6 +253,25 @@ async function frtSalvarValor(id) {
 }
 window.frtSalvarValor = frtSalvarValor;
 
+async function frtSalvarPrevisao(id) {
+  const previsaoEntrega = document.getElementById('frt-det-previsao').value;
+  if (!previsaoEntrega) return showToast('⚠️ Informe uma data válida.');
+  const f = _fretesCache.find(x => x.id === id);
+  const nome = (typeof currentUserData !== 'undefined' && currentUserData?.name) || null;
+  try {
+    const hist = { acao: `Previsão de entrega ${f?.previsaoEntrega ? 'alterada' : 'definida'}: ${frtDataBR(previsaoEntrega)}`, por: nome, data: new Date().toISOString() };
+    await db.collection('fretes').doc(id).update({
+      previsaoEntrega,
+      historico: firebase.firestore.FieldValue.arrayUnion(hist),
+      updatedBy: nome, updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+    });
+    if (f) { f.previsaoEntrega = previsaoEntrega; f.historico = [...(Array.isArray(f.historico) ? f.historico : []), hist]; }
+    showToast('✅ Previsão de entrega atualizada.');
+    abrirFreteDetalhe(id);
+  } catch (e) { console.error(e); showToast('❌ Erro: ' + e.message); }
+}
+window.frtSalvarPrevisao = frtSalvarPrevisao;
+
 // Monta o link de direções do Google Maps a partir dos endereços (sem API)
 function rotaGoogleMapsUrl(origem, destino, paradas) {
   const enc = s => encodeURIComponent(s || '');
@@ -242,6 +287,7 @@ async function frtAtribuirFreteiro(id) {
   const fid = sel.value;
   const fnome = sel.selectedOptions[0]?.dataset.nome || '';
   const valor = Number(document.getElementById('frt-atrib-valor').value);
+  const previsaoEntrega = document.getElementById('frt-atrib-previsao').value || null;
   if (!fid) return showToast('⚠️ Selecione o freteiro.');
   if (!(valor > 0)) return showToast('⚠️ Informe o valor.');
   const f = _fretesCache.find(x => x.id === id);
@@ -249,12 +295,12 @@ async function frtAtribuirFreteiro(id) {
   try {
     const hist = { acao: `Freteiro atribuído: ${fnome} (${frtBRL(valor)}) — liberado para transporte`, status: 'transporte', por: nome, data: new Date().toISOString() };
     await db.collection('fretes').doc(id).update({
-      freteiroId: fid, freteiroNome: fnome, valor,
+      freteiroId: fid, freteiroNome: fnome, valor, previsaoEntrega,
       status: 'transporte', etapaStatus: 'transporte', statusPag: 'pendente',
       historico: firebase.firestore.FieldValue.arrayUnion(hist),
       updatedBy: nome, updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
     });
-    if (f) { f.freteiroId = fid; f.freteiroNome = fnome; f.valor = valor; f.status = 'transporte'; f.etapaStatus = 'transporte'; f.statusPag = 'pendente'; f.historico = [...(Array.isArray(f.historico) ? f.historico : []), hist]; }
+    if (f) { f.freteiroId = fid; f.freteiroNome = fnome; f.valor = valor; f.previsaoEntrega = previsaoEntrega; f.status = 'transporte'; f.etapaStatus = 'transporte'; f.statusPag = 'pendente'; f.historico = [...(Array.isArray(f.historico) ? f.historico : []), hist]; }
     showToast('✅ Freteiro atribuído — frete em transporte.');
     abrirFreteDetalhe(id);
     renderFrtLista();
@@ -465,6 +511,7 @@ async function salvarNovoFrete() {
   const freteiroId = selF.value;
   const freteiroNome = selF.selectedOptions[0]?.dataset.nome || '';
   const data = document.getElementById('frt-n-data').value;
+  const previsaoEntrega = document.getElementById('frt-n-previsao').value || null;
   const origem = document.getElementById('frt-n-origem').value.trim();
   const destino = document.getElementById('frt-n-destino').value.trim();
   const valorRaw = document.getElementById('frt-n-valor').value;
@@ -494,7 +541,7 @@ async function salvarNovoFrete() {
   if (btn) { btn.disabled = true; btn.textContent = 'Salvando…'; }
   try {
     await db.collection('fretes').add({
-      code, data, dateStr: ymd,
+      code, data, dateStr: ymd, previsaoEntrega,
       freteiroId, freteiroNome,
       origem, destino, paradas,
       motivo: document.getElementById('frt-n-motivo').value.trim() || null,
@@ -509,7 +556,7 @@ async function salvarNovoFrete() {
     });
     showToast(`✅ Frete ${code} criado.`);
     // limpa
-    ['frt-n-origem', 'frt-n-destino', 'frt-n-paradas', 'frt-n-motivo', 'frt-n-valor', 'frt-n-obs'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+    ['frt-n-origem', 'frt-n-destino', 'frt-n-paradas', 'frt-n-motivo', 'frt-n-valor', 'frt-n-obs', 'frt-n-previsao'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
     _fretesCache = []; // força recarga
     goPage('frt-lista');
   } catch (e) {
