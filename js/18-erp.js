@@ -202,7 +202,7 @@ function abrirFreteDetalhe(id) {
     const dataEntregaReal = histEntrega ? String(histEntrega.data || '').slice(0, 10) : null;
     if (dataEntregaReal) {
       const noPrazo = dataEntregaReal <= f.previsaoEntrega;
-      linhaPrazo = linha('Cumprimento do prazo', `<span style="font-weight:700;color:${noPrazo ? 'var(--ok,#059669)' : 'var(--danger,#dc2626)'};">${noPrazo ? '✅ No prazo' : '⚠️ Atrasado'}</span> <span style="color:var(--text-muted);font-size:12px;">(entregue em ${frtDataBR(dataEntregaReal)})</span>`);
+      linhaPrazo = linha('Cumprimento do prazo', `<span style="font-weight:700;color:${noPrazo ? 'var(--ok,#059669)' : 'var(--danger,#dc2626)'};">${noPrazo ? '✅ No prazo' : '⚠️ Atrasado'}</span> <span style="color:var(--text-muted);font-size:12px;">(entregue em ${frtDataBR(dataEntregaReal)}${f.previsaoEstimada ? ' — previsão estimada, frete antigo' : ''})</span>`);
     }
   }
 
@@ -213,7 +213,7 @@ function abrirFreteDetalhe(id) {
       ${linha('Freteiro', frtEsc(f.freteiroNome || '— (a definir)'))}
       ${linha('Valor', f.valor > 0 ? frtBRL(f.valor) : '<span style="color:var(--warn);">— (a informar)</span>')}
       ${linha('Pagamento', frtBadgePag(f.statusPag) + (Number(f.valorPago) ? ` (${frtBRL(f.valorPago)})` : ''))}
-      ${linha('Previsão de entrega', f.previsaoEntrega ? frtDataBR(f.previsaoEntrega) : '— (não informada)')}
+      ${linha('Previsão de entrega', f.previsaoEntrega ? frtDataBR(f.previsaoEntrega) + (f.previsaoEstimada ? ' <span style="color:var(--text-muted);font-size:11px;">(estimada)</span>' : '') : '— (não informada)')}
     </div>
     ${linhaPrazo}
     ${linha('Origem', frtEsc(f.origem || '—'))}
