@@ -66,6 +66,7 @@ async function dashdirAtualizarEntregasPrazo() {
 
     const noPrazo = doMes.filter(f => f._dataEntregaReal <= f.previsaoEntrega).length;
     const pct = (noPrazo / doMes.length) * 100;
+    const temEstimado = doMes.some(f => f.previsaoEstimada);
 
     valorEl.textContent = pct.toFixed(1).replace('.', ',') + '%';
     valorEl.classList.toggle('ruim', pct < 90);
@@ -73,7 +74,7 @@ async function dashdirAtualizarEntregasPrazo() {
       deltaEl.className = 'dashdir-kpi-delta' + (pct >= 90 ? ' good' : ' ruim');
       deltaEl.innerHTML = `${noPrazo}/${doMes.length} <span>entregues no prazo</span>`;
     }
-    if (metaEl) metaEl.textContent = 'Meta: > 90%';
+    if (metaEl) metaEl.textContent = 'Meta: > 90%' + (temEstimado ? ' • inclui previsão estimada (fretes antigos)' : '');
   } catch (e) {
     console.error('dashdirAtualizarEntregasPrazo', e);
     valorEl.textContent = 'Erro';
