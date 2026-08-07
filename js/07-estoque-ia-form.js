@@ -472,6 +472,34 @@ function svStatusFromDays(days) {
 let _svMovSnap = null;
 let _svHousesData = {};
 
+// Busca movements + movement_items em 2 consultas separadas (em vez do
+// select=*,movement_items(*) embutido) e junta no navegador. A versão
+// embutida some do PostgREST com "canceling statement due to statement
+// timeout" quando combinada com as políticas de RLS — 2 consultas simples
+// (cada uma rápida sozinha) resolvem sem mudar o resultado. Devolve no
+// mesmo formato de snapshot que db.collection(...).get() já devolvia,
+// pra não precisar mexer em quem consome (só monta house/type/items, os
+// únicos campos de movement que esta tela usa).
+async function svCarregarMovements() {
+  const [{ data: movs, error: e1 }, { data: itens, error: e2 }] = await Promise.all([
+    window._sb.from('movements').select('id, house, type'),
+    window._sb.from('movement_items').select('movement_id, cat_key, prod_id, unidade, prod_nome, qty'),
+  ]);
+  if (e1) throw e1;
+  if (e2) throw e2;
+  const porMov = {};
+  (itens || []).forEach(it => {
+    (porMov[it.movement_id] = porMov[it.movement_id] || []).push({
+      catKey: it.cat_key, prodId: it.prod_id, unidade: it.unidade, prodNome: it.prod_nome, qty: it.qty,
+    });
+  });
+  const docs = (movs || []).map(m => ({
+    id: m.id,
+    data: () => ({ house: m.house, type: m.type, items: porMov[m.id] || [] }),
+  }));
+  return { docs };
+}
+
 async function loadStockView() {
   document.getElementById('sv-loading').style.display = 'flex';
   document.getElementById('sv-houses-grid').innerHTML = '';
@@ -480,7 +508,7 @@ async function loadStockView() {
 
   // Carrega movimentações e dados de pessoas em paralelo
   const [movSnap, housesSnap] = await Promise.all([
-    db.collection('movements').get(),
+    svCarregarMovements(),
     db.collection('houses').get()
   ]);
   _svMovSnap = movSnap;
@@ -800,9 +828,9 @@ async function svRefreshDetail() {
   if (btn)  btn.disabled = true;
 
   try {
-    // Recarrega os movimentos do Firebase
+    // Recarrega os movimentos
     const [movSnap, housesSnap] = await Promise.all([
-      db.collection('movements').get(),
+      svCarregarMovements(),
       db.collection('houses').get()
     ]);
 
