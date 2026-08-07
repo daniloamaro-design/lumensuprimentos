@@ -28,6 +28,57 @@ function selecionarModulo(m) {
 window.selecionarModulo = selecionarModulo;
 
 /* ══════════════════════════════════════════════════════════════════════
+   TELA INICIAL — escolha de módulo, aparece 1x por sessão logo após o
+   login (antes disso o app sempre caía direto no módulo Suprimentos).
+   Os botões espelham os módulos que o perfil tem acesso (mesma lista já
+   filtrada por aplicarPermissoesSidebar em #modulo-switcher).
+   ══════════════════════════════════════════════════════════════════════ */
+function mostrarTelaInicio() {
+  const tela = document.getElementById('inicio-screen');
+  if (!tela) return;
+
+  const saud = document.getElementById('inicio-saudacao');
+  if (saud) {
+    const nome = (typeof currentUserData !== 'undefined' && currentUserData?.name) || '';
+    saud.textContent = nome ? `Bem-vindo(a), ${nome}!` : 'Bem-vindo(a)!';
+  }
+
+  const logo = document.getElementById('inicio-logo');
+  const logoLogin = document.querySelector('.login-logo-wrap img');
+  if (logo && logoLogin) logo.src = logoLogin.src;
+
+  const cont = document.getElementById('inicio-modulos');
+  if (cont) {
+    const visiveis = [...document.querySelectorAll('#modulo-switcher .modulo-btn')]
+      .filter(b => b.style.display !== 'none');
+    cont.innerHTML = visiveis.map(b => {
+      const texto = b.textContent.trim();
+      const icone = texto.split(' ')[0];
+      const label = texto.slice(icone.length).trim();
+      return `<button class="inicio-modulo-btn" onclick="entrarModuloInicio('${b.dataset.mod}')">
+        <span class="inicio-modulo-icone">${icone}</span><span>${frtEsc(label)}</span>
+      </button>`;
+    }).join('');
+  }
+
+  tela.style.display = 'flex';
+}
+window.mostrarTelaInicio = mostrarTelaInicio;
+
+function entrarModuloInicio(m) {
+  const tela = document.getElementById('inicio-screen');
+  if (tela) tela.style.display = 'none';
+  const nav = document.getElementById('sidebar');
+  if (nav && nav.dataset.mod === m) {
+    // já foi montado na página certa do perfil no login — só tira a tela de cima
+    document.querySelectorAll('.modulo-btn').forEach(b => b.classList.toggle('ativo', b.dataset.mod === m));
+    return;
+  }
+  selecionarModulo(m);
+}
+window.entrarModuloInicio = entrarModuloInicio;
+
+/* ══════════════════════════════════════════════════════════════════════
    MÓDULO FRETES (nativo) — lê/grava as tabelas fretes / fretes_metas e os
    freteiros em suppliers (tipos contém 'frete'), via o shim js/00-db.js.
    ══════════════════════════════════════════════════════════════════════ */
