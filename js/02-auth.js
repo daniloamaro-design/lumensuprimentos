@@ -430,6 +430,12 @@ async function showApp() {
     const mh = document.getElementById('mov-house');
     if (mh) mh.value = currentUserData.house || '';
   }
+
+  // Tela inicial (escolha de módulo) por cima do app, 1x por sessão — o
+  // módulo Suprimentos já foi montado na página certa do perfil acima;
+  // se a pessoa clicar "Suprimentos" na tela inicial, entrarModuloInicio()
+  // percebe que já está lá e só tira a tela de cima, sem renavegar.
+  if (typeof mostrarTelaInicio === 'function') mostrarTelaInicio();
 }
 
 function populateHouseSelects() {
