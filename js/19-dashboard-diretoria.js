@@ -81,7 +81,8 @@ async function dashdirAtualizarEntregasPrazo() {
 window.dashdirAtualizarEntregasPrazo = dashdirAtualizarEntregasPrazo;
 
 // Desvio Orçamentário de Passagens: gasto real do mês (compras_financeiro,
-// modulo=passagens) vs. orçamento mensal cadastrado em Passagens > Orçamento
+// modulo=passagens, filtrado por VENCIMENTO — decisão da Diretoria, não
+// data de compra) vs. orçamento mensal cadastrado em Passagens > Orçamento
 // (tabela metas, modulo=passagens, cat_key='geral', meta_mes — o mesmo valor
 // mensal vale pra qualquer mês daquele ano).
 async function dashdirAtualizarDesvioPassagens() {
@@ -106,8 +107,10 @@ async function dashdirAtualizarDesvioPassagens() {
     const de = `${ano}-${String(mes + 1).padStart(2, '0')}-01`;
     const proxMes = new Date(ano, mes + 1, 1);
     const ate = `${proxMes.getFullYear()}-${String(proxMes.getMonth() + 1).padStart(2, '0')}-01`;
+    // Por decisão da Diretoria (2026-08-07): o mês do desvio é o do
+    // VENCIMENTO (quando o pagamento cai), não o da data de compra.
     const { data: fin, error: errFin } = await window._sb.from('compras_financeiro').select('valor')
-      .eq('modulo', 'passagens').gte('data_compra', de).lt('data_compra', ate);
+      .eq('modulo', 'passagens').gte('vencimento', de).lt('vencimento', ate);
     if (errFin) throw errFin;
     const gastoReal = (fin || []).reduce((s, r) => s + (Number(r.valor) || 0), 0);
 
@@ -208,17 +211,30 @@ function dashdirEsc(s) {
   return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 
+const DASHDIR_MESES = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+
+// Lista suspensa única "Mês/Ano" (ex.: "Junho/2026") — de jan/(ano-1) até
+// dez/(ano+1), mês atual pré-selecionado.
 function dashdirPopularSeletorPeriodo() {
   const sel = document.getElementById('dashdir-periodo');
-  if (sel && !sel.value) {
-    const hoje = new Date();
-    sel.value = `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, '0')}`;
+  if (!sel || sel.options.length) return;
+  const hoje = new Date();
+  const anoAtual = hoje.getFullYear();
+  const atual = `${anoAtual}-${String(hoje.getMonth() + 1).padStart(2, '0')}`;
+  const opts = [];
+  for (const ano of [anoAtual - 1, anoAtual, anoAtual + 1]) {
+    for (let m = 0; m < 12; m++) {
+      const valor = `${ano}-${String(m + 1).padStart(2, '0')}`;
+      opts.push(`<option value="${valor}">${DASHDIR_MESES[m]}/${ano}</option>`);
+    }
   }
+  sel.innerHTML = opts.join('');
+  sel.value = atual;
 }
 
-// Lê o seletor único de período (input type=month, "YYYY-MM") e devolve
-// {ano, mes} com mês 0-based (igual Date.getMonth()) — usado pelos 4
-// indicadores reais do Dashboard, todos filtrados pelo mesmo período.
+// Lê o seletor único de período ("YYYY-MM") e devolve {ano, mes} com mês
+// 0-based (igual Date.getMonth()) — usado pelos 4 indicadores reais do
+// Dashboard, todos filtrados pelo mesmo período.
 function dashdirPeriodoAtual() {
   const sel = document.getElementById('dashdir-periodo');
   const v = sel && sel.value; // "YYYY-MM"
