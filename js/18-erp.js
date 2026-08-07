@@ -7,6 +7,16 @@
    Suprimentos (definido em showApp, js/02-auth.js).
    ══════════════════════════════════════════════════════════════════════ */
 
+// Botão "Hub Central" (Diretoria) — leva pra um sistema externo (fora do
+// ERP), na mesma aba. URL ainda não recebida do usuário; preencher aqui
+// quando chegar (só essa linha muda, nada mais no fluxo).
+const HUB_CENTRAL_URL = '';
+function abrirHubCentral() {
+  if (!HUB_CENTRAL_URL) { showToast('⚠️ URL do Hub Central ainda não configurada.'); return; }
+  window.location.href = HUB_CENTRAL_URL;
+}
+window.abrirHubCentral = abrirHubCentral;
+
 function selecionarModulo(m) {
   const nav = document.getElementById('sidebar');
   if (!nav) return;

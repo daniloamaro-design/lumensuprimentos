@@ -30,20 +30,17 @@ window.dashdirAtualizarPeriodo = dashdirAtualizarPeriodo;
 // selecionado (pela data real de entrega, tirada do histórico) e que têm
 // previsaoEntrega preenchida, qual % chegou até a data prevista.
 async function dashdirAtualizarEntregasPrazo() {
-  const mesSel = document.getElementById('dashdir-mes');
-  const anoSel = document.getElementById('dashdir-ano');
   const valorEl = document.getElementById('dashdir-kpi-prazo-valor');
   const deltaEl = document.getElementById('dashdir-kpi-prazo-delta');
   const metaEl = document.getElementById('dashdir-kpi-prazo-meta');
-  if (!mesSel || !anoSel || !valorEl) return;
+  if (!valorEl) return;
 
   valorEl.textContent = '…';
   if (deltaEl) deltaEl.textContent = '';
   if (metaEl) { metaEl.textContent = ''; metaEl.className = 'dashdir-kpi-meta'; }
 
   try {
-    const ano = parseInt(anoSel.value, 10);
-    const mes = parseInt(mesSel.value, 10); // 0-11
+    const { ano, mes } = dashdirPeriodoAtual(); // mes 0-11
 
     const snap = await db.collection('fretes').get();
     const fretes = snap.docs.map(d => d.data()).filter(f => f.status === 'entregue' && f.previsaoEntrega);
@@ -88,12 +85,10 @@ window.dashdirAtualizarEntregasPrazo = dashdirAtualizarEntregasPrazo;
 // (tabela metas, modulo=passagens, cat_key='geral', meta_mes — o mesmo valor
 // mensal vale pra qualquer mês daquele ano).
 async function dashdirAtualizarDesvioPassagens() {
-  const mesSel = document.getElementById('dashdir-mes');
-  const anoSel = document.getElementById('dashdir-ano');
   const valorEl = document.getElementById('dashdir-kpi-desvio-valor');
   const pctEl = document.getElementById('dashdir-kpi-desvio-pct');
   const metaEl = document.getElementById('dashdir-kpi-desvio-meta');
-  if (!mesSel || !anoSel || !valorEl) return;
+  if (!valorEl) return;
 
   valorEl.textContent = '…';
   valorEl.classList.remove('ruim');
@@ -101,8 +96,7 @@ async function dashdirAtualizarDesvioPassagens() {
   if (metaEl) { metaEl.textContent = ''; metaEl.className = 'dashdir-kpi-meta'; }
 
   try {
-    const ano = parseInt(anoSel.value, 10);
-    const mes = parseInt(mesSel.value, 10); // 0-11
+    const { ano, mes } = dashdirPeriodoAtual(); // mes 0-11
 
     const { data: metas, error: errMeta } = await window._sb.from('metas').select('meta_mes')
       .eq('modulo', 'passagens').eq('cat_key', 'geral').eq('ano', ano).maybeSingle();
@@ -148,8 +142,6 @@ let _dashdirPasCache = null; // todas as passagens_solicitacoes — filtradas cl
 // seletor do cabeçalho, usando a data da compra (dataCompra) — mesmo
 // critério de período usado no Desvio Orçamentário.
 async function dashdirCarregarMotivos() {
-  const mesSel = document.getElementById('dashdir-mes');
-  const anoSel = document.getElementById('dashdir-ano');
   const totalEl = document.getElementById('dashdir-donut-total');
   const legendo = document.getElementById('dashdir-legend-donut');
   if (totalEl) totalEl.textContent = '…';
@@ -158,8 +150,7 @@ async function dashdirCarregarMotivos() {
       const snap = await db.collection('passagens_solicitacoes').get();
       _dashdirPasCache = snap.docs.map(d => d.data());
     }
-    const ano = anoSel ? parseInt(anoSel.value, 10) : null;
-    const mes = mesSel ? parseInt(mesSel.value, 10) : null; // 0-11
+    const { ano, mes } = dashdirPeriodoAtual(); // mes 0-11
 
     const sols = _dashdirPasCache.filter(s => {
       if (!s.dataCompra) return false;
@@ -218,20 +209,22 @@ function dashdirEsc(s) {
 }
 
 function dashdirPopularSeletorPeriodo() {
-  const hoje = new Date();
-  const mesSel = document.getElementById('dashdir-mes');
-  const anoSel = document.getElementById('dashdir-ano');
-  if (mesSel && !mesSel.options.length) {
-    const nomes = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
-    mesSel.innerHTML = nomes.map((n, i) => `<option value="${i}">📅 ${n}</option>`).join('');
-    mesSel.value = String(hoje.getMonth());
+  const sel = document.getElementById('dashdir-periodo');
+  if (sel && !sel.value) {
+    const hoje = new Date();
+    sel.value = `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, '0')}`;
   }
-  if (anoSel && !anoSel.options.length) {
-    const anoAtual = hoje.getFullYear();
-    const anos = [anoAtual - 1, anoAtual, anoAtual + 1];
-    anoSel.innerHTML = anos.map(a => `<option value="${a}">📅 Ano: ${a}</option>`).join('');
-    anoSel.value = String(anoAtual);
-  }
+}
+
+// Lê o seletor único de período (input type=month, "YYYY-MM") e devolve
+// {ano, mes} com mês 0-based (igual Date.getMonth()) — usado pelos 4
+// indicadores reais do Dashboard, todos filtrados pelo mesmo período.
+function dashdirPeriodoAtual() {
+  const sel = document.getElementById('dashdir-periodo');
+  const v = sel && sel.value; // "YYYY-MM"
+  if (!v) { const h = new Date(); return { ano: h.getFullYear(), mes: h.getMonth() }; }
+  const [ano, mes] = v.split('-').map(Number);
+  return { ano, mes: mes - 1 };
 }
 
 function dashdirDataPedido(o) {
@@ -288,12 +281,10 @@ function dashdirSomaMes(pedidos, ano, mes) {
 }
 
 async function dashdirAtualizarPerCapita() {
-  const mesSel = document.getElementById('dashdir-mes');
-  const anoSel = document.getElementById('dashdir-ano');
   const valorEl = document.getElementById('dashdir-kpi-percapita-valor');
   const deltaEl = document.getElementById('dashdir-kpi-percapita-delta');
   const qtdEl = document.getElementById('dashdir-kpi-percapita-qtd');
-  if (!mesSel || !anoSel || !valorEl) return;
+  if (!valorEl) return;
 
   valorEl.textContent = '…';
   if (deltaEl) deltaEl.textContent = '';
@@ -301,8 +292,7 @@ async function dashdirAtualizarPerCapita() {
 
   try {
     const pedidos = await dashdirCarregarPedidos();
-    const mes = parseInt(mesSel.value, 10);
-    const ano = parseInt(anoSel.value, 10);
+    const { ano, mes } = dashdirPeriodoAtual();
 
     const atual = dashdirSomaMes(pedidos, ano, mes);
     const mesAnteriorData = new Date(ano, mes - 1, 1);
