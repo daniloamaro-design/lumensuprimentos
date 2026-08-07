@@ -1214,6 +1214,48 @@ async function salvarPasSolicitacao() {
 }
 window.salvarPasSolicitacao = salvarPasSolicitacao;
 
+// ── Orçamento de Passagens (usa a tabela metas já existente, modulo='passagens',
+// cat_key fixo 'geral' — 1 linha por ano; meta_mes é aplicada a todos os meses
+// daquele ano no indicador "Desvio Orçamentário" do Dashboard/Diretoria) ──
+async function loadPasOrcamento() {
+  const anoEl = document.getElementById('pas-orc-ano');
+  if (anoEl && !anoEl.value) anoEl.value = new Date().getFullYear();
+  const tb = document.getElementById('pas-orc-tbody');
+  if (tb) tb.innerHTML = '<tr><td colspan="3" style="text-align:center;padding:24px;color:var(--text-muted);">Carregando…</td></tr>';
+  try {
+    const { data, error } = await window._sb.from('metas').select('ano,meta_mes,meta_ano')
+      .eq('modulo', 'passagens').eq('cat_key', 'geral').order('ano', { ascending: false });
+    if (error) throw error;
+    if (!tb) return;
+    tb.innerHTML = (data && data.length)
+      ? data.map(m => `<tr><td>${m.ano}</td><td style="text-align:right;">${frtBRL(m.meta_mes)}</td><td style="text-align:right;">${frtBRL(m.meta_ano)}</td></tr>`).join('')
+      : '<tr><td colspan="3" style="text-align:center;padding:24px;color:var(--text-muted);">Nenhum orçamento cadastrado ainda.</td></tr>';
+  } catch (e) {
+    console.error('loadPasOrcamento', e);
+    if (tb) tb.innerHTML = `<tr><td colspan="3" style="text-align:center;padding:24px;color:var(--danger,#dc2626);">Erro: ${frtEsc(e.message)}</td></tr>`;
+  }
+}
+window.loadPasOrcamento = loadPasOrcamento;
+
+async function salvarPasOrcamento() {
+  const ano = parseInt(document.getElementById('pas-orc-ano').value, 10);
+  const mensal = Number(document.getElementById('pas-orc-mensal').value);
+  const anual = Number(document.getElementById('pas-orc-anual').value) || 0;
+  if (!ano) return showToast('⚠️ Informe o ano.');
+  if (!(mensal > 0)) return showToast('⚠️ Informe o orçamento mensal.');
+  try {
+    const { error } = await window._sb.from('metas').upsert({
+      ano, cat_key: 'geral', modulo: 'passagens', meta_semana: 0, meta_mes: mensal, meta_ano: anual,
+    }, { onConflict: 'ano,cat_key,modulo' });
+    if (error) throw error;
+    showToast('✅ Orçamento salvo.');
+    document.getElementById('pas-orc-mensal').value = '';
+    document.getElementById('pas-orc-anual').value = '';
+    loadPasOrcamento();
+  } catch (e) { console.error(e); showToast('❌ Erro ao salvar: ' + e.message); }
+}
+window.salvarPasOrcamento = salvarPasOrcamento;
+
 /* ══════════════════════════════════════════════════════════════════════
    U4 — PERMISSÕES EDITÁVEIS (perfil × página)
    Fonte da verdade: tabela role_permissions (uma linha por perfil, lista de
@@ -1231,7 +1273,8 @@ const _SUP_PAGES = ['dashboard', 'users', 'houses', 'manage-houses', 'manage-cit
   'new-order', 'movement', 'stock-view', 'transferencias', 'orcamento-financeiro', 'orc-pendentes',
   'fornecedores', 'my-orders', 'prices', 'percapita', 'calc-real', 'previsao', 'rotina-estoque',
   'cardapio-diario', 'financeiro-compras', 'indicadores', 'irmaos', 'ind-fornecedores', 'metas',
-  'var-solicitacoes', 'var-orcamento', 'var-proposta', 'var-historico', 'var-setores', 'solicitar-ajuste'];
+  'var-solicitacoes', 'var-orcamento', 'var-proposta', 'var-historico', 'var-setores', 'solicitar-ajuste',
+  'pas-orcamento'];
 const _TODAS_PAGES = [..._SUP_PAGES, ..._MOD_PAGES];
 
 // Matriz padrão = espelha o comportamento atual (js/04-percapita.js antigo)

@@ -534,6 +534,7 @@ function goPage(page) {
   if (page === 'pas-nova') setTimeout(loadPasNovaForm, 50);
   if (page === 'pas-indicadores') setTimeout(loadPasIndicadores, 50);
   if (page === 'pas-calendario') setTimeout(loadPasCalendario, 50);
+  if (page === 'pas-orcamento') setTimeout(loadPasOrcamento, 50);
   if (page === 'ind-geral') setTimeout(loadIndGeral, 50);
   if (page === 'diretoria-dashboard') setTimeout(initDashboardDiretoria, 50);
   if (page === 'diretoria-percapita') setTimeout(initDiretoriaPercapita, 50);
