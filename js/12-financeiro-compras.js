@@ -18,19 +18,50 @@ const FMT_FIN = v => 'R$ ' + (parseFloat(v)||0).toLocaleString('pt-BR',{minimumF
 const FIN_PAGO = v => v === 'Sim' || v === 'Pago';
 
 // Fretes tem financeiro próprio (tabela 'fretes', não entra em compras_financeiro).
-// Carregado 1x p/ o card "Consolidado por Módulo" mostrar o total real de Fretes.
+// Carrega e converte cada frete numa "linha" no mesmo formato de finDados
+// (fornecedor/classificacao/destinatario/mes/ano/valor/pago/modulo…), pra
+// aparecer de verdade na tabela/gráficos/exportação quando o filtro Módulo
+// = Frete for usado — não só no card "Consolidado por Módulo".
 let finFretesResumo = { total: 0, pago: 0, qtd: 0 };
+let finFretesLinhas = [];
+const _FIN_MESES_UP = ['JANEIRO','FEVEREIRO','MARÇO','ABRIL','MAIO','JUNHO','JULHO','AGOSTO','SETEMBRO','OUTUBRO','NOVEMBRO','DEZEMBRO'];
+function _finDataBR(v) {
+  if (!v) return '';
+  const s = String(v.toDate ? v.toDate().toISOString() : v);
+  const m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  return m ? `${m[3]}/${m[2]}/${m[1]}` : '';
+}
 async function finCarregarResumoFretes() {
   try {
     const snap = await db.collection('fretes').get();
     const r = { total: 0, pago: 0, qtd: 0 };
+    const linhas = [];
     snap.docs.forEach(d => {
       const f = d.data();
       const val = Number(f.valor) || 0;
       r.total += val; r.qtd += 1;
       if (f.statusPag === 'pago') r.pago += val;
+
+      const dataStr = String(f.data || f.createdAt || '');
+      const m = dataStr.match(/^(\d{4})-(\d{2})/);
+      linhas.push({
+        id: d.id,
+        modulo: 'frete',
+        fornecedor: f.freteiroNome || '— (sem freteiro)',
+        classificacao: 'Frete',
+        destinatario: [f.origem, f.destino].filter(Boolean).join(' → ') || '—',
+        mes: m ? _FIN_MESES_UP[parseInt(m[2], 10) - 1] : '',
+        ano: m ? m[1] : '',
+        dataCompraStr: _finDataBR(f.data || f.createdAt),
+        vencimentoStr: '—',
+        diasPrazo: '',
+        valor: val,
+        pago: f.statusPag === 'pago' ? 'Sim' : '',
+        lancadoSP: '',
+      });
     });
     finFretesResumo = r;
+    finFretesLinhas = linhas;
   } catch (e) { console.error('finCarregarResumoFretes:', e); }
 }
 
@@ -60,10 +91,43 @@ function excelDateToStr(serial) {
 // ── Inicializa a página ────────────────────────────────────
 async function initFinanceiroCompras() {
   finSetTab('painel', document.getElementById('fin-tab-painel'));
+  if (typeof suppliersCache !== 'undefined' && !suppliersCache.length) {
+    try { const snap = await db.collection('suppliers').orderBy('nome').get(); suppliersCache = snap.docs.map(d => ({ id: d.id, ...d.data() })); }
+    catch (e) { console.error('suppliers (limite de crédito):', e); }
+  }
   await finCarregarResumoFretes();
   await finCarregarDados();
   await finCarregarNFs();
   pagInicializar();
+}
+
+// Mostra limite/utilizado/disponível do fornecedor selecionado no filtro —
+// pra saber, na hora de decidir um pagamento, se ainda há crédito com ele.
+// suppliers.limite/utilizado é cadastro manual (Suprimentos > Fornecedores);
+// não é recalculado a partir do financeiro real, só exibido aqui.
+function finAtualizarCreditoFornecedor() {
+  const painel = document.getElementById('fin-forn-credito');
+  if (!painel) return;
+  const nomeSel = v('fin-filtro-forn');
+  if (!nomeSel || typeof suppliersCache === 'undefined') { painel.style.display = 'none'; return; }
+  const s = suppliersCache.find(x => (x.nome || '').trim().toLowerCase() === nomeSel.trim().toLowerCase());
+  if (!s) { painel.style.display = 'none'; return; }
+
+  const limite = parseFloat(s.limite) || 0;
+  const utilizado = parseFloat(s.utilizado) || 0;
+  const disponivel = limite - utilizado;
+  const pct = limite > 0 ? Math.min(100, (utilizado / limite) * 100) : 0;
+
+  document.getElementById('fin-forn-credito-nome').textContent = s.nome;
+  document.getElementById('fin-forn-credito-limite').textContent = limite > 0 ? FMT_FIN(limite) : 'Sem limite cadastrado';
+  document.getElementById('fin-forn-credito-utilizado').textContent = FMT_FIN(utilizado);
+  const elDisp = document.getElementById('fin-forn-credito-disponivel');
+  elDisp.textContent = limite > 0 ? FMT_FIN(disponivel) : '—';
+  elDisp.style.color = limite > 0 && disponivel < 0 ? 'var(--danger,#dc2626)' : '';
+  const bar = document.getElementById('fin-forn-credito-bar');
+  bar.style.width = pct.toFixed(1) + '%';
+  bar.style.background = pct >= 100 ? 'var(--danger,#dc2626)' : pct >= 80 ? 'var(--warn,#d97706)' : 'var(--lumen)';
+  painel.style.display = '';
 }
 
 function finSetTab(tab, btn) {
@@ -87,7 +151,9 @@ function finSetTab(tab, btn) {
 async function finCarregarDados() {
   try {
     const snap = await db.collection('compras_financeiro').orderBy('dataCompraSerial','asc').get();
-    finDados = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    // Fretes entra junto (linhas já no mesmo formato, ver finCarregarResumoFretes) —
+    // assim o filtro Módulo=Frete passa a valer pra tabela/gráficos/exportação também.
+    finDados = snap.docs.map(d => ({ id: d.id, ...d.data() })).concat(finFretesLinhas);
     finPopularFiltrosDinamicos();
     finAplicarFiltros();
   } catch(e) {
@@ -154,17 +220,17 @@ function finAplicarFiltros() {
   finAtualizarStatsModulo(finFiltrarBase(finDados, { semModulo: true }));
   finRenderizarTabela(finFiltrados);
   finAtualizarGraficos(finFiltrados);
+  finAtualizarCreditoFornecedor();
 }
 
 function finAtualizarStatsModulo(dados) {
-  // Suprimentos e Passagens vêm de compras_financeiro (filtrado); Fretes tem
-  // financeiro próprio (tabela 'fretes'), carregado à parte em finFretesResumo —
-  // por isso não respeita os filtros de período/situação do painel (mesma
-  // limitação de hoje em Indicadores Gerais).
-  const porModulo = { suprimentos: { total: 0, qtd: 0 }, passagens: { total: 0, qtd: 0 }, frete: { total: finFretesResumo.total, qtd: finFretesResumo.qtd } };
+  // Fretes agora entra em `dados` como linha de verdade (ver finCarregarDados),
+  // então passa a respeitar os mesmos filtros de período/situação que
+  // Suprimentos e Passagens já respeitavam.
+  const porModulo = { suprimentos: { total: 0, qtd: 0 }, passagens: { total: 0, qtd: 0 }, frete: { total: 0, qtd: 0 } };
   dados.forEach(d => {
     const mod = d.modulo || 'suprimentos';
-    if (mod === 'frete' || !porModulo[mod]) return;
+    if (!porModulo[mod]) return;
     porModulo[mod].total += parseFloat(d.valor) || 0;
     porModulo[mod].qtd += 1;
   });
@@ -1263,17 +1329,31 @@ async function pagMarcarSelecionados(pagar) {
   let count = 0;
 
   try {
+    // Frete tem financeiro próprio (tabela 'fretes') — não pode ir no mesmo
+    // batch de compras_financeiro (um id inexistente lá derrubaria o batch
+    // inteiro). Separa e atualiza cada tabela do seu jeito.
     const batch = db.batch();
+    const fretesParaAtualizar = [];
     pagSelecionados.forEach(id => {
+      const reg = finDados.find(d => d.id === id);
+      if (reg && reg.modulo === 'frete') { fretesParaAtualizar.push(reg); return; }
       batch.update(db.collection('compras_financeiro').doc(id), {
         pago:    novoStatus,
         pagoEm:  pagar ? firebase.firestore.FieldValue.serverTimestamp() : null,
       });
-      // Atualiza local
+    });
+    await batch.commit();
+    for (const reg of fretesParaAtualizar) {
+      await db.collection('fretes').doc(reg.id).update({
+        statusPag: pagar ? 'pago' : 'pendente',
+        valorPago: pagar ? (Number(reg.valor) || 0) : 0,
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+      });
+    }
+    pagSelecionados.forEach(id => {
       const reg = finDados.find(d => d.id === id);
       if (reg) { reg.pago = novoStatus; count++; }
     });
-    await batch.commit();
     pagSelecionados.clear();
     pagAtualizarResumo();
     pagFiltrar();
@@ -1297,6 +1377,7 @@ async function finTogglePago(id, pagar) {
   const novoStatus = pagar ? 'Sim' : '';
   const reg = finDados.find(d => d.id === id);
   if (!reg) return;
+  const ehFrete = reg.modulo === 'frete';
 
   // Feedback imediato
   reg.pago = novoStatus;
@@ -1305,10 +1386,19 @@ async function finTogglePago(id, pagar) {
   finAplicarFiltros();
 
   try {
-    await db.collection('compras_financeiro').doc(id).update({
-      pago:   novoStatus,
-      pagoEm: pagar ? firebase.firestore.FieldValue.serverTimestamp() : null,
-    });
+    if (ehFrete) {
+      // Frete tem financeiro próprio (tabela 'fretes'), campos diferentes.
+      await db.collection('fretes').doc(id).update({
+        statusPag: pagar ? 'pago' : 'pendente',
+        valorPago: pagar ? (Number(reg.valor) || 0) : 0,
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+      });
+    } else {
+      await db.collection('compras_financeiro').doc(id).update({
+        pago:   novoStatus,
+        pagoEm: pagar ? firebase.firestore.FieldValue.serverTimestamp() : null,
+      });
+    }
     showToast(pagar ? '✅ Marcado como pago!' : '↩️ Marcado como pendente!');
     // Atualiza badge
     const badge = document.getElementById('fin-badge-pendentes');
