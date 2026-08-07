@@ -1820,6 +1820,19 @@ document.querySelector('.main-content').insertAdjacentHTML('beforeend', `
       </div>
     </div>
 
+    <!-- Limite de crédito do fornecedor selecionado -->
+    <div class="card" id="fin-forn-credito" style="display:none;margin-bottom:16px;border-left:4px solid var(--lumen);">
+      <div class="card-body" style="display:flex;gap:24px;flex-wrap:wrap;align-items:center;">
+        <div style="font-weight:700;font-size:14px;" id="fin-forn-credito-nome">—</div>
+        <div><span style="font-size:11px;color:var(--text-muted);">Limite de crédito</span><br><b id="fin-forn-credito-limite">—</b></div>
+        <div><span style="font-size:11px;color:var(--text-muted);">Utilizado (cadastro)</span><br><b id="fin-forn-credito-utilizado">—</b></div>
+        <div><span style="font-size:11px;color:var(--text-muted);">Disponível</span><br><b id="fin-forn-credito-disponivel">—</b></div>
+        <div style="flex:1;min-width:160px;">
+          <div style="height:8px;background:var(--border);border-radius:4px;overflow:hidden;"><div id="fin-forn-credito-bar" style="height:100%;width:0%;background:var(--lumen);"></div></div>
+        </div>
+      </div>
+    </div>
+
     <!-- Cards de totais -->
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:20px;" id="fin-stats-grid">
       <div class="fin-stat">
