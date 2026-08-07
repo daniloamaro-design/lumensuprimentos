@@ -1265,8 +1265,22 @@ async function loadPasNovaForm() {
   const sol = document.getElementById('pas-n-solicitante');
   if (sol) sol.value = (typeof currentUserData !== 'undefined' && currentUserData?.name) || '';
   await popularPessoasPassagensList();
+  popularCidadesBrasilList();
 }
 window.loadPasNovaForm = loadPasNovaForm;
+
+// Sugestões de Origem/Destino: municípios do Brasil (lista estática, js/cidades-
+// brasil.js). O campo continua aceitando texto livre — quem for pra fora do país
+// só digita o destino normalmente, sem estar preso à lista.
+let _cidadesBrasilPopuladas = false;
+function popularCidadesBrasilList() {
+  if (_cidadesBrasilPopuladas) return;
+  const dl = document.getElementById('pas-n-cidades-list');
+  if (!dl || !Array.isArray(window.CIDADES_BRASIL)) return;
+  dl.innerHTML = window.CIDADES_BRASIL.map(c => `<option value="${frtEsc(c)}">`).join('');
+  _cidadesBrasilPopuladas = true;
+}
+window.popularCidadesBrasilList = popularCidadesBrasilList;
 
 // ── Lista de pessoas (planilha "Lista Geral Acolhidos e Coords Lumen 2026",
 // aba LISTA GERAL) — alimenta o datalist do campo "Nome do passageiro".
