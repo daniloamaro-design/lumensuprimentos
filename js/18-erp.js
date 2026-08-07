@@ -1261,11 +1261,72 @@ function renderPasCalendario() {
 window.renderPasCalendario = renderPasCalendario;
 
 // ── Nova solicitação de passagem (portado do sistema antigo) ──
-function loadPasNovaForm() {
+async function loadPasNovaForm() {
   const sol = document.getElementById('pas-n-solicitante');
   if (sol) sol.value = (typeof currentUserData !== 'undefined' && currentUserData?.name) || '';
+  await popularPessoasPassagensList();
 }
 window.loadPasNovaForm = loadPasNovaForm;
+
+// ── Lista de pessoas (planilha "Lista Geral Acolhidos e Coords Lumen 2026",
+// aba LISTA GERAL) — alimenta o datalist do campo "Nome do passageiro".
+// Cache em pessoas_passagens (Supabase); sincroniza via api/sync-passageiros
+// (proxy server-side, evita CORS) sob demanda (botão) ou automaticamente
+// se o cache tiver mais de 24h quando a tela é aberta.
+async function popularPessoasPassagensList() {
+  const dl = document.getElementById('pas-n-pessoas-list');
+  const info = document.getElementById('pas-n-sync-info');
+  try {
+    const { data, error } = await window._sb.from('pessoas_passagens').select('nome, sincronizado_em').order('nome');
+    if (error) throw error;
+    if (dl) dl.innerHTML = (data || []).map(p => `<option value="${frtEsc(p.nome)}">`).join('');
+    const ultima = data && data.length ? data[0].sincronizado_em : null;
+    if (info) info.textContent = ultima ? `Lista atualizada em ${frtDataBR(ultima)}` : 'Lista de pessoas ainda não sincronizada — clique em 🔄';
+    // Sincroniza sozinho se o cache estiver velho (>24h) ou vazio — silencioso.
+    const velha = !ultima || (Date.now() - new Date(ultima).getTime()) > 24 * 60 * 60 * 1000;
+    if (velha) sincronizarPessoasPassagens(true);
+  } catch (e) {
+    console.error('popularPessoasPassagensList', e);
+    if (info) info.textContent = 'Não foi possível carregar a lista de pessoas.';
+  }
+}
+window.popularPessoasPassagensList = popularPessoasPassagensList;
+
+async function sincronizarPessoasPassagens(silencioso) {
+  const btn = document.getElementById('pas-n-sync-btn');
+  const info = document.getElementById('pas-n-sync-info');
+  if (btn) btn.disabled = true;
+  if (!silencioso && info) info.textContent = 'Sincronizando com a planilha…';
+  try {
+    const resp = await fetch('/api/sync-passageiros');
+    const json = await resp.json();
+    if (!resp.ok) throw new Error(json.error || 'Erro ao ler a planilha.');
+
+    const agora = new Date().toISOString();
+    const linhas = json.pessoas.map(p => ({
+      nome: p.nome, cpf: p.cpf, rg: p.rg, data_nascimento: p.dataNascimento,
+      status: p.status, sincronizado_em: agora,
+    }));
+
+    // Cache = espelho da planilha: substitui tudo a cada sincronização.
+    const { error: errDel } = await window._sb.from('pessoas_passagens').delete().not('id', 'is', null);
+    if (errDel) throw errDel;
+    if (linhas.length) {
+      const { error: errIns } = await window._sb.from('pessoas_passagens').insert(linhas);
+      if (errIns) throw errIns;
+    }
+
+    if (!silencioso) showToast(`✅ ${linhas.length} pessoas sincronizadas da planilha.`);
+    await popularPessoasPassagensList();
+  } catch (e) {
+    console.error('sincronizarPessoasPassagens', e);
+    if (!silencioso) showToast('❌ Erro ao sincronizar: ' + e.message);
+    if (info && !silencioso) info.textContent = 'Erro ao sincronizar.';
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+window.sincronizarPessoasPassagens = sincronizarPessoasPassagens;
 
 function pasGerarCodigo() { return 'PASS-' + Math.floor(1000 + Math.random() * 9000); }
 
