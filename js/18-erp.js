@@ -991,6 +991,26 @@ async function loadFrtIndicadores() {
     const topFret = Object.entries(porFret).sort((a, b) => b[1] - a[1]).slice(0, 6);
     const porMes = {}; fs.forEach(f => { const m = frtMesDaData(f.data || f.createdAt); if (m) porMes[m] = (porMes[m] || 0) + (Number(f.valor) || 0); });
     const meses = Object.entries(porMes).sort((a, b) => a[0].localeCompare(b[0])).slice(-6);
+
+    // % de entregas no prazo por freteiro — mesmo critério do KPI do
+    // Dashboard (Diretoria): data real de entrega (histórico) vs.
+    // previsaoEntrega. Só entra frete entregue com previsão cadastrada.
+    const porFretPrazo = {}; // { nome: {noPrazo, total} }
+    fs.forEach(f => {
+      if (f.status !== 'entregue' || !f.previsaoEntrega) return;
+      const hist = Array.isArray(f.historico) ? f.historico : [];
+      const ent = hist.slice().reverse().find(h => h && h.status === 'entregue');
+      const dataReal = ent ? String(ent.data || '').slice(0, 10) : null;
+      if (!dataReal) return;
+      const nome = f.freteiroNome || '—';
+      if (!porFretPrazo[nome]) porFretPrazo[nome] = { noPrazo: 0, total: 0 };
+      porFretPrazo[nome].total++;
+      if (dataReal <= f.previsaoEntrega) porFretPrazo[nome].noPrazo++;
+    });
+    const prazoPares = Object.entries(porFretPrazo)
+      .map(([nome, v]) => [`${nome} (${v.noPrazo}/${v.total})`, Math.round((v.noPrazo / v.total) * 100)])
+      .sort((a, b) => b[1] - a[1]);
+
     cont.innerHTML = `
       <div style="${_erpGrid}">
         ${_erpStat('🚚 Fretes', qtd)}
@@ -1003,10 +1023,20 @@ async function loadFrtIndicadores() {
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;">
         <div class="card"><div class="card-header"><b>Top freteiros (valor)</b></div><div class="card-body">${topFret.length ? _erpBarras(topFret, frtBRL) : '—'}</div></div>
         <div class="card"><div class="card-header"><b>Valor por mês</b></div><div class="card-body">${meses.length ? _erpBarras(meses, frtBRL) : '—'}</div></div>
+        <div class="card"><div class="card-header"><b>% no prazo por freteiro</b></div><div class="card-body">${prazoPares.length ? _erpBarras(prazoPares, v => v + '%') : 'Sem fretes entregues com previsão cadastrada ainda.'}</div></div>
       </div>`;
   } catch (e) { cont.innerHTML = `<div class="card"><div class="card-body" style="color:var(--danger,#dc2626);">Erro: ${frtEsc(e.message)}</div></div>`; }
 }
 window.loadFrtIndicadores = loadFrtIndicadores;
+
+// Converte campo de data (ISO string, jsonb-wrapped string, ou timestamp
+// Firestore-like com .toDate()) num objeto Date, ou null se não der.
+function pasParaData(v) {
+  if (!v) return null;
+  if (v.toDate) { try { return v.toDate(); } catch (e) { return null; } }
+  const d = new Date(v);
+  return isNaN(d) ? null : d;
+}
 
 async function loadPasIndicadores() {
   const cont = document.getElementById('pas-ind-conteudo');
@@ -1017,22 +1047,55 @@ async function loadPasIndicadores() {
     const porStatus = {}; ps.forEach(s => { const st = s.status || '—'; porStatus[st] = (porStatus[st] || 0) + 1; });
     const compradas = ps.filter(s => s.status === 'comprada');
     const valorComprado = compradas.reduce((a, s) => { const vf = s.valorFinal && (s.valorFinal.valor ?? s.valorFinal); return a + (Number(vf) || 0); }, 0);
+    const custoMedio = compradas.length ? valorComprado / compradas.length : 0;
     const porMotivo = {}; ps.forEach(s => { const m = s.motivo || '—'; porMotivo[m] = (porMotivo[m] || 0) + 1; });
     const porTipo = {}; ps.forEach(s => { const t = s.tipo || '—'; porTipo[t] = (porTipo[t] || 0) + 1; });
     const statusPares = Object.entries(porStatus).sort((a, b) => b[1] - a[1]);
     const motivoPares = Object.entries(porMotivo).sort((a, b) => b[1] - a[1]);
     const tipoPares = Object.entries(porTipo).sort((a, b) => b[1] - a[1]);
+
+    // Gasto por agência (fornecedor) — só compradas, mesmo valor usado no total.
+    const porAgencia = {};
+    compradas.forEach(s => {
+      const nome = (s.fornecedor && s.fornecedor.nome) || '—';
+      const vf = s.valorFinal && (s.valorFinal.valor ?? s.valorFinal);
+      porAgencia[nome] = (porAgencia[nome] || 0) + (Number(vf) || 0);
+    });
+    const agenciaPares = Object.entries(porAgencia).sort((a, b) => b[1] - a[1]).slice(0, 8);
+
+    // Top solicitantes — quem mais pede passagem (todas as solicitações, não só compradas).
+    const porSolicitante = {};
+    ps.forEach(s => { const n = s.solicitante || '—'; porSolicitante[n] = (porSolicitante[n] || 0) + 1; });
+    const solicitantePares = Object.entries(porSolicitante).sort((a, b) => b[1] - a[1]).slice(0, 8);
+
+    // Tempo médio entre solicitação (criadoEm) e compra (dataCompra) — só
+    // onde as duas datas existem (histórico importado sem solicitação real
+    // não entra, pois criadoEm foi setado = data da solicitação na planilha
+    // e dataCompra também vem de lá, então segue válido pro histórico todo).
+    const prazos = compradas.map(s => {
+      const ini = pasParaData(s.criadoEm);
+      const fim = pasParaData(s.dataCompra);
+      if (!ini || !fim) return null;
+      const dias = (fim - ini) / (1000 * 60 * 60 * 24);
+      return dias >= 0 ? dias : null;
+    }).filter(v => v != null);
+    const tempoMedio = prazos.length ? prazos.reduce((a, b) => a + b, 0) / prazos.length : null;
+
     cont.innerHTML = `
       <div style="${_erpGrid}">
         ${_erpStat('📋 Solicitações', ps.length)}
         ${_erpStat('🎫 Compradas', compradas.length, '', 'stat-card-ok')}
         ${_erpStat('💰 Valor comprado', frtBRL(valorComprado))}
         ${_erpStat('⏳ Em aberto', (porStatus.pendente || 0) + (porStatus.em_analise || 0) + (porStatus['Em Análise'] || 0), '', 'stat-card-warn')}
+        ${_erpStat('🎫 Custo médio', frtBRL(custoMedio))}
+        ${_erpStat('⏱️ Solicitação → compra', tempoMedio != null ? tempoMedio.toFixed(1) + ' dias' : '—', prazos.length ? `${prazos.length} com as 2 datas` : 'sem dados suficientes')}
       </div>
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px;">
         <div class="card"><div class="card-header"><b>Por status</b></div><div class="card-body">${statusPares.length ? _erpBarras(statusPares) : '—'}</div></div>
         <div class="card"><div class="card-header"><b>Por motivo</b></div><div class="card-body">${motivoPares.length ? _erpBarras(motivoPares) : '—'}</div></div>
         <div class="card"><div class="card-header"><b>Por tipo</b></div><div class="card-body">${tipoPares.length ? _erpBarras(tipoPares) : '—'}</div></div>
+        <div class="card"><div class="card-header"><b>Gasto por agência</b></div><div class="card-body">${agenciaPares.length ? _erpBarras(agenciaPares, frtBRL) : '—'}</div></div>
+        <div class="card"><div class="card-header"><b>Top solicitantes</b></div><div class="card-body">${solicitantePares.length ? _erpBarras(solicitantePares) : '—'}</div></div>
       </div>`;
   } catch (e) { cont.innerHTML = `<div class="card"><div class="card-body" style="color:var(--danger,#dc2626);">Erro: ${frtEsc(e.message)}</div></div>`; }
 }

@@ -335,6 +335,18 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg>
         Indicadores Gerais
       </button>
+      <button class="sidebar-item" data-page="indicadores" onclick="goPageMobile('indicadores')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+        Indicadores Sup.
+      </button>
+      <button class="sidebar-item" data-page="pas-indicadores" onclick="goPageMobile('pas-indicadores')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+        Indicadores Passagens
+      </button>
+      <button class="sidebar-item" data-page="frt-indicadores" onclick="goPageMobile('frt-indicadores')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+        Indicadores Fretes
+      </button>
       <button class="sidebar-item" data-page="plano-acao" onclick="goPageMobile('plano-acao')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
         Plano de Ação
@@ -1793,6 +1805,16 @@
         </div>
       </div>
 
+      <!-- Meta vs. Realizado por categoria -->
+      <div class="card" style="margin-bottom:16px;">
+        <div class="card-header">
+          <div class="card-header-title">Meta vs. Realizado por Categoria</div>
+        </div>
+        <div id="ind-meta-realizado" class="card-body">
+          <div class="empty-state"><div class="empty-state-icon">🎯</div><div class="empty-state-title">Selecione um período e clique em Analisar</div></div>
+        </div>
+      </div>
+
       <!-- Ranking de casas -->
       <div class="card" style="margin-bottom:16px;">
         <div class="card-header">
@@ -3157,7 +3179,7 @@
 <script src="js/06-pedidos.js?v=4"></script>
 <script src="js/07-estoque-ia-form.js?v=2"></script>
 <script src="js/08-orcamento-casas.js?v=2"></script>
-<script src="js/09-indicadores-transf.js?v=2"></script>
+<script src="js/09-indicadores-transf.js?v=3"></script>
 <script src="js/10-produtos-orcamento.js?v=3"></script>
 <script src="js/11-fornecedores-pendentes.js?v=3"></script>
 <script src="js/12-financeiro-compras.js?v=4"></script>
@@ -3167,7 +3189,7 @@
 <script src="js/16-chat-ia.js?v=2"></script>
 <script src="js/17-metas-wrappers.js?v=2"></script>
 <script src="js/cidades-brasil.js?v=1"></script>
-<script src="js/18-erp.js?v=29"></script>
+<script src="js/18-erp.js?v=30"></script>
 <script src="js/19-dashboard-diretoria.js?v=9"></script>
 <script src="js/20-percapita-diretoria.js?v=2"></script>
 <!-- CHAT IA FLUTUANTE -->
