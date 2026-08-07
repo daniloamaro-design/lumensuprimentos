@@ -619,6 +619,10 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="5" height="18" rx="1"/><rect x="10" y="8" width="5" height="13" rx="1"/><rect x="17" y="5" width="5" height="16" rx="1"/></svg>
         Indicadores
       </button>
+      <button class="sidebar-item" data-page="pas-orcamento" onclick="goPageMobile('pas-orcamento')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+        Orçamento
+      </button>
       <button class="sidebar-item" data-page="financeiro-compras" onclick="goPageMobile('financeiro-compras')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
         Financeiro
@@ -2277,6 +2281,30 @@
     </div></div>
   </div>
 
+  <!-- PAGE: Orçamento de Passagens -->
+  <div class="page" id="page-pas-orcamento">
+    <div class="page-header"><h1 class="page-title">✈️ Orçamento de Passagens</h1></div>
+    <div class="card" style="margin-bottom:16px;"><div class="card-header"><b>Definir orçamento do ano</b></div>
+      <div class="card-body" style="display:flex;flex-direction:column;gap:10px;">
+        <div style="color:var(--text-muted);font-size:13px;">
+          O valor <b>mensal</b> é usado como meta em todos os meses desse ano no indicador "Desvio Orçamentário de Passagens" do Dashboard (Diretoria). O <b>anual</b> é só informativo, por enquanto.
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;align-items:end;">
+          <div><label class="form-label">Ano *</label><input type="number" class="form-input" id="pas-orc-ano" min="2020" max="2100"></div>
+          <div><label class="form-label">Orçamento mensal (R$) *</label><input type="number" step="0.01" min="0" class="form-input" id="pas-orc-mensal"></div>
+          <div><label class="form-label">Orçamento anual (R$)</label><input type="number" step="0.01" min="0" class="form-input" id="pas-orc-anual"></div>
+          <div><button class="btn btn-primary" onclick="salvarPasOrcamento()">Salvar</button></div>
+        </div>
+      </div>
+    </div>
+    <div class="card"><div class="card-body">
+      <div class="table-wrap"><table class="fin-table">
+        <thead><tr><th>Ano</th><th style="text-align:right;">Orçamento mensal</th><th style="text-align:right;">Orçamento anual</th></tr></thead>
+        <tbody id="pas-orc-tbody"><tr><td colspan="3" style="text-align:center;padding:24px;color:var(--text-muted);">Carregando…</td></tr></tbody>
+      </table></div>
+    </div></div>
+  </div>
+
   <!-- ════════ PERMISSÕES (U4 — admin) ════════ -->
   <div class="page" id="page-permissoes">
     <div class="page-header" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
@@ -2304,8 +2332,8 @@
         <div class="dashdir-header-right">
           <div class="dashdir-periodo-label">Período</div>
           <div class="dashdir-periodo-selects">
-            <select class="dashdir-select" id="dashdir-mes" onchange="dashdirAtualizarPerCapita()"></select>
-            <select class="dashdir-select" id="dashdir-ano" onchange="dashdirAtualizarPerCapita()"></select>
+            <select class="dashdir-select" id="dashdir-mes" onchange="dashdirAtualizarPeriodo()"></select>
+            <select class="dashdir-select" id="dashdir-ano" onchange="dashdirAtualizarPeriodo()"></select>
           </div>
         </div>
       </div>
@@ -2322,10 +2350,10 @@
         <div class="dashdir-kpi alerta">
           <div class="dashdir-kpi-icon">📈</div>
           <div class="dashdir-kpi-label">Desvio Orçamentário de Passagens</div>
-          <div class="dashdir-kpi-sub">(Foco: Eventos e Convida)</div>
-          <div class="dashdir-kpi-value ruim">21,8%</div>
-          <div class="dashdir-kpi-delta ruim">↑ +12,4 p.p. <span>vs. mês anterior</span></div>
-          <div class="dashdir-kpi-meta faixa-alerta">Meta: &lt; 15%</div>
+          <div class="dashdir-kpi-sub">(gasto real vs. orçamento — dado real)</div>
+          <div class="dashdir-kpi-value" id="dashdir-kpi-desvio-valor">—</div>
+          <div class="dashdir-kpi-delta" id="dashdir-kpi-desvio-pct"></div>
+          <div class="dashdir-kpi-meta" id="dashdir-kpi-desvio-meta"></div>
         </div>
         <div class="dashdir-kpi">
           <div class="dashdir-kpi-icon">🚚</div>
@@ -2362,7 +2390,7 @@
         </div>
       </div>
 
-      <div class="dashdir-aviso">📊 Gasto Per Capita e Passagens por Motivo já usam dados reais. Os outros indicadores (Desvio Orçamentário, Entregas no Prazo, Acuracidade) ainda são ilustrativos — serão conectados quando definirmos juntos, indicador por indicador, como cada um deve ser calculado.</div>
+      <div class="dashdir-aviso">📊 Gasto Per Capita, Passagens por Motivo e Desvio Orçamentário de Passagens já usam dados reais. Os outros indicadores (Entregas no Prazo, Acuracidade) ainda são ilustrativos — serão conectados quando definirmos juntos, indicador por indicador, como cada um deve ser calculado.</div>
     </div>
   </div>
 
@@ -3098,7 +3126,7 @@
 <script src="js/01-core.js?v=5"></script>
 <script src="js/02-auth.js?v=5"></script>
 <script src="js/03-navegacao.js?v=2"></script>
-<script src="js/04-percapita.js?v=11"></script>
+<script src="js/04-percapita.js?v=12"></script>
 <script src="js/05-cadastros.js?v=2"></script>
 <script src="js/06-pedidos.js?v=4"></script>
 <script src="js/07-estoque-ia-form.js?v=2"></script>
@@ -3112,8 +3140,8 @@
 <script src="js/15-fornecedores-metas.js?v=2"></script>
 <script src="js/16-chat-ia.js?v=2"></script>
 <script src="js/17-metas-wrappers.js?v=2"></script>
-<script src="js/18-erp.js?v=21"></script>
-<script src="js/19-dashboard-diretoria.js?v=3"></script>
+<script src="js/18-erp.js?v=22"></script>
+<script src="js/19-dashboard-diretoria.js?v=4"></script>
 <script src="js/20-percapita-diretoria.js?v=2"></script>
 <!-- CHAT IA FLUTUANTE -->
 <!-- ════════ GEMINI IA — botão movido para a barra superior (id: chat-ia-topbar-btn) ════════ -->

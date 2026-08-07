@@ -1,9 +1,9 @@
 // ─────────────────────────────────────────────────────────────────────────
 // Dashboard de Performance (Diretoria) — layout replica o mockup aprovado.
-// Gasto Per Capita (card + gráfico de evolução) e Passagens por Motivo já
-// usam dados reais. Os outros indicadores (Desvio Orçamentário, Entregas
-// no Prazo, Acuracidade) continuam ILUSTRATIVOS até definirmos com o
-// usuário como cada um deve ser calculado.
+// Gasto Per Capita, Passagens por Motivo e Desvio Orçamentário de Passagens
+// já usam dados reais. Os outros indicadores (Entregas no Prazo,
+// Acuracidade) continuam ILUSTRATIVOS até definirmos com o usuário como
+// cada um deve ser calculado.
 // ─────────────────────────────────────────────────────────────────────────
 let _dashdirDonut = null;
 let _dashdirLinhas = null;
@@ -16,11 +16,77 @@ async function initDashboardDiretoria() {
   // ── Passagens por Motivo (real, a partir de passagens_solicitacoes) ──
   dashdirCarregarMotivos();
 
-  // ── Gasto Per Capita (real) ──
+  // ── Gasto Per Capita + Desvio Orçamentário de Passagens (reais) ──
   dashdirPopularSeletorPeriodo();
-  dashdirAtualizarPerCapita();
+  dashdirAtualizarPeriodo();
 }
 window.initDashboardDiretoria = initDashboardDiretoria;
+
+// Reage à troca de mês/ano no seletor do header — atualiza os 2 KPIs reais.
+function dashdirAtualizarPeriodo() {
+  dashdirAtualizarPerCapita();
+  dashdirAtualizarDesvioPassagens();
+}
+window.dashdirAtualizarPeriodo = dashdirAtualizarPeriodo;
+
+// Desvio Orçamentário de Passagens: gasto real do mês (compras_financeiro,
+// modulo=passagens) vs. orçamento mensal cadastrado em Passagens > Orçamento
+// (tabela metas, modulo=passagens, cat_key='geral', meta_mes — o mesmo valor
+// mensal vale pra qualquer mês daquele ano).
+async function dashdirAtualizarDesvioPassagens() {
+  const mesSel = document.getElementById('dashdir-mes');
+  const anoSel = document.getElementById('dashdir-ano');
+  const valorEl = document.getElementById('dashdir-kpi-desvio-valor');
+  const pctEl = document.getElementById('dashdir-kpi-desvio-pct');
+  const metaEl = document.getElementById('dashdir-kpi-desvio-meta');
+  if (!mesSel || !anoSel || !valorEl) return;
+
+  valorEl.textContent = '…';
+  valorEl.classList.remove('ruim');
+  if (pctEl) { pctEl.textContent = ''; pctEl.className = 'dashdir-kpi-delta'; }
+  if (metaEl) { metaEl.textContent = ''; metaEl.className = 'dashdir-kpi-meta'; }
+
+  try {
+    const ano = parseInt(anoSel.value, 10);
+    const mes = parseInt(mesSel.value, 10); // 0-11
+
+    const { data: metas, error: errMeta } = await window._sb.from('metas').select('meta_mes')
+      .eq('modulo', 'passagens').eq('cat_key', 'geral').eq('ano', ano).maybeSingle();
+    if (errMeta) throw errMeta;
+    const orcamentoMensal = metas ? Number(metas.meta_mes) || 0 : 0;
+
+    const de = `${ano}-${String(mes + 1).padStart(2, '0')}-01`;
+    const proxMes = new Date(ano, mes + 1, 1);
+    const ate = `${proxMes.getFullYear()}-${String(proxMes.getMonth() + 1).padStart(2, '0')}-01`;
+    const { data: fin, error: errFin } = await window._sb.from('compras_financeiro').select('valor')
+      .eq('modulo', 'passagens').gte('data_compra', de).lt('data_compra', ate);
+    if (errFin) throw errFin;
+    const gastoReal = (fin || []).reduce((s, r) => s + (Number(r.valor) || 0), 0);
+
+    if (!orcamentoMensal) {
+      valorEl.textContent = '— sem orçamento';
+      if (metaEl) { metaEl.textContent = 'Cadastre o orçamento em Passagens › Orçamento'; metaEl.classList.add('faixa-alerta'); }
+      return;
+    }
+
+    const desvio = gastoReal - orcamentoMensal;
+    const pct = (desvio / orcamentoMensal) * 100;
+    const estourou = desvio > 0;
+
+    valorEl.textContent = (estourou ? '+' : '−') + frtBRL(Math.abs(desvio));
+    valorEl.classList.toggle('ruim', estourou);
+    if (pctEl) {
+      pctEl.className = 'dashdir-kpi-delta' + (estourou ? ' ruim' : ' good');
+      pctEl.innerHTML = `${estourou ? '↑' : '↓'} ${estourou ? '+' : ''}${pct.toFixed(1)}% <span>vs. orçamento do mês</span>`;
+    }
+    if (metaEl) metaEl.textContent = `Gasto: ${frtBRL(gastoReal)} • Orçamento: ${frtBRL(orcamentoMensal)}`;
+  } catch (e) {
+    console.error('dashdirAtualizarDesvioPassagens', e);
+    valorEl.textContent = 'Erro';
+    if (metaEl) metaEl.textContent = e.message;
+  }
+}
+window.dashdirAtualizarDesvioPassagens = dashdirAtualizarDesvioPassagens;
 
 // Agrupa TODAS as solicitações de passagem (qualquer status) por motivo.
 async function dashdirCarregarMotivos() {
