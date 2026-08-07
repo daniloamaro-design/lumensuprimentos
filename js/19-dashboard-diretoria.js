@@ -1,59 +1,83 @@
 // ─────────────────────────────────────────────────────────────────────────
 // Dashboard de Performance (Diretoria) — layout replica o mockup aprovado.
-// Gasto Per Capita (card + gráfico de evolução) já usa dados reais (mesma
-// fonte/fórmula da tela "Per Capita" — js/20-percapita-diretoria.js: soma
-// valor dos pedidos / soma pessoas, valor = nfValor ou cotação aprovada).
-// Os outros indicadores (Desvio Orçamentário, Entregas no Prazo,
-// Acuracidade, Passagens por Motivo) continuam ILUSTRATIVOS até
-// definirmos com o usuário como cada um deve ser calculado.
+// Gasto Per Capita (card + gráfico de evolução) e Passagens por Motivo já
+// usam dados reais. Os outros indicadores (Desvio Orçamentário, Entregas
+// no Prazo, Acuracidade) continuam ILUSTRATIVOS até definirmos com o
+// usuário como cada um deve ser calculado.
 // ─────────────────────────────────────────────────────────────────────────
 let _dashdirDonut = null;
 let _dashdirLinhas = null;
 let _dashdirPedidosCache = null; // [{data, valor, pessoas, cats}] — todas as casas, todo o histórico
 
-const DASHDIR_MOTIVOS = [
-  { label: 'Eventos',          valor: 1500, pct: 35, cor: '#14224a' },
-  { label: 'Comvida',          valor: 1285, pct: 30, cor: '#e0a72e' },
-  { label: 'Treinamento',      valor: 857,  pct: 20, cor: '#3f7cc4' },
-  { label: 'Viagem a Serviço', valor: 428,  pct: 10, cor: '#8fc1e8' },
-  { label: 'Outros',           valor: 215,  pct: 5,  cor: '#b9bfc7' },
-];
-
 const DASHDIR_COR_CAT = ['#14224a', '#e0a72e', '#3fae5a', '#3f7cc4', '#d64545', '#8fc1e8', '#b9bfc7'];
+const DASHDIR_COR_MOTIVO = ['#14224a', '#e0a72e', '#3f7cc4', '#3fae5a', '#d64545', '#8fc1e8', '#b9bfc7'];
 
-function initDashboardDiretoria() {
-  // ── Passagens por Motivo (ilustrativo) ──
-  const totalEl = document.getElementById('dashdir-donut-total');
-  if (totalEl) totalEl.textContent = DASHDIR_MOTIVOS.reduce((s, m) => s + m.valor, 0).toLocaleString('pt-BR');
-
-  const legendo = document.getElementById('dashdir-legend-donut');
-  if (legendo) {
-    legendo.innerHTML = DASHDIR_MOTIVOS.map(m => `
-      <div class="dashdir-legend-item">
-        <span class="dashdir-legend-dot" style="background:${m.cor};"></span>
-        <span class="dashdir-legend-label">${m.label}</span>
-        <span class="dashdir-legend-val">R$ ${m.valor.toLocaleString('pt-BR')} (${m.pct}%)</span>
-      </div>`).join('');
-  }
-
-  const ctxD = document.getElementById('dashdir-donut');
-  if (ctxD && window.Chart) {
-    if (_dashdirDonut) _dashdirDonut.destroy();
-    _dashdirDonut = new Chart(ctxD, {
-      type: 'doughnut',
-      data: {
-        labels: DASHDIR_MOTIVOS.map(m => m.label),
-        datasets: [{ data: DASHDIR_MOTIVOS.map(m => m.valor), backgroundColor: DASHDIR_MOTIVOS.map(m => m.cor), borderWidth: 0 }],
-      },
-      options: { responsive: true, cutout: '68%', plugins: { legend: { display: false } } },
-    });
-  }
+async function initDashboardDiretoria() {
+  // ── Passagens por Motivo (real, a partir de passagens_solicitacoes) ──
+  dashdirCarregarMotivos();
 
   // ── Gasto Per Capita (real) ──
   dashdirPopularSeletorPeriodo();
   dashdirAtualizarPerCapita();
 }
 window.initDashboardDiretoria = initDashboardDiretoria;
+
+// Agrupa TODAS as solicitações de passagem (qualquer status) por motivo.
+async function dashdirCarregarMotivos() {
+  const totalEl = document.getElementById('dashdir-donut-total');
+  const legendo = document.getElementById('dashdir-legend-donut');
+  if (totalEl) totalEl.textContent = '…';
+  try {
+    const snap = await db.collection('passagens_solicitacoes').get();
+    const sols = snap.docs.map(d => d.data());
+    const porMotivo = {};
+    sols.forEach(s => {
+      const m = (s.motivo || 'Não informado').trim() || 'Não informado';
+      porMotivo[m] = (porMotivo[m] || 0) + 1;
+    });
+    let lista = Object.entries(porMotivo).sort((a, b) => b[1] - a[1]);
+    // Top 6 + "Outros" agrupando o resto, pra não poluir a legenda/donut.
+    if (lista.length > 7) {
+      const top = lista.slice(0, 6);
+      const outros = lista.slice(6).reduce((s, [, n]) => s + n, 0);
+      lista = [...top, ['Outros', outros]];
+    }
+    const total = sols.length;
+    const dados = lista.map(([label, n], i) => ({
+      label, n, pct: total ? Math.round((n / total) * 100) : 0, cor: DASHDIR_COR_MOTIVO[i % DASHDIR_COR_MOTIVO.length],
+    }));
+
+    if (totalEl) totalEl.textContent = total.toLocaleString('pt-BR');
+    if (legendo) {
+      legendo.innerHTML = dados.length ? dados.map(m => `
+        <div class="dashdir-legend-item">
+          <span class="dashdir-legend-dot" style="background:${m.cor};"></span>
+          <span class="dashdir-legend-label">${dashdirEsc(m.label)}</span>
+          <span class="dashdir-legend-val">${m.n} (${m.pct}%)</span>
+        </div>`).join('') : '<div class="dashdir-legend-item">Nenhuma solicitação de passagem ainda.</div>';
+    }
+
+    const ctxD = document.getElementById('dashdir-donut');
+    if (ctxD && window.Chart) {
+      if (_dashdirDonut) _dashdirDonut.destroy();
+      _dashdirDonut = new Chart(ctxD, {
+        type: 'doughnut',
+        data: {
+          labels: dados.map(m => m.label),
+          datasets: [{ data: dados.map(m => m.n), backgroundColor: dados.map(m => m.cor), borderWidth: 0 }],
+        },
+        options: { responsive: true, cutout: '68%', plugins: { legend: { display: false } } },
+      });
+    }
+  } catch (e) {
+    console.error('dashdirCarregarMotivos', e);
+    if (totalEl) totalEl.textContent = 'Erro';
+    if (legendo) legendo.innerHTML = `<div class="dashdir-legend-item">Erro ao carregar: ${dashdirEsc(e.message)}</div>`;
+  }
+}
+function dashdirEsc(s) {
+  return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
 
 function dashdirPopularSeletorPeriodo() {
   const hoje = new Date();
