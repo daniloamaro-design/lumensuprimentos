@@ -323,6 +323,10 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg>
         Dashboard
       </button>
+      <button class="sidebar-item" onclick="abrirHubCentral()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
+        Hub Central
+      </button>
       <button class="sidebar-item" data-page="diretoria-percapita" onclick="goPageMobile('diretoria-percapita')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
         Per Capita
@@ -2355,8 +2359,7 @@
         <div class="dashdir-header-right">
           <div class="dashdir-periodo-label">Período</div>
           <div class="dashdir-periodo-selects">
-            <select class="dashdir-select" id="dashdir-mes" onchange="dashdirAtualizarPeriodo()"></select>
-            <select class="dashdir-select" id="dashdir-ano" onchange="dashdirAtualizarPeriodo()"></select>
+            <input type="month" class="dashdir-select" id="dashdir-periodo" onchange="dashdirAtualizarPeriodo()">
           </div>
         </div>
       </div>
@@ -3164,8 +3167,8 @@
 <script src="js/16-chat-ia.js?v=2"></script>
 <script src="js/17-metas-wrappers.js?v=2"></script>
 <script src="js/cidades-brasil.js?v=1"></script>
-<script src="js/18-erp.js?v=27"></script>
-<script src="js/19-dashboard-diretoria.js?v=7"></script>
+<script src="js/18-erp.js?v=28"></script>
+<script src="js/19-dashboard-diretoria.js?v=8"></script>
 <script src="js/20-percapita-diretoria.js?v=2"></script>
 <!-- CHAT IA FLUTUANTE -->
 <!-- ════════ GEMINI IA — botão movido para a barra superior (id: chat-ia-topbar-btn) ════════ -->
