@@ -3,6 +3,9 @@
   "functions": {
     "api/gemini.js": {
       "maxDuration": 30
+    },
+    "api/sync-passageiros.js": {
+      "maxDuration": 20
     }
   },
   "headers": [
@@ -21,6 +24,7 @@
   ],
   "rewrites": [
     { "source": "/api/gemini", "destination": "/api/gemini.js" },
+    { "source": "/api/sync-passageiros", "destination": "/api/sync-passageiros.js" },
     { "source": "/(.*)", "destination": "/index.html" }
   ]
 }

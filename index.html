@@ -2123,7 +2123,15 @@
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
         <div><label class="form-label">Solicitante *</label><input class="form-input" id="pas-n-solicitante" type="text" readonly></div>
-        <div><label class="form-label">Nome do passageiro *</label><input class="form-input" id="pas-n-passageiro" type="text" placeholder="Nome completo"></div>
+        <div>
+          <label class="form-label">Nome do passageiro *</label>
+          <div style="display:flex;gap:6px;">
+            <input class="form-input" id="pas-n-passageiro" type="text" list="pas-n-pessoas-list" placeholder="Digite ou selecione da lista">
+            <button type="button" class="btn btn-outline btn-sm" onclick="sincronizarPessoasPassagens()" id="pas-n-sync-btn" title="Atualizar lista de pessoas (planilha)">🔄</button>
+          </div>
+          <datalist id="pas-n-pessoas-list"></datalist>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:3px;" id="pas-n-sync-info"></div>
+        </div>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
         <div><label class="form-label">Origem *</label><input class="form-input" id="pas-n-origem" type="text" placeholder="Ex: Fortaleza - CE"></div>
@@ -3154,7 +3162,7 @@
 <script src="js/15-fornecedores-metas.js?v=2"></script>
 <script src="js/16-chat-ia.js?v=2"></script>
 <script src="js/17-metas-wrappers.js?v=2"></script>
-<script src="js/18-erp.js?v=25"></script>
+<script src="js/18-erp.js?v=26"></script>
 <script src="js/19-dashboard-diretoria.js?v=7"></script>
 <script src="js/20-percapita-diretoria.js?v=2"></script>
 <!-- CHAT IA FLUTUANTE -->
