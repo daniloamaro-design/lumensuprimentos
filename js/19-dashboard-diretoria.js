@@ -13,19 +13,16 @@ const DASHDIR_COR_CAT = ['#14224a', '#e0a72e', '#3fae5a', '#3f7cc4', '#d64545', 
 const DASHDIR_COR_MOTIVO = ['#14224a', '#e0a72e', '#3f7cc4', '#3fae5a', '#d64545', '#8fc1e8', '#b9bfc7'];
 
 async function initDashboardDiretoria() {
-  // ── Passagens por Motivo (real, a partir de passagens_solicitacoes) ──
-  dashdirCarregarMotivos();
-
-  // ── Gasto Per Capita + Desvio Orçamentário de Passagens (reais) ──
   dashdirPopularSeletorPeriodo();
   dashdirAtualizarPeriodo();
 }
 window.initDashboardDiretoria = initDashboardDiretoria;
 
-// Reage à troca de mês/ano no seletor do header — atualiza os 2 KPIs reais.
+// Reage à troca de mês/ano no seletor do header — atualiza os 3 indicadores reais.
 function dashdirAtualizarPeriodo() {
   dashdirAtualizarPerCapita();
   dashdirAtualizarDesvioPassagens();
+  dashdirCarregarMotivos();
 }
 window.dashdirAtualizarPeriodo = dashdirAtualizarPeriodo;
 
@@ -88,14 +85,32 @@ async function dashdirAtualizarDesvioPassagens() {
 }
 window.dashdirAtualizarDesvioPassagens = dashdirAtualizarDesvioPassagens;
 
-// Agrupa TODAS as solicitações de passagem (qualquer status) por motivo.
+let _dashdirPasCache = null; // todas as passagens_solicitacoes — filtradas client-side por período
+
+// Agrupa por motivo as passagens efetivamente COMPRADAS no mês/ano do
+// seletor do cabeçalho, usando a data da compra (dataCompra) — mesmo
+// critério de período usado no Desvio Orçamentário.
 async function dashdirCarregarMotivos() {
+  const mesSel = document.getElementById('dashdir-mes');
+  const anoSel = document.getElementById('dashdir-ano');
   const totalEl = document.getElementById('dashdir-donut-total');
   const legendo = document.getElementById('dashdir-legend-donut');
   if (totalEl) totalEl.textContent = '…';
   try {
-    const snap = await db.collection('passagens_solicitacoes').get();
-    const sols = snap.docs.map(d => d.data());
+    if (!_dashdirPasCache) {
+      const snap = await db.collection('passagens_solicitacoes').get();
+      _dashdirPasCache = snap.docs.map(d => d.data());
+    }
+    const ano = anoSel ? parseInt(anoSel.value, 10) : null;
+    const mes = mesSel ? parseInt(mesSel.value, 10) : null; // 0-11
+
+    const sols = _dashdirPasCache.filter(s => {
+      if (!s.dataCompra) return false;
+      const m = String(s.dataCompra).match(/^(\d{4})-(\d{2})/);
+      if (!m) return false;
+      return parseInt(m[1], 10) === ano && (parseInt(m[2], 10) - 1) === mes;
+    });
+
     const porMotivo = {};
     sols.forEach(s => {
       const m = (s.motivo || 'Não informado').trim() || 'Não informado';
@@ -120,7 +135,7 @@ async function dashdirCarregarMotivos() {
           <span class="dashdir-legend-dot" style="background:${m.cor};"></span>
           <span class="dashdir-legend-label">${dashdirEsc(m.label)}</span>
           <span class="dashdir-legend-val">${m.n} (${m.pct}%)</span>
-        </div>`).join('') : '<div class="dashdir-legend-item">Nenhuma solicitação de passagem ainda.</div>';
+        </div>`).join('') : '<div class="dashdir-legend-item">Nenhuma passagem comprada no período selecionado.</div>';
     }
 
     const ctxD = document.getElementById('dashdir-donut');
