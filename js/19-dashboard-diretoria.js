@@ -1,9 +1,8 @@
 // ─────────────────────────────────────────────────────────────────────────
 // Dashboard de Performance (Diretoria) — layout replica o mockup aprovado.
-// Gasto Per Capita, Passagens por Motivo e Desvio Orçamentário de Passagens
-// já usam dados reais. Os outros indicadores (Entregas no Prazo,
-// Acuracidade) continuam ILUSTRATIVOS até definirmos com o usuário como
-// cada um deve ser calculado.
+// Gasto Per Capita, Passagens por Motivo, Desvio Orçamentário de Passagens
+// e % de Entregas no Prazo já usam dados reais. Só a Acuracidade do
+// Estoque continua ILUSTRATIVA até definirmos com o usuário como calcular.
 // ─────────────────────────────────────────────────────────────────────────
 let _dashdirDonut = null;
 let _dashdirLinhas = null;
@@ -18,13 +17,70 @@ async function initDashboardDiretoria() {
 }
 window.initDashboardDiretoria = initDashboardDiretoria;
 
-// Reage à troca de mês/ano no seletor do header — atualiza os 3 indicadores reais.
+// Reage à troca de mês/ano no seletor do header — atualiza os 4 indicadores reais.
 function dashdirAtualizarPeriodo() {
   dashdirAtualizarPerCapita();
   dashdirAtualizarDesvioPassagens();
   dashdirCarregarMotivos();
+  dashdirAtualizarEntregasPrazo();
 }
 window.dashdirAtualizarPeriodo = dashdirAtualizarPeriodo;
+
+// % de Entregas no Prazo: entre os fretes marcados como ENTREGUES no mês/ano
+// selecionado (pela data real de entrega, tirada do histórico) e que têm
+// previsaoEntrega preenchida, qual % chegou até a data prevista.
+async function dashdirAtualizarEntregasPrazo() {
+  const mesSel = document.getElementById('dashdir-mes');
+  const anoSel = document.getElementById('dashdir-ano');
+  const valorEl = document.getElementById('dashdir-kpi-prazo-valor');
+  const deltaEl = document.getElementById('dashdir-kpi-prazo-delta');
+  const metaEl = document.getElementById('dashdir-kpi-prazo-meta');
+  if (!mesSel || !anoSel || !valorEl) return;
+
+  valorEl.textContent = '…';
+  if (deltaEl) deltaEl.textContent = '';
+  if (metaEl) { metaEl.textContent = ''; metaEl.className = 'dashdir-kpi-meta'; }
+
+  try {
+    const ano = parseInt(anoSel.value, 10);
+    const mes = parseInt(mesSel.value, 10); // 0-11
+
+    const snap = await db.collection('fretes').get();
+    const fretes = snap.docs.map(d => d.data()).filter(f => f.status === 'entregue' && f.previsaoEntrega);
+
+    const doMes = fretes.filter(f => {
+      const hist = Array.isArray(f.historico) ? f.historico : [];
+      const ent = hist.slice().reverse().find(h => h && h.status === 'entregue');
+      const dataReal = ent ? String(ent.data || '').slice(0, 10) : null;
+      if (!dataReal) return false;
+      f._dataEntregaReal = dataReal; // guarda pra reusar abaixo sem re-procurar
+      const [y, m] = dataReal.split('-').map(Number);
+      return y === ano && (m - 1) === mes;
+    });
+
+    if (!doMes.length) {
+      valorEl.textContent = '— sem dados';
+      if (metaEl) metaEl.textContent = 'Nenhum frete entregue com previsão cadastrada nesse mês.';
+      return;
+    }
+
+    const noPrazo = doMes.filter(f => f._dataEntregaReal <= f.previsaoEntrega).length;
+    const pct = (noPrazo / doMes.length) * 100;
+
+    valorEl.textContent = pct.toFixed(1).replace('.', ',') + '%';
+    valorEl.classList.toggle('ruim', pct < 90);
+    if (deltaEl) {
+      deltaEl.className = 'dashdir-kpi-delta' + (pct >= 90 ? ' good' : ' ruim');
+      deltaEl.innerHTML = `${noPrazo}/${doMes.length} <span>entregues no prazo</span>`;
+    }
+    if (metaEl) metaEl.textContent = 'Meta: > 90%';
+  } catch (e) {
+    console.error('dashdirAtualizarEntregasPrazo', e);
+    valorEl.textContent = 'Erro';
+    if (metaEl) metaEl.textContent = e.message;
+  }
+}
+window.dashdirAtualizarEntregasPrazo = dashdirAtualizarEntregasPrazo;
 
 // Desvio Orçamentário de Passagens: gasto real do mês (compras_financeiro,
 // modulo=passagens) vs. orçamento mensal cadastrado em Passagens > Orçamento

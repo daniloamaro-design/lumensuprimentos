@@ -2213,9 +2213,10 @@
   <div class="page" id="page-frt-novo">
     <div class="page-header"><h1 class="page-title">🚚 Novo Frete</h1></div>
     <div class="card" style="max-width:720px;"><div class="card-body" style="display:flex;flex-direction:column;gap:14px;">
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;">
         <div><label class="form-label">Freteiro *</label><select class="form-select" id="frt-n-freteiro"><option value="">Selecione…</option></select></div>
         <div><label class="form-label">Data *</label><input type="date" class="form-input" id="frt-n-data"></div>
+        <div><label class="form-label">Previsão de entrega</label><input type="date" class="form-input" id="frt-n-previsao" title="Usada no indicador % de Entregas no Prazo (Diretoria)"></div>
       </div>
       <datalist id="frt-n-casas-list"></datalist>
       <div><label class="form-label">Origem *</label><input type="text" class="form-input" id="frt-n-origem" list="frt-n-casas-list" placeholder="Selecione uma casa ou digite o endereço de coleta"></div>
@@ -2358,10 +2359,10 @@
         <div class="dashdir-kpi">
           <div class="dashdir-kpi-icon">🚚</div>
           <div class="dashdir-kpi-label">% de Entregas no Prazo</div>
-          <div class="dashdir-kpi-sub">(SLA dos Fornecedores nos CSLs)</div>
-          <div class="dashdir-kpi-value">91,5%</div>
-          <div class="dashdir-kpi-delta ruim">↓ -1,2 p.p. <span>vs. mês anterior</span></div>
-          <div class="dashdir-kpi-meta">Meta: &gt; 90%</div>
+          <div class="dashdir-kpi-sub">(Fretes — dado real)</div>
+          <div class="dashdir-kpi-value" id="dashdir-kpi-prazo-valor">—</div>
+          <div class="dashdir-kpi-delta" id="dashdir-kpi-prazo-delta"></div>
+          <div class="dashdir-kpi-meta" id="dashdir-kpi-prazo-meta"></div>
         </div>
         <div class="dashdir-kpi">
           <div class="dashdir-kpi-icon">📋</div>
@@ -2390,7 +2391,7 @@
         </div>
       </div>
 
-      <div class="dashdir-aviso">📊 Gasto Per Capita, Passagens por Motivo e Desvio Orçamentário de Passagens já usam dados reais. Os outros indicadores (Entregas no Prazo, Acuracidade) ainda são ilustrativos — serão conectados quando definirmos juntos, indicador por indicador, como cada um deve ser calculado.</div>
+      <div class="dashdir-aviso">📊 Gasto Per Capita, Passagens por Motivo, Desvio Orçamentário de Passagens e % de Entregas no Prazo já usam dados reais. O indicador de Acuracidade do Estoque ainda é ilustrativo — será conectado quando definirmos juntos como calculá-lo.</div>
     </div>
   </div>
 
@@ -3140,8 +3141,8 @@
 <script src="js/15-fornecedores-metas.js?v=2"></script>
 <script src="js/16-chat-ia.js?v=2"></script>
 <script src="js/17-metas-wrappers.js?v=2"></script>
-<script src="js/18-erp.js?v=22"></script>
-<script src="js/19-dashboard-diretoria.js?v=5"></script>
+<script src="js/18-erp.js?v=23"></script>
+<script src="js/19-dashboard-diretoria.js?v=6"></script>
 <script src="js/20-percapita-diretoria.js?v=2"></script>
 <!-- CHAT IA FLUTUANTE -->
 <!-- ════════ GEMINI IA — botão movido para a barra superior (id: chat-ia-topbar-btn) ════════ -->
