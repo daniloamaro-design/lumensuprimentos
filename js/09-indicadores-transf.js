@@ -196,6 +196,7 @@ async function loadIndicadores() {
 
   // Charts
   renderIndicadoresCharts(rankingCasas, dados);
+  renderMetaVsRealizado(dados, precos, de, ate);
 
   // Popula select de evolução
   const evSel = document.getElementById('ind-evolucao-casa');
@@ -209,6 +210,75 @@ async function loadIndicadores() {
 
   await renderEvolucaoChart();
   setBtnLoading('btn-load-ind', false);
+}
+
+// Compara o valor real de ENTRADA (R$) por categoria, no período filtrado,
+// com a meta mensal cadastrada (Suprimentos > Metas e Análise) — escalada
+// pelo número de meses que o período cobre (meta é um valor "por mês",
+// não por período customizado). Períodos sem meta cadastrada não aparecem.
+async function renderMetaVsRealizado(dados, precos, de, ate) {
+  const el = document.getElementById('ind-meta-realizado');
+  if (!el) return;
+  el.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text-muted);">Carregando…</div>';
+  try {
+    const catValor = {};
+    Object.entries(dados).forEach(([house, prods]) => {
+      const cidade = CASAS_CIDADES[house] || '';
+      Object.values(prods).forEach(p => {
+        const prKey = `${p.catKey}__${p.prodId}`;
+        const preco = (precos[prKey] && precos[prKey][cidade]) || 0;
+        catValor[p.catKey] = (catValor[p.catKey] || 0) + p.e * preco;
+      });
+    });
+
+    const d0 = new Date(de + 'T00:00:00'), d1 = new Date(ate + 'T00:00:00');
+    const anos = new Set();
+    for (let c = new Date(d0.getFullYear(), d0.getMonth(), 1); c <= d1; c.setMonth(c.getMonth() + 1)) anos.add(c.getFullYear());
+
+    const metaPorCat = {};
+    for (const ano of anos) {
+      const snap = await db.collection('metas').doc('categorias_' + ano).get();
+      const dataAno = snap.exists ? snap.data() : {};
+      const inicioAno = new Date(Math.max(d0, new Date(ano, 0, 1)));
+      const fimAno = new Date(Math.min(d1, new Date(ano, 11, 31)));
+      let meses = 0;
+      for (let c = new Date(inicioAno.getFullYear(), inicioAno.getMonth(), 1); c <= fimAno; c.setMonth(c.getMonth() + 1)) meses++;
+      Object.entries(dataAno || {}).forEach(([catKey, m]) => {
+        metaPorCat[catKey] = (metaPorCat[catKey] || 0) + (Number(m.metaMes) || 0) * meses;
+      });
+    }
+
+    const linhas = Object.keys(CATEGORIAS).map(k => {
+      const real = catValor[k] || 0;
+      const meta = metaPorCat[k] || 0;
+      const desvio = meta > 0 ? ((real - meta) / meta) * 100 : null;
+      return { k, real, meta, desvio };
+    }).filter(l => l.meta > 0 || l.real > 0);
+
+    if (!linhas.length) {
+      el.innerHTML = '<div class="empty-state"><div class="empty-state-icon">🎯</div><div class="empty-state-title">Nenhuma meta cadastrada para o período (ver Gerenciar &gt; Metas e Análise).</div></div>';
+      return;
+    }
+
+    el.innerHTML = `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;">
+      ${linhas.map(l => {
+        const cat = CATEGORIAS[l.k];
+        const estourou = l.desvio != null && l.desvio > 0;
+        const pctBarra = l.meta > 0 ? Math.min(150, (l.real / l.meta) * 100) : 0;
+        return `<div>
+          <div style="font-weight:700;font-size:13px;margin-bottom:4px;">${cat ? cat.icon + ' ' + cat.nome : l.k}</div>
+          <div style="font-size:12px;color:var(--text-muted);margin-bottom:4px;">Real: <b style="color:var(--text);">R$ ${l.real.toFixed(2)}</b>${l.meta > 0 ? ` / Meta: R$ ${l.meta.toFixed(2)}` : ' (sem meta cadastrada)'}</div>
+          ${l.meta > 0 ? `
+          <div style="height:8px;background:var(--border);border-radius:4px;overflow:hidden;">
+            <div style="height:100%;width:${pctBarra}%;background:${estourou ? 'var(--danger,#dc2626)' : 'var(--ok,#059669)'};"></div>
+          </div>
+          <div style="font-size:11px;font-weight:700;margin-top:3px;color:${estourou ? 'var(--danger,#dc2626)' : 'var(--ok,#059669)'};">${estourou ? '↑' : '↓'} ${Math.abs(l.desvio).toFixed(1)}% ${estourou ? 'acima' : 'abaixo'} da meta</div>` : ''}
+        </div>`;
+      }).join('')}
+    </div>`;
+  } catch (e) {
+    el.innerHTML = `<div style="color:var(--danger,#dc2626);padding:12px;">Erro ao calcular meta vs. realizado: ${e.message}</div>`;
+  }
 }
 
 function renderIndicadoresCharts(ranking, dados) {
