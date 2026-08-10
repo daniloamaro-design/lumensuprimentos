@@ -472,6 +472,26 @@ function svStatusFromDays(days) {
 let _svMovSnap = null;
 let _svHousesData = {};
 
+// Busca TODAS as linhas de uma tabela, paginando de 1000 em 1000 — o
+// PostgREST (Supabase) só devolve 1000 linhas por request por padrão
+// (db.max_rows), mesmo sem LIMIT explícito no .select(). movement_items
+// já passa de 7 mil linhas, então uma busca sem paginação perdia
+// silenciosamente tudo que não estivesse nas primeiras 1000 (os IDs mais
+// baixos/antigos) — foi o que fez entradas/saídas recentes sumirem do
+// Estoque Atual depois do fix anterior (que tirou a paginação por engano).
+async function svBuscarTudo(tabela, colunas) {
+  const PAGINA = 1000;
+  let tudo = [], offset = 0;
+  while (true) {
+    const { data, error } = await window._sb.from(tabela).select(colunas).range(offset, offset + PAGINA - 1);
+    if (error) throw error;
+    tudo = tudo.concat(data || []);
+    if (!data || data.length < PAGINA) break;
+    offset += PAGINA;
+  }
+  return tudo;
+}
+
 // Busca movements + movement_items em 2 consultas separadas (em vez do
 // select=*,movement_items(*) embutido) e junta no navegador. A versão
 // embutida some do PostgREST com "canceling statement due to statement
@@ -481,19 +501,17 @@ let _svHousesData = {};
 // pra não precisar mexer em quem consome (só monta house/type/items, os
 // únicos campos de movement que esta tela usa).
 async function svCarregarMovements() {
-  const [{ data: movs, error: e1 }, { data: itens, error: e2 }] = await Promise.all([
-    window._sb.from('movements').select('id, house, type'),
-    window._sb.from('movement_items').select('movement_id, cat_key, prod_id, unidade, prod_nome, qty'),
+  const [movs, itens] = await Promise.all([
+    svBuscarTudo('movements', 'id, house, type'),
+    svBuscarTudo('movement_items', 'movement_id, cat_key, prod_id, unidade, prod_nome, qty'),
   ]);
-  if (e1) throw e1;
-  if (e2) throw e2;
   const porMov = {};
-  (itens || []).forEach(it => {
+  itens.forEach(it => {
     (porMov[it.movement_id] = porMov[it.movement_id] || []).push({
       catKey: it.cat_key, prodId: it.prod_id, unidade: it.unidade, prodNome: it.prod_nome, qty: it.qty,
     });
   });
-  const docs = (movs || []).map(m => ({
+  const docs = movs.map(m => ({
     id: m.id,
     data: () => ({ house: m.house, type: m.type, items: porMov[m.id] || [] }),
   }));
