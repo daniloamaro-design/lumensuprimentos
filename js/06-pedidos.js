@@ -424,7 +424,13 @@ async function toggleDelivery(orderId, isCurrentlyDelivered) {
 
 async function loadAllOrders() {
   const tbody = document.getElementById('all-orders-tbody');
-  tbody.innerHTML = '<tr><td colspan="11" style="text-align:center;padding:24px;"><div class="loading-state"><div class="spinner spinner-dark"></div>Carregando...</div></td></tr>';
+  // Só mostra o spinner no primeiro carregamento: em atualizações automáticas
+  // (onSnapshot a cada 30s) trocar o conteúdo por um placeholder colapsa a
+  // altura da tabela e "puxa" a página pra cima — parece o scroll se mexendo
+  // sozinho enquanto o usuário está rolando a lista.
+  if (!tbody.dataset.loaded) {
+    tbody.innerHTML = '<tr><td colspan="11" style="text-align:center;padding:24px;"><div class="loading-state"><div class="spinner spinner-dark"></div>Carregando...</div></td></tr>';
+  }
 
   let query = db.collection('orders').orderBy('createdAt','desc');
   const filterHouse = v('filter-house');
@@ -461,6 +467,7 @@ async function loadAllOrders() {
 
   if (docs.length === 0) {
     tbody.innerHTML = '<tr><td colspan="11" class="text-muted" style="text-align:center;padding:24px;">Nenhum pedido encontrado.</td></tr>';
+    tbody.dataset.loaded = '1';
     window._allOrdersCache = [];
     comprasSelecionadas.clear();
     updateComprasExportBtn();
@@ -511,6 +518,7 @@ async function loadAllOrders() {
   const efetivoPorId = {};
   window._allOrdersCache.forEach(o => { efetivoPorId[o.id] = o; });
 
+  tbody.dataset.loaded = '1';
   tbody.innerHTML = docs.map(d => {
     const o = d.data();
     const itemCount = Object.values(o.items || {}).reduce((a,c) => a + Object.keys(c).length, 0);

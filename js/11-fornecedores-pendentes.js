@@ -507,9 +507,16 @@ async function initOrcPendentes() {
 
   document.getElementById('opc-totais').style.display = 'none';
   document.getElementById('opc-filtros').style.display = 'none';
-  document.getElementById('opc-resultados').innerHTML =
-    '<div class="empty-state"><div class="empty-state-icon">⏳</div>' +
-    '<div class="empty-state-title">Buscando orçamentos em andamento...</div></div>';
+  const opcResultados = document.getElementById('opc-resultados');
+  // Só mostra o placeholder de "buscando" no primeiro carregamento: em
+  // atualizações automáticas (onSnapshot a cada 30s) trocar o conteúdo
+  // colapsa a altura da lista e "puxa" a página pra cima enquanto o
+  // usuário está rolando.
+  if (!opcResultados.dataset.loaded) {
+    opcResultados.innerHTML =
+      '<div class="empty-state"><div class="empty-state-icon">⏳</div>' +
+      '<div class="empty-state-title">Buscando orçamentos em andamento...</div></div>';
+  }
 
   try {
     // 1. Busca pedidos em orçamento
@@ -521,7 +528,8 @@ async function initOrcPendentes() {
     opcPedidos = pedidosSnap.docs.map(d => ({ id: d.id, ...d.data() }));
 
     if (opcPedidos.length === 0) {
-      document.getElementById('opc-resultados').innerHTML =
+      opcResultados.dataset.loaded = '1';
+      opcResultados.innerHTML =
         '<div class="empty-state"><div class="empty-state-icon">✅</div>' +
         '<div class="empty-state-title">Nenhum pedido em andamento no momento!</div></div>';
       return;
@@ -893,6 +901,7 @@ function opcAtualizarTotais() {
 
 function opcRenderizar() {
   const el = document.getElementById('opc-resultados');
+  el.dataset.loaded = '1';
 
   // Monta grupos principais
   const grupos = {}; // chaveGrupo -> [{ pedido, cotacao }]

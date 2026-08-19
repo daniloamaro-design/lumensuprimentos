@@ -226,7 +226,13 @@ async function loadVarSolicitacoes() {
   const countEl = document.getElementById('var-sol-count');
   if (!listEl) return;
 
-  listEl.innerHTML = '<div class="loading-state"><div class="spinner spinner-dark"></div>Carregando...</div>';
+  // Só mostra o spinner no primeiro carregamento: em atualizações automáticas
+  // (onSnapshot a cada 30s) trocar o conteúdo por um placeholder colapsa a
+  // altura da lista e "puxa" a página pra cima — parece o scroll se mexendo
+  // sozinho enquanto o usuário está rolando.
+  if (!listEl.dataset.loaded) {
+    listEl.innerHTML = '<div class="loading-state"><div class="spinner spinner-dark"></div>Carregando...</div>';
+  }
 
   const role = currentUserData?.role || 'usuario';
   const isEscritorio = role === 'escritorio';
@@ -256,6 +262,7 @@ async function loadVarSolicitacoes() {
     }
 
     if (!docs.length) {
+      listEl.dataset.loaded = '1';
       listEl.innerHTML = '<div class="empty-state"><div class="empty-state-icon">📋</div><div class="empty-state-title">Nenhuma solicitação encontrada</div></div>';
       return;
     }
@@ -276,6 +283,7 @@ async function loadVarSolicitacoes() {
       compra_realizada:'✅ Compra Realizada', comprada:'✅ Compra Realizada', concluido:'🏁 Concluído', entregue:'🏁 Concluído', cancelado:'⛔ Cancelado'
     };
 
+    listEl.dataset.loaded = '1';
     listEl.innerHTML = docs.map(d => {
       const dt = d.dataLimite ? new Date(d.dataLimite + 'T00:00:00').toLocaleDateString('pt-BR') : '—';
       const valor = d.valorEstimado > 0 ? 'R$ ' + d.valorEstimado.toLocaleString('pt-BR',{minimumFractionDigits:2}) : '—';
