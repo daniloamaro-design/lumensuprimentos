@@ -341,8 +341,11 @@
         }
         return fazerSnapshot(col, todas);
       },
-      // onSnapshot: implementado por polling leve (30s) — os listeners do app são,
-      // na prática, detectores de mudança. Retorna função de cancelamento.
+      // onSnapshot: implementado por polling leve (90s) — os listeners do app são,
+      // na prática, detectores de mudança. Intervalo alargado de 30s pra 90s pra
+      // reduzir o egress no Supabase (com vários usuários logados, 6 consultas
+      // automáticas por usuário a cada 30s estourava o limite do plano e derrubava
+      // o acesso de todo mundo com 402). Retorna função de cancelamento.
       onSnapshot(cb, errCb) {
         let ativo = true;
         const rodar = async () => {
@@ -350,7 +353,7 @@
           catch (e) { if (errCb) errCb(e); }
         };
         rodar();
-        const timer = setInterval(rodar, 30000);
+        const timer = setInterval(rodar, 90000);
         return () => { ativo = false; clearInterval(timer); };
       },
     };
