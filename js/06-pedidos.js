@@ -1043,8 +1043,13 @@ async function openStockEvalModal() {
 
   // Carregar estoque central: soma de todos os movimentos de casas "Central" ou casas diferentes da solicitante
   // Aqui pegamos todos os movimentos e calculamos o saldo por produto (independente de casa, como estoque geral disponível)
+  // Usa svCarregarMovements() (07-estoque-ia-form.js) em vez de db.collection('movements').get():
+  // o select=*,movement_items(*) embutido trava com "statement timeout" no Supabase quando a
+  // tabela cresce (mesmo problema já corrigido na tela Estoque Atual — ver PR #44/#45). Sem essa
+  // troca, o erro era engolido pelo catch abaixo e TODO item aparecia com estoque 0.0, mesmo
+  // tendo saldo real, fazendo a caixinha de transferência ficar sempre desabilitada.
   try {
-    const movSnap = await db.collection('movements').get();
+    const movSnap = await svCarregarMovements();
     movSnap.docs.forEach(d => {
       const m = d.data();
       // Considera estoque central = tudo exceto a casa que está solicitando
