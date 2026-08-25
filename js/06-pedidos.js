@@ -1098,12 +1098,16 @@ function renderStockEvalBody(existingEval) {
       const stockKey = `${catKey}__${prodId}`;
       const avail = Math.max(0, centralStockData[stockKey] || 0);
       const maxTransfer = Math.min(needed, avail);
-      const canTransfer = avail > 0;
+      // "canTransfer" indicava estoque central > 0 e travava a caixinha quando
+      // zerado. Quem avalia pode saber de estoque que o cálculo automático não
+      // capturou (ex.: acabou de chegar), então a seleção fica sempre liberada
+      // — avail continua exibido só como referência, não bloqueia mais nada.
+      const hasStock = avail > 0;
 
       // Pre-fill from existing eval
       const prevEval = existingEval?.[stockKey];
-      const isChecked = prevEval ? prevEval.transfer : canTransfer;
-      const prevQty = prevEval ? prevEval.qty : maxTransfer;
+      const isChecked = prevEval ? prevEval.transfer : hasStock;
+      const prevQty = prevEval ? prevEval.qty : (hasStock ? maxTransfer : needed);
 
       const stockColor = avail <= 0 ? 'color:var(--danger);font-weight:700;' : avail < needed ? 'color:var(--warn);font-weight:600;' : 'color:var(--ok);';
 
@@ -1112,25 +1116,24 @@ function renderStockEvalBody(existingEval) {
       const rid = rowIdx++;
       const dataAttrs = `data-catkey="${escAttr(catKey)}" data-prodid="${escAttr(prodId)}"`;
 
-      html += `<div class="stk-eval-row ${isChecked && canTransfer ? 'transferable' : (canTransfer ? '' : 'no-stock')}" id="se-row-${rid}">
+      html += `<div class="stk-eval-row ${isChecked ? 'transferable' : (hasStock ? '' : 'no-stock')}" id="se-row-${rid}">
         <input type="checkbox" class="stk-eval-check" id="se-chk-${rid}" ${dataAttrs}
-          ${isChecked && canTransfer ? 'checked' : ''} ${!canTransfer ? 'disabled' : ''}
+          ${isChecked ? 'checked' : ''}
           onchange="onSeCheckChange(this)">
         <div class="stk-eval-name">${p.nome} <span style="font-size:11px;color:var(--text-muted);">${p.unidade}</span></div>
         <div class="stk-eval-stock" style="${stockColor}">Estq: ${avail.toFixed(1)}</div>
         <div class="stk-eval-needed" style="color:var(--text-muted);">Solicit: ${needed}</div>
         <input type="number" class="form-input stk-eval-qty" id="se-qty-${rid}" ${dataAttrs}
-          min="0" max="${avail}" step="0.1" value="${prevQty.toFixed(1)}"
-          ${!canTransfer ? 'disabled' : ''}
+          min="0" max="${needed}" step="0.1" value="${prevQty.toFixed(1)}"
           onchange="onSeQtyChange(this)"
           onclick="event.stopPropagation()">
-        ${!canTransfer ? '<span class="purchase-tag">Comprar</span>' : ''}
-        ${canTransfer && avail < needed ? '<span style="font-size:10px;color:var(--warn);font-weight:600;">Parcial</span>' : ''}
+        ${!hasStock ? '<span class="purchase-tag">Comprar</span>' : ''}
+        ${hasStock && avail < needed ? '<span style="font-size:10px;color:var(--warn);font-weight:600;">Parcial</span>' : ''}
       </div>`;
 
       // Initialize stockEvalData
       stockEvalData[stockKey] = {
-        transfer: isChecked && canTransfer,
+        transfer: isChecked,
         qty: prevQty,
         needed,
         avail,
