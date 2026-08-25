@@ -1071,7 +1071,15 @@ function renderStockEvalBody(existingEval) {
     return;
   }
 
+  // Escapa pra uso seguro dentro de atributo HTML (data-catkey/data-prodid) —
+  // catKey/prodId vêm do cadastro de produtos (categorias.key / produtos.id) e
+  // podiam conter aspas ou outros caracteres que quebravam o onchange="...('${..}')"
+  // antigo: o checkbox ficava com aparência normal mas o clique não disparava
+  // nada, porque o atributo virava JS inválido.
+  const escAttr = s => String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+
   let html = '';
+  let rowIdx = 0;
   Object.entries(items).forEach(([catKey, prods]) => {
     const keys = Object.keys(prods);
     if (!keys.length) return;
@@ -1094,17 +1102,22 @@ function renderStockEvalBody(existingEval) {
 
       const stockColor = avail <= 0 ? 'color:var(--danger);font-weight:700;' : avail < needed ? 'color:var(--warn);font-weight:600;' : 'color:var(--ok);';
 
-      html += `<div class="stk-eval-row ${isChecked && canTransfer ? 'transferable' : (canTransfer ? '' : 'no-stock')}" id="se-row-${stockKey.replace(/[^a-z0-9]/gi,'_')}">
-        <input type="checkbox" class="stk-eval-check" id="se-chk-${stockKey.replace(/[^a-z0-9]/gi,'_')}"
+      // id único por índice de renderização — evita colisão de ids que a
+      // normalização antiga (regex sobre o id do produto) podia causar.
+      const rid = rowIdx++;
+      const dataAttrs = `data-catkey="${escAttr(catKey)}" data-prodid="${escAttr(prodId)}"`;
+
+      html += `<div class="stk-eval-row ${isChecked && canTransfer ? 'transferable' : (canTransfer ? '' : 'no-stock')}" id="se-row-${rid}">
+        <input type="checkbox" class="stk-eval-check" id="se-chk-${rid}" ${dataAttrs}
           ${isChecked && canTransfer ? 'checked' : ''} ${!canTransfer ? 'disabled' : ''}
-          onchange="onSeCheckChange('${catKey}','${prodId}')">
+          onchange="onSeCheckChange(this)">
         <div class="stk-eval-name">${p.nome} <span style="font-size:11px;color:var(--text-muted);">${p.unidade}</span></div>
         <div class="stk-eval-stock" style="${stockColor}">Estq: ${avail.toFixed(1)}</div>
         <div class="stk-eval-needed" style="color:var(--text-muted);">Solicit: ${needed}</div>
-        <input type="number" class="form-input stk-eval-qty" id="se-qty-${stockKey.replace(/[^a-z0-9]/gi,'_')}"
+        <input type="number" class="form-input stk-eval-qty" id="se-qty-${rid}" ${dataAttrs}
           min="0" max="${avail}" step="0.1" value="${prevQty.toFixed(1)}"
           ${!canTransfer ? 'disabled' : ''}
-          onchange="onSeQtyChange('${catKey}','${prodId}',this.value)"
+          onchange="onSeQtyChange(this)"
           onclick="event.stopPropagation()">
         ${!canTransfer ? '<span class="purchase-tag">Comprar</span>' : ''}
         ${canTransfer && avail < needed ? '<span style="font-size:10px;color:var(--warn);font-weight:600;">Parcial</span>' : ''}
@@ -1129,11 +1142,10 @@ function renderStockEvalBody(existingEval) {
   updateSeCounters();
 }
 
-function onSeCheckChange(catKey, prodId) {
+function onSeCheckChange(chk) {
+  const { catkey: catKey, prodid: prodId } = chk.dataset;
   const stockKey = `${catKey}__${prodId}`;
-  const safeKey = stockKey.replace(/[^a-z0-9]/gi,'_');
-  const chk = document.getElementById(`se-chk-${safeKey}`);
-  const row = document.getElementById(`se-row-${safeKey}`);
+  const row = chk.closest('.stk-eval-row');
   if (!stockEvalData[stockKey]) return;
   stockEvalData[stockKey].transfer = chk.checked;
   if (chk.checked) row.classList.add('transferable');
@@ -1141,10 +1153,11 @@ function onSeCheckChange(catKey, prodId) {
   updateSeCounters();
 }
 
-function onSeQtyChange(catKey, prodId, val) {
+function onSeQtyChange(inp) {
+  const { catkey: catKey, prodid: prodId } = inp.dataset;
   const stockKey = `${catKey}__${prodId}`;
   if (!stockEvalData[stockKey]) return;
-  stockEvalData[stockKey].qty = parseFloat(val) || 0;
+  stockEvalData[stockKey].qty = parseFloat(inp.value) || 0;
   updateSeCounters();
 }
 
