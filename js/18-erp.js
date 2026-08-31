@@ -209,7 +209,7 @@ function abrirFreteDetalhe(id) {
   const paradas = Array.isArray(f.paradas) ? f.paradas : [];
   const av = f.avaliacao || null;
   const hist = Array.isArray(f.historico) ? f.historico : [];
-  const linha = (rot, val) => `<div><span style="color:var(--text-muted);font-size:13px;">${rot}</span><br>${val}</div>`;
+  const linha = (rot, val) => `<div style="min-width:0;overflow-wrap:break-word;"><span style="color:var(--text-muted);font-size:13px;">${rot}</span><br>${val}</div>`;
 
   const semFreteiro = !f.freteiroNome;
   const temTrajeto = f.origem && f.destino;
@@ -792,7 +792,7 @@ function abrirPasDetalhe(id) {
   _pasOrcSel = orcs.findIndex(o => o.selecionada);
   const vf = s.valorFinal && (s.valorFinal.valor ?? s.valorFinal);
   const podeEditar = ['pendente', 'em_analise', 'Em Análise'].includes(s.status);
-  const linha = (rot, val) => `<div><span style="color:var(--text-muted);font-size:13px;">${rot}</span><br>${val}</div>`;
+  const linha = (rot, val) => `<div style="min-width:0;overflow-wrap:break-word;"><span style="color:var(--text-muted);font-size:13px;">${rot}</span><br>${val}</div>`;
   document.getElementById('pas-det-titulo').textContent = `Solicitação ${s.codigo || ''}`.trim();
 
   // Lista de cotações (com seleção quando editável)
