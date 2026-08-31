@@ -42,12 +42,19 @@ const TIMEOUT_POR_DATA_MS = 18000;
 const MAX_DATAS = 6;
 
 // Extrai o menor valor "R$ ###,##" do texto visível da página.
+// PRECO_MINIMO_REAL descarta valores tipo "R$ 0,11" -- o ClickBus tem um
+// texto fixo de "Regulamento promoção R$0,11" no rodapé, presente em TODA
+// página, independente de rota/data (causou o bug de todo dia mostrar
+// "R$ 0,11" -- era sempre o menor número da página, mas não era preço de
+// passagem nenhuma). Nenhuma passagem de ônibus interestadual custa menos
+// que isso, então é um filtro seguro.
+const PRECO_MINIMO_REAL = 10;
 function extrairMenorPreco(texto) {
   const matches = [...texto.matchAll(/R\$\s*([\d.]+,\d{2})/g)];
   if (!matches.length) return null;
   const valores = matches
     .map(m => parseFloat(m[1].replace(/\./g, '').replace(',', '.')))
-    .filter(v => v > 0);
+    .filter(v => v >= PRECO_MINIMO_REAL);
   if (!valores.length) return null;
   return Math.min(...valores);
 }
@@ -65,10 +72,13 @@ async function buscarUmaData(browser, origemSlug, destinoSlug, data) {
     const url = `https://www.clickbus.com.br/onibus/${origemSlug}/${destinoSlug}?departureDate=${data}`;
     await page.goto(url, { waitUntil: 'domcontentloaded', timeout: TIMEOUT_POR_DATA_MS });
 
-    // Espera até aparecer "R$" no texto da página (preço carregado via JS) ou
-    // até um texto de "sem resultado" -- o que vier primeiro.
+    // Espera até aparecer um preço DE VERDADE (>= 2 dígitos antes da vírgula
+    // -- não pode ser só "R$\s*\d", porque o rodapé da página já tem
+    // "R$0,11" fixo desde o load inicial, antes de qualquer busca rodar, e
+    // isso fazia o wait resolver na hora, sem esperar o preço real carregar
+    // via JS) ou até aparecer texto de "sem resultado".
     await page.waitForFunction(
-      () => /R\$\s*\d/.test(document.body.innerText) || /nenhum|não encontr|sem resultado/i.test(document.body.innerText),
+      () => /R\$\s*\d{2,}[\d.]*,\d{2}/.test(document.body.innerText) || /nenhum|não encontr|sem resultado/i.test(document.body.innerText),
       { timeout: TIMEOUT_POR_DATA_MS }
     ).catch(() => {}); // segue mesmo se der timeout -- tenta extrair o que tiver
 
