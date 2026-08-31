@@ -38,14 +38,16 @@ function getPuppeteer() {
 const CHROMIUM_PACK_URL =
   'https://github.com/Sparticuz/chromium/releases/download/v149.0.0/chromium-v149.0.0-pack.x64.tar';
 
-const TIMEOUT_POR_DATA_MS = 25000;
+const TIMEOUT_POR_DATA_MS = 30000;
 const MAX_DATAS = 6;
 // Rodar as 6 datas TODAS em paralelo (Promise.all puro) fazia todas
 // disputarem CPU da mesma function e estourarem o timeout juntas -- um
 // teste isolado (1 data) demorou 15s e achou o preço certo, mas 3 juntas
-// deram todas timeout. Roda em lotes menores pra cada página ter CPU de
-// sobra.
-const CONCORRENCIA = 3;
+// deram todas timeout mesmo em lotes de 3 (2 lotes passaram de 60s no
+// total -- a busca do proprio ClickBus parece ser lenta por natureza, não
+// só efeito de concorrência). Reduzido pra 2 por lote (3 lotes) e o
+// maxDuration da function subiu no vercel.json pra dar espaço de sobra.
+const CONCORRENCIA = 2;
 
 // Extrai o menor valor "R$ ###,##" do texto visível da página.
 // PRECO_MINIMO_REAL descarta valores tipo "R$ 0,11" -- o ClickBus tem um
