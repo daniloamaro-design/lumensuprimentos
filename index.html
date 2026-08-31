@@ -2629,14 +2629,21 @@
     </div>
   </div>
 
-  <!-- MODAL: detalhe da solicitação de passagem -->
-  <div class="modal-overlay hidden" id="modal-pas-detalhe">
-    <div class="modal" style="max-width:600px;width:100%;">
-      <div class="modal-header">
-        <div class="modal-title" id="pas-det-titulo">Solicitação</div>
-        <button class="modal-close" onclick="closeModal('modal-pas-detalhe')">×</button>
+  <!-- PAGE: detalhe da solicitação de passagem -->
+  <div class="page" id="page-pas-detalhe">
+    <div class="page-header" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+      <h1 class="page-title" id="pas-det-titulo">✈️ Solicitação</h1>
+      <button class="btn btn-secondary btn-sm" onclick="goPage('pas-solicitacoes')">← Voltar</button>
+    </div>
+    <div class="card"><div class="card-body" id="pas-det-body" style="display:flex;flex-direction:column;gap:12px;"></div></div>
+    <div class="card" id="pas-det-calendario-card" style="margin-top:16px;display:none;">
+      <div class="card-header"><b>🗓️ Comparar preços: saída até +5 dias</b></div>
+      <div class="card-body">
+        <div style="color:var(--text-muted);font-size:13px;margin-bottom:12px;">
+          Não existe API gratuita confiável de preço em tempo real de passagem (nem ônibus, nem avião) — os botões abaixo abrem a busca real já preenchida com origem, destino e a data de cada dia, pra comparar rapidinho qual sai mais barato.
+        </div>
+        <div id="pas-det-calendario" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;"></div>
       </div>
-      <div class="modal-body" id="pas-det-body" style="padding:20px;display:flex;flex-direction:column;gap:12px;"></div>
     </div>
   </div>
 
@@ -3189,7 +3196,7 @@
 <script src="js/16-chat-ia.js?v=2"></script>
 <script src="js/17-metas-wrappers.js?v=2"></script>
 <script src="js/cidades-brasil.js?v=1"></script>
-<script src="js/18-erp.js?v=30"></script>
+<script src="js/18-erp.js?v=31"></script>
 <script src="js/19-dashboard-diretoria.js?v=9"></script>
 <script src="js/20-percapita-diretoria.js?v=2"></script>
 <!-- CHAT IA FLUTUANTE -->

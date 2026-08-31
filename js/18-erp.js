@@ -786,6 +786,7 @@ function abrirPasDetalhe(id) {
   const s = _pasCache.find(x => x.id === id);
   if (!s) return;
   _pasDetId = id;
+  goPage('pas-detalhe');
   const hist = Array.isArray(s.historico) ? s.historico : [];
   const orcs = pasOrcamentosDe(s);
   _pasOrcSel = orcs.findIndex(o => o.selecionada);
@@ -851,10 +852,61 @@ function abrirPasDetalhe(id) {
     ${hist.length ? linha('Histórico', hist.map(h => `• ${frtEsc(h.acao || h.texto || '')}${h.usuario ? ' — ' + frtEsc(h.usuario) : ''}`).join('<br>')) : ''}
     ${acoes.length ? `<div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;border-top:1px solid var(--border);padding-top:10px;">${acoes.join('')}</div>` : ''}
   `;
-  openModal('modal-pas-detalhe');
   if (podeEditar && orcs.length < 3) pasPopularFornecedores('pas-orc-forn');
+  pasRenderCalendarioComparacao(s);
 }
 window.abrirPasDetalhe = abrirPasDetalhe;
+
+// Calendário "saída até +5 dias": pra cada dia, um botão que abre a busca
+// real (Google, já preenchida com origem/destino/data) numa aba nova — sem
+// tentar extrair preço automaticamente (não existe API gratuita confiável de
+// preço de passagem, nem ônibus nem avião; ver conversa com o usuário).
+function pasBuscaUrl(tipo, origem, destino, data) {
+  const dataBR = data.toLocaleDateString('pt-BR');
+  if (tipo === 'aviao') {
+    const dataISO = data.toISOString().slice(0, 10);
+    const q = `Flights from ${origem} to ${destino} on ${dataISO}`;
+    return `https://www.google.com/travel/flights?q=${encodeURIComponent(q)}`;
+  }
+  const q = `passagem de ônibus ${origem} para ${destino} dia ${dataBR}`;
+  return `https://www.google.com/search?q=${encodeURIComponent(q)}`;
+}
+
+function pasRenderCalendarioComparacao(s) {
+  const card = document.getElementById('pas-det-calendario-card');
+  const cont = document.getElementById('pas-det-calendario');
+  if (!card || !cont) return;
+
+  // s.saida vem como 'YYYY-MM-DD': soma 'T00:00:00' pra virar meia-noite LOCAL
+  // (sem isso, new Date('YYYY-MM-DD') é meia-noite UTC, que em fuso BR cai no
+  // dia anterior — mesma armadilha já resolvida em outros lugares do app).
+  const saida = s.saida ? pasParaData(String(s.saida).slice(0, 10) + 'T00:00:00') : null;
+  if (!saida || !s.origem || !s.destino) { card.style.display = 'none'; return; }
+  card.style.display = '';
+
+  const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
+  const dias = [];
+  for (let i = 0; i <= 5; i++) {
+    const d = new Date(saida); d.setDate(d.getDate() + i);
+    dias.push(d);
+  }
+
+  cont.innerHTML = dias.map((d, i) => {
+    const url = pasBuscaUrl(s.tipo, s.origem, s.destino, d);
+    const ehDataSolicitada = i === 0;
+    const passado = d < hoje;
+    return `
+      <a href="${url}" target="_blank" rel="noopener" style="text-decoration:none;">
+        <div style="border:1.5px solid ${ehDataSolicitada ? 'var(--lumen)' : 'var(--border)'};border-radius:10px;padding:12px;text-align:center;transition:.15s;${passado ? 'opacity:.55;' : ''}"
+             onmouseover="this.style.borderColor='var(--lumen)'" onmouseout="this.style.borderColor='${ehDataSolicitada ? 'var(--lumen)' : 'var(--border)'}'">
+          <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;">${ehDataSolicitada ? 'Data pedida' : `+${i} dia${i > 1 ? 's' : ''}`}</div>
+          <div style="font-size:15px;font-weight:700;color:var(--text);margin:4px 0;">${d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}</div>
+          <div style="font-size:11px;color:var(--text-muted);">${d.toLocaleDateString('pt-BR', { weekday: 'short' })}</div>
+          <div style="margin-top:8px;font-size:12px;color:var(--lumen);font-weight:600;">🔍 Ver preços</div>
+        </div>
+      </a>`;
+  }).join('');
+}
 
 async function pasPopularFornecedores(selId) {
   const sel = document.getElementById(selId);
@@ -1512,7 +1564,7 @@ window.salvarPasOrcamento = salvarPasOrcamento;
    ══════════════════════════════════════════════════════════════════════ */
 
 // páginas dos módulos (hoje abertas a todos; o admin restringe na tela)
-const _MOD_PAGES = ['pas-solicitacoes', 'pas-nova', 'pas-indicadores', 'pas-calendario', 'frt-lista', 'frt-novo', 'frt-rotas', 'frt-freteiros', 'frt-metas', 'frt-indicadores', 'ind-geral', 'plano-acao', 'diretoria-dashboard', 'diretoria-percapita'];
+const _MOD_PAGES = ['pas-solicitacoes', 'pas-nova', 'pas-detalhe', 'pas-indicadores', 'pas-calendario', 'frt-lista', 'frt-novo', 'frt-rotas', 'frt-freteiros', 'frt-metas', 'frt-indicadores', 'ind-geral', 'plano-acao', 'diretoria-dashboard', 'diretoria-percapita'];
 // todas as páginas do Suprimentos (perfis de gestão têm tudo)
 const _SUP_PAGES = ['dashboard', 'users', 'houses', 'manage-houses', 'manage-cities', 'manage-products',
   'manage-cats', 'percapita-financeiro', 'manage-cc', 'all-orders', 'produtividade', 'kanban',
