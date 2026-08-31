@@ -8,8 +8,7 @@
       "maxDuration": 20
     },
     "api/passagens-precos.js": {
-      "maxDuration": 60,
-      "memory": 2048
+      "maxDuration": 60
     }
   },
   "headers": [
