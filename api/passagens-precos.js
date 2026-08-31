@@ -19,9 +19,15 @@
 // funcionar — o front trata esse caso por rota (rota individual falha, as
 // outras continuam, e sempre sobra o link direto como alternativa).
 
-// .default: o pacote é publicado como ESM transpilado -- require() direto
-// devolve o wrapper CJS (__esModule:true), não o objeto chromium em si.
-const chromium = require('@sparticuz/chromium-min').default;
+// @sparticuz/chromium-min é publicado como ESM puro -- require() direto
+// quebra em produção (Vercel/Node 22 runtime) com ERR_REQUIRE_ESM (só
+// funcionou local por acaso: Node 24 tem require(esm) experimental que
+// mascarou o problema). Import dinâmico funciona em CJS e resolve isso.
+let _chromiumPromise = null;
+function getChromium() {
+  if (!_chromiumPromise) _chromiumPromise = import('@sparticuz/chromium-min').then(m => m.default);
+  return _chromiumPromise;
+}
 const puppeteer = require('puppeteer-core');
 
 const CHROMIUM_PACK_URL =
@@ -84,6 +90,7 @@ module.exports = async function handler(req, res) {
 
   let browser;
   try {
+    const chromium = await getChromium();
     browser = await puppeteer.launch({
       args: chromium.args,
       defaultViewport: { width: 1280, height: 900 },
