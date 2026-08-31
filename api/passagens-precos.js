@@ -19,16 +19,21 @@
 // funcionar — o front trata esse caso por rota (rota individual falha, as
 // outras continuam, e sempre sobra o link direto como alternativa).
 
-// @sparticuz/chromium-min é publicado como ESM puro -- require() direto
-// quebra em produção (Vercel/Node 22 runtime) com ERR_REQUIRE_ESM (só
-// funcionou local por acaso: Node 24 tem require(esm) experimental que
-// mascarou o problema). Import dinâmico funciona em CJS e resolve isso.
+// @sparticuz/chromium-min E puppeteer-core são publicados como ESM puro --
+// require() direto quebra em produção (Vercel/Node 22 runtime) com
+// ERR_REQUIRE_ESM (só funcionou local por acaso: Node 24 tem require(esm)
+// experimental que mascarou o problema nas duas libs). Import dinâmico
+// funciona normalmente de dentro de um módulo CommonJS e resolve isso.
 let _chromiumPromise = null;
 function getChromium() {
   if (!_chromiumPromise) _chromiumPromise = import('@sparticuz/chromium-min').then(m => m.default);
   return _chromiumPromise;
 }
-const puppeteer = require('puppeteer-core');
+let _puppeteerPromise = null;
+function getPuppeteer() {
+  if (!_puppeteerPromise) _puppeteerPromise = import('puppeteer-core').then(m => m.default || m);
+  return _puppeteerPromise;
+}
 
 const CHROMIUM_PACK_URL =
   'https://github.com/Sparticuz/chromium/releases/download/v149.0.0/chromium-v149.0.0-pack.x64.tar';
@@ -90,7 +95,7 @@ module.exports = async function handler(req, res) {
 
   let browser;
   try {
-    const chromium = await getChromium();
+    const [chromium, puppeteer] = await Promise.all([getChromium(), getPuppeteer()]);
     browser = await puppeteer.launch({
       args: chromium.args,
       defaultViewport: { width: 1280, height: 900 },
