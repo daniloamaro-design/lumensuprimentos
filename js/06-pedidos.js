@@ -1591,6 +1591,8 @@ function onAttachFileChange(type) {
 
 async function saveAttachment() {
   if (!currentDetailOrderId) return;
+  const orderId = currentDetailOrderId; // captura já aqui: currentDetailOrderId pode mudar
+                                         // (usuário abre outro pedido) enquanto o upload roda
   setBtnLoading('btn-save-attach', true);
   const nfNumero   = document.getElementById('attach-nf-num').value.trim();
   const nfValor    = document.getElementById('attach-nf-valor').value;
@@ -1616,13 +1618,13 @@ async function saveAttachment() {
   try {
     const storage = firebase.storage();
     if (nfFile) {
-      const nfRef = storage.ref(`pedidos/${currentDetailOrderId}/nf_${Date.now()}_${nfFile.name}`);
+      const nfRef = storage.ref(`pedidos/${orderId}/nf_${Date.now()}_${nfFile.name}`);
       const snap = await nfRef.put(nfFile);
       update.nfFileName = nfFile.name;
       update.nfFileURL  = await snap.ref.getDownloadURL();
     }
     if (boletoFile) {
-      const bolRef = storage.ref(`pedidos/${currentDetailOrderId}/boleto_${Date.now()}_${boletoFile.name}`);
+      const bolRef = storage.ref(`pedidos/${orderId}/boleto_${Date.now()}_${boletoFile.name}`);
       const snap = await bolRef.put(boletoFile);
       update.boletoFileName = boletoFile.name;
       update.boletoFileURL  = await snap.ref.getDownloadURL();
@@ -1633,11 +1635,15 @@ async function saveAttachment() {
     if (boletoFile) update.boletoFileName = boletoFile.name;
   }
 
-  await db.collection('orders').doc(currentDetailOrderId).update(update);
-  detailOrderData = { ...detailOrderData, ...update };
+  await db.collection('orders').doc(orderId).update(update);
+  // Só sincroniza o painel/detalhe aberto se ainda for o mesmo pedido;
+  // se o usuário já trocou de pedido, não mexe no que está na tela agora.
+  if (currentDetailOrderId === orderId) {
+    detailOrderData = { ...detailOrderData, ...update };
+    showOrderDetail(orderId);
+  }
   showToast('✅ Informações de NF/Boleto salvas com sucesso!');
   closeModal('modal-attach');
-  showOrderDetail(currentDetailOrderId);
   loadAllOrders();
   setBtnLoading('btn-save-attach', false);
 }
