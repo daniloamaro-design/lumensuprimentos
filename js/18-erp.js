@@ -904,9 +904,12 @@ function pasBuscaUrl(tipo, origem, destino, data) {
   return `https://www.google.com/search?q=${encodeURIComponent(q)}`;
 }
 
+let _pasCalDias = []; // [{dataISO, tipo, origem, destino}] -- a última leva renderizada, usada por pasBuscarPrecos()
+
 function pasRenderCalendarioComparacao(s) {
   const card = document.getElementById('pas-det-calendario-card');
   const cont = document.getElementById('pas-det-calendario');
+  const btnBuscar = document.getElementById('pas-det-buscar-precos-btn');
   if (!card || !cont) return;
 
   // s.saida vem como 'YYYY-MM-DD': soma 'T00:00:00' pra virar meia-noite LOCAL
@@ -915,6 +918,9 @@ function pasRenderCalendarioComparacao(s) {
   const saida = s.saida ? pasParaData(String(s.saida).slice(0, 10) + 'T00:00:00') : null;
   if (!saida || !s.origem || !s.destino) { card.style.display = 'none'; return; }
   card.style.display = '';
+  // Busca automática de preço só existe pra ônibus (ClickBus) -- avião
+  // (Google Flights) não tem como ser lido de forma confiável hoje.
+  if (btnBuscar) btnBuscar.style.display = s.tipo === 'aviao' ? 'none' : '';
 
   const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
   const dias = [];
@@ -922,23 +928,85 @@ function pasRenderCalendarioComparacao(s) {
     const d = new Date(saida); d.setDate(d.getDate() + i);
     dias.push(d);
   }
+  _pasCalDias = dias.map(d => ({ dataISO: d.toISOString().slice(0, 10), tipo: s.tipo, origem: s.origem, destino: s.destino }));
 
   cont.innerHTML = dias.map((d, i) => {
     const url = pasBuscaUrl(s.tipo, s.origem, s.destino, d);
     const ehDataSolicitada = i === 0;
     const passado = d < hoje;
     return `
-      <a href="${url}" target="_blank" rel="noopener" style="text-decoration:none;">
-        <div style="border:1.5px solid ${ehDataSolicitada ? 'var(--lumen)' : 'var(--border)'};border-radius:10px;padding:12px;text-align:center;transition:.15s;${passado ? 'opacity:.55;' : ''}"
-             onmouseover="this.style.borderColor='var(--lumen)'" onmouseout="this.style.borderColor='${ehDataSolicitada ? 'var(--lumen)' : 'var(--border)'}'">
-          <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;">${ehDataSolicitada ? 'Data pedida' : `+${i} dia${i > 1 ? 's' : ''}`}</div>
-          <div style="font-size:15px;font-weight:700;color:var(--text);margin:4px 0;">${d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}</div>
-          <div style="font-size:11px;color:var(--text-muted);">${d.toLocaleDateString('pt-BR', { weekday: 'short' })}</div>
-          <div style="margin-top:8px;font-size:12px;color:var(--lumen);font-weight:600;">🔍 Ver preços</div>
-        </div>
-      </a>`;
+      <div style="position:relative;">
+        <a href="${url}" target="_blank" rel="noopener" style="text-decoration:none;">
+          <div style="border:1.5px solid ${ehDataSolicitada ? 'var(--lumen)' : 'var(--border)'};border-radius:10px;padding:12px;text-align:center;transition:.15s;${passado ? 'opacity:.55;' : ''}"
+               onmouseover="this.style.borderColor='var(--lumen)'" onmouseout="this.style.borderColor='${ehDataSolicitada ? 'var(--lumen)' : 'var(--border)'}'">
+            <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;">${ehDataSolicitada ? 'Data pedida' : `+${i} dia${i > 1 ? 's' : ''}`}</div>
+            <div style="font-size:15px;font-weight:700;color:var(--text);margin:4px 0;">${d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}</div>
+            <div style="font-size:11px;color:var(--text-muted);">${d.toLocaleDateString('pt-BR', { weekday: 'short' })}</div>
+            <div style="margin-top:8px;font-size:12px;color:var(--lumen);font-weight:600;">🔍 Ver preços</div>
+            <div id="pas-cal-preco-${i}" style="margin-top:6px;font-size:13px;min-height:18px;"></div>
+          </div>
+        </a>
+      </div>`;
   }).join('');
 }
+
+// Chamado pelo botão "Buscar orçamentos": pede pro servidor (Puppeteer) ler
+// o preço mais barato de cada um dos 6 dias no ClickBus e mostra embaixo do
+// card correspondente. Ver api/passagens-precos.js pra detalhes/limitações.
+async function pasBuscarPrecos() {
+  const btn = document.getElementById('pas-det-buscar-precos-btn');
+  if (!_pasCalDias.length || !_pasCalDias[0].origem) return;
+  const { tipo, origem, destino } = _pasCalDias[0];
+  if (tipo === 'aviao') return;
+
+  const origemSlug = pasSlugCidadeUF(origem);
+  const destinoSlug = pasSlugCidadeUF(destino);
+  if (!origemSlug || !destinoSlug) {
+    showToast('⚠️ Não foi possível identificar cidade/UF pra buscar automaticamente.');
+    return;
+  }
+
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Buscando (pode levar até 1 min)...'; }
+  _pasCalDias.forEach((_, i) => {
+    const el = document.getElementById(`pas-cal-preco-${i}`);
+    if (el) el.innerHTML = `<span style="color:var(--text-muted);">buscando…</span>`;
+  });
+
+  try {
+    const resp = await fetch('/api/passagens-precos', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ origemSlug, destinoSlug, datas: _pasCalDias.map(d => d.dataISO) }),
+    });
+    const data = await resp.json();
+    if (!resp.ok) throw new Error(data.error || 'Erro na busca');
+
+    const precos = (data.resultados || []).filter(r => r.disponivel).map(r => r.precoMin);
+    const menorGeral = precos.length ? Math.min(...precos) : null;
+
+    (data.resultados || []).forEach((r, i) => {
+      const el = document.getElementById(`pas-cal-preco-${i}`);
+      if (!el) return;
+      if (!r.disponivel) {
+        el.innerHTML = `<span style="color:var(--text-muted);font-size:11px;">sem preço agora</span>`;
+        return;
+      }
+      const ehMaisBarato = r.precoMin === menorGeral;
+      el.innerHTML = `<span style="font-weight:700;color:${ehMaisBarato ? 'var(--ok,#16a34a)' : 'var(--text)'};">${frtBRL(r.precoMin)}</span>${ehMaisBarato ? ' 🏆' : ''}`;
+    });
+    showToast('✅ Orçamentos atualizados!');
+  } catch (e) {
+    console.error('pasBuscarPrecos', e);
+    showToast('❌ Erro ao buscar orçamentos: ' + e.message);
+    _pasCalDias.forEach((_, i) => {
+      const el = document.getElementById(`pas-cal-preco-${i}`);
+      if (el) el.innerHTML = '';
+    });
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '🔎 Buscar orçamentos'; }
+  }
+}
+window.pasBuscarPrecos = pasBuscarPrecos;
 
 async function pasPopularFornecedores(selId) {
   const sel = document.getElementById(selId);

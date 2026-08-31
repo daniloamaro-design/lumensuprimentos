@@ -2,7 +2,12 @@
   "name": "lumen-estoque",
   "version": "1.0.0",
   "description": "Suprimentos Obra Lumen - Sistema de Controle",
+  "engines": {
+    "node": "22.x"
+  },
   "dependencies": {
+    "@sparticuz/chromium-min": "^149.0.0",
+    "puppeteer-core": "^25.9.0",
     "resend": "^3.2.0"
   },
   "devDependencies": {

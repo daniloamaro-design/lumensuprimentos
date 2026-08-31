@@ -6,6 +6,10 @@
     },
     "api/sync-passageiros.js": {
       "maxDuration": 20
+    },
+    "api/passagens-precos.js": {
+      "maxDuration": 60,
+      "memory": 2048
     }
   },
   "headers": [
@@ -25,6 +29,7 @@
   "rewrites": [
     { "source": "/api/gemini", "destination": "/api/gemini.js" },
     { "source": "/api/sync-passageiros", "destination": "/api/sync-passageiros.js" },
+    { "source": "/api/passagens-precos", "destination": "/api/passagens-precos.js" },
     { "source": "/(.*)", "destination": "/index.html" }
   ]
 }

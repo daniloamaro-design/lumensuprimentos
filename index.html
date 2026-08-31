@@ -2212,10 +2212,13 @@
     </div>
     <div class="card"><div class="card-body" id="pas-det-body" style="display:flex;flex-direction:column;gap:12px;"></div></div>
     <div class="card" id="pas-det-calendario-card" style="margin-top:16px;display:none;">
-      <div class="card-header"><b>🗓️ Comparar preços: saída até +5 dias</b></div>
+      <div class="card-header" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+        <b>🗓️ Comparar preços: saída até +5 dias</b>
+        <button class="btn btn-primary btn-sm" id="pas-det-buscar-precos-btn" onclick="pasBuscarPrecos()">🔎 Buscar orçamentos</button>
+      </div>
       <div class="card-body">
         <div style="color:var(--text-muted);font-size:13px;margin-bottom:12px;">
-          Não existe API gratuita confiável de preço em tempo real de passagem (nem ônibus, nem avião) — cada botão abre, numa aba nova, a comparação real já com origem, destino e a data daquele dia preenchidos (ônibus: ClickBus, várias viações lado a lado; avião: Google Flights).
+          Não existe API oficial de preço de passagem — "Buscar orçamentos" abre o comparador de cada dia num navegador no servidor e tenta ler o preço mais barato mostrado (só ônibus/ClickBus; pode falhar num dia específico se o site deles mudar ou bloquear, aí sobra o link direto de qualquer forma). Sem clicar no botão, cada card só abre a comparação numa aba nova (ônibus: ClickBus; avião: Google Flights).
         </div>
         <div id="pas-det-calendario" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;"></div>
       </div>
@@ -3196,7 +3199,7 @@
 <script src="js/16-chat-ia.js?v=2"></script>
 <script src="js/17-metas-wrappers.js?v=2"></script>
 <script src="js/cidades-brasil.js?v=1"></script>
-<script src="js/18-erp.js?v=34"></script>
+<script src="js/18-erp.js?v=35"></script>
 <script src="js/19-dashboard-diretoria.js?v=9"></script>
 <script src="js/20-percapita-diretoria.js?v=2"></script>
 <!-- CHAT IA FLUTUANTE -->
