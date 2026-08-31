@@ -2872,14 +2872,14 @@
       <div class="card" style="margin-bottom:16px;">
         <div class="card-header"><div class="card-header-title">Adicionar Cotação</div></div>
         <div class="card-body">
-          <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px;margin-bottom:12px;">
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px;">
             <div class="form-group" style="margin:0;">
               <label class="form-label">Fornecedor *</label>
               <select class="form-select" id="quot-supplier"></select>
             </div>
             <div class="form-group" style="margin:0;">
-              <label class="form-label">Valor Total (R$) *</label>
-              <input type="number" class="form-input" id="quot-valor" placeholder="0.00" step="0.01" min="0">
+              <label class="form-label">Validade</label>
+              <input type="date" class="form-input" id="quot-validade">
             </div>
             <div class="form-group" style="margin:0;">
               <label class="form-label">Status</label>
@@ -2889,14 +2889,31 @@
                 <option value="recusado">Recusado</option>
               </select>
             </div>
-            <div class="form-group" style="margin:0;">
-              <label class="form-label">Validade</label>
-              <input type="date" class="form-input" id="quot-validade">
-            </div>
           </div>
           <div class="form-group" style="margin-bottom:12px;">
             <label class="form-label">Observações</label>
             <input type="text" class="form-input" id="quot-obs" placeholder="Condições, frete, desconto...">
+          </div>
+          <div class="form-group" style="margin-bottom:12px;">
+            <label class="form-label" style="display:flex;justify-content:space-between;align-items:center;">
+              <span>Preço por item (do que o fornecedor mandou)</span>
+              <span style="font-weight:400;color:var(--text-muted);font-size:11px;">valor total é a soma dos itens</span>
+            </label>
+            <div class="table-wrap">
+              <table class="orca-table" style="width:100%;">
+                <thead><tr>
+                  <th>Item</th>
+                  <th style="text-align:right;">Qtd pedida</th>
+                  <th style="text-align:right;width:140px;">Valor unitário (R$)</th>
+                  <th style="text-align:right;">Subtotal</th>
+                </tr></thead>
+                <tbody id="quot-itens-tbody"></tbody>
+              </table>
+            </div>
+          </div>
+          <div style="display:flex;justify-content:flex-end;align-items:center;gap:10px;margin-bottom:12px;">
+            <span class="form-label" style="margin:0;">Valor Total (R$)</span>
+            <input type="number" class="form-input" id="quot-valor" placeholder="0.00" step="0.01" min="0" readonly style="max-width:160px;font-weight:700;text-align:right;background:var(--lumen-lt);">
           </div>
           <button class="btn btn-primary" style="width:auto;" onclick="saveQuotation()">+ Adicionar Cotação</button>
         </div>
@@ -3186,12 +3203,12 @@
 <script src="js/03-navegacao.js?v=2"></script>
 <script src="js/04-percapita.js?v=12"></script>
 <script src="js/05-cadastros.js?v=2"></script>
-<script src="js/06-pedidos.js?v=10"></script>
+<script src="js/06-pedidos.js?v=11"></script>
 <script src="js/07-estoque-ia-form.js?v=4"></script>
 <script src="js/08-orcamento-casas.js?v=2"></script>
 <script src="js/09-indicadores-transf.js?v=3"></script>
 <script src="js/10-produtos-orcamento.js?v=3"></script>
-<script src="js/11-fornecedores-pendentes.js?v=4"></script>
+<script src="js/11-fornecedores-pendentes.js?v=5"></script>
 <script src="js/12-financeiro-compras.js?v=5"></script>
 <script src="js/13-ia-avancada.js?v=2"></script>
 <script src="js/14-gestao.js?v=3"></script>
