@@ -1192,7 +1192,10 @@ async function saveStockEval() {
 
     const transferItems = Object.values(evalToSave).filter(ev => ev.transfer && ev.qty > 0);
     const purchaseItems = Object.values(evalToSave).filter(ev => !ev.transfer || ev.qty <= 0);
-    const casaEstoque   = document.getElementById('se-estoque-select')?.value || 'Estoque';
+    // Elemento 'se-estoque-select' nunca existiu no HTML (bug antigo): o fallback
+    // sempre caía num nome fantasma 'Estoque', separado da casa real onde as
+    // doações são recebidas e redistribuídas. Fixado no nome real da casa.
+    const casaEstoque   = 'Estoque - Céu';
 
     // Sempre avança para "andamento" — compras cotará só o que não foi transferido
     const newStatus = 'andamento';
