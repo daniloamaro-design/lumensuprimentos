@@ -966,7 +966,16 @@ async function pasBuscarPrecos() {
     return;
   }
 
-  if (btn) { btn.disabled = true; btn.textContent = '⏳ Buscando (pode levar até 2 min)...'; }
+  // Isso demora de verdade (~1-2min, o ClickBus é lento) -- sem um contador
+  // visível o botão parado parecia travado e o usuário desistia achando que
+  // tinha quebrado. Mostra segundos passados pra deixar claro que está
+  // progredindo de verdade.
+  const t0 = Date.now();
+  let intervalo = null;
+  const atualizaContador = () => {
+    if (btn) btn.textContent = `⏳ Buscando… (${Math.floor((Date.now() - t0) / 1000)}s, pode levar até 2 min)`;
+  };
+  if (btn) { btn.disabled = true; atualizaContador(); intervalo = setInterval(atualizaContador, 1000); }
   _pasCalDias.forEach((_, i) => {
     const el = document.getElementById(`pas-cal-preco-${i}`);
     if (el) el.innerHTML = `<span style="color:var(--text-muted);">buscando…</span>`;
@@ -1003,6 +1012,7 @@ async function pasBuscarPrecos() {
       if (el) el.innerHTML = '';
     });
   } finally {
+    if (intervalo) clearInterval(intervalo);
     if (btn) { btn.disabled = false; btn.textContent = '🔎 Buscar orçamentos'; }
   }
 }
