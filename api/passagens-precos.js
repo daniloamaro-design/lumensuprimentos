@@ -38,8 +38,14 @@ function getPuppeteer() {
 const CHROMIUM_PACK_URL =
   'https://github.com/Sparticuz/chromium/releases/download/v149.0.0/chromium-v149.0.0-pack.x64.tar';
 
-const TIMEOUT_POR_DATA_MS = 18000;
+const TIMEOUT_POR_DATA_MS = 25000;
 const MAX_DATAS = 6;
+// Rodar as 6 datas TODAS em paralelo (Promise.all puro) fazia todas
+// disputarem CPU da mesma function e estourarem o timeout juntas -- um
+// teste isolado (1 data) demorou 15s e achou o preço certo, mas 3 juntas
+// deram todas timeout. Roda em lotes menores pra cada página ter CPU de
+// sobra.
+const CONCORRENCIA = 3;
 
 // Extrai o menor valor "R$ ###,##" do texto visível da página.
 // PRECO_MINIMO_REAL descarta valores tipo "R$ 0,11" -- o ClickBus tem um
@@ -113,9 +119,14 @@ module.exports = async function handler(req, res) {
       headless: true,
     });
 
-    const resultados = await Promise.all(
-      datasLimitadas.map(data => buscarUmaData(browser, origemSlug, destinoSlug, data))
-    );
+    const resultados = [];
+    for (let i = 0; i < datasLimitadas.length; i += CONCORRENCIA) {
+      const lote = datasLimitadas.slice(i, i + CONCORRENCIA);
+      const doLote = await Promise.all(
+        lote.map(data => buscarUmaData(browser, origemSlug, destinoSlug, data))
+      );
+      resultados.push(...doLote);
+    }
 
     res.status(200).json({ resultados });
   } catch (e) {
