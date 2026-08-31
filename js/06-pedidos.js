@@ -1471,8 +1471,51 @@ function openQuotationModal() {
   document.getElementById('modal-quot-title').textContent = `Orçamentos — ${code}`;
   // Populate supplier select
   populateSupplierSelect('quot-supplier');
+  montarItensCotacaoForm();
   loadQuotations(currentQuotationOrderId);
   openModal('modal-quotation');
+}
+
+// Monta a tabela de preço por item da cotação, a partir dos itens do
+// próprio pedido (quantidade já vem preenchida, só falta o valor unitário
+// que o fornecedor cotou). Isso permite comparar fornecedor a fornecedor
+// item por item na tela de Orçamentos Pendentes, em vez de só o total.
+function montarItensCotacaoForm() {
+  const tbody = document.getElementById('quot-itens-tbody');
+  if (!tbody) return;
+  const items = detailOrderData?.items || {};
+  let rows = '';
+  Object.entries(items).forEach(([catKey, prods]) => {
+    const cat = CATEGORIAS[catKey];
+    Object.entries(prods).forEach(([prodId, qty]) => {
+      const p = cat?.produtos?.find(x => x.id === prodId);
+      const nome = p?.nome || prodId;
+      const unidade = p?.unidade || '';
+      rows += `<tr data-catkey="${catKey}" data-prodid="${prodId}" data-nome="${String(nome).replace(/"/g,'&quot;')}">
+        <td>${nome} <span style="color:var(--text-muted);font-size:11px;">${unidade}</span></td>
+        <td style="text-align:right;" data-qty="${qty}">${qty}</td>
+        <td style="text-align:right;"><input type="number" class="form-input quot-item-unit" step="0.01" min="0" placeholder="0,00" style="text-align:right;padding:6px 8px;" oninput="atualizarQuotTotalItens()"></td>
+        <td style="text-align:right;" class="quot-item-subtotal">—</td>
+      </tr>`;
+    });
+  });
+  tbody.innerHTML = rows || '<tr><td colspan="4" style="text-align:center;color:var(--text-muted);padding:12px;">Pedido sem itens.</td></tr>';
+  document.getElementById('quot-valor').value = '';
+}
+
+function atualizarQuotTotalItens() {
+  const tbody = document.getElementById('quot-itens-tbody');
+  let total = 0;
+  tbody?.querySelectorAll('tr[data-catkey]').forEach(tr => {
+    const qty = parseFloat(tr.querySelector('[data-qty]')?.dataset.qty) || 0;
+    const unit = parseFloat(tr.querySelector('.quot-item-unit')?.value) || 0;
+    const subtotal = qty * unit;
+    const subtotalEl = tr.querySelector('.quot-item-subtotal');
+    if (subtotalEl) subtotalEl.textContent = unit > 0 ? ('R$ ' + subtotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })) : '—';
+    total += subtotal;
+  });
+  const totalInput = document.getElementById('quot-valor');
+  if (totalInput) totalInput.value = total > 0 ? total.toFixed(2) : '';
 }
 
 async function loadQuotations(orderId) {
@@ -1512,18 +1555,35 @@ async function saveQuotation() {
   const supSel = document.getElementById('quot-supplier');
   const fornecedorId   = supSel.value;
   const fornecedorNome = supSel.options[supSel.selectedIndex]?.text || '';
-  const valor          = parseFloat(document.getElementById('quot-valor').value);
   const status         = document.getElementById('quot-status').value;
   const validade       = document.getElementById('quot-validade').value;
   const obs            = document.getElementById('quot-obs').value;
-  if (!fornecedorId || !valor) { showToast('Selecione o fornecedor e informe o valor!'); return; }
+
+  // Preço por item (valor total é sempre a soma dos itens preenchidos) --
+  // guarda o detalhamento pra comparar fornecedor a fornecedor item a item
+  // na tela de Orçamentos Pendentes.
+  const itens = [];
+  let valor = 0;
+  document.querySelectorAll('#quot-itens-tbody tr[data-catkey]').forEach(tr => {
+    const valorUnit = parseFloat(tr.querySelector('.quot-item-unit')?.value) || 0;
+    if (valorUnit <= 0) return;
+    const qty = parseFloat(tr.querySelector('[data-qty]')?.dataset.qty) || 0;
+    const valorItemTotal = qty * valorUnit;
+    itens.push({
+      catKey: tr.dataset.catkey, prodId: tr.dataset.prodid, nome: tr.dataset.nome,
+      qty, valorUnit, valorTotal: valorItemTotal,
+    });
+    valor += valorItemTotal;
+  });
+
+  if (!fornecedorId || !valor) { showToast('Selecione o fornecedor e informe ao menos um valor unitário!'); return; }
   await db.collection('quotations').add({
-    orderId, fornecedorId, fornecedorNome, valor, status, validade, obs,
+    orderId, fornecedorId, fornecedorNome, valor, status, validade, obs, itens,
     createdBy: currentUserData.name,
     createdAt: firebase.firestore.FieldValue.serverTimestamp()
   });
-  document.getElementById('quot-valor').value = '';
   document.getElementById('quot-obs').value = '';
+  montarItensCotacaoForm();
   showToast('✅ Cotação adicionada!');
   loadQuotations(orderId);
 }

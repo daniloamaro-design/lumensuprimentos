@@ -816,6 +816,71 @@ function opcAutorizarGrupoCotacoes(cotIds, valor) {
   });
 }
 
+function opcToggleComparativo(pedidoId) {
+  const el  = document.getElementById('opc-comp-' + pedidoId);
+  const btn = document.getElementById('opc-comp-btn-' + pedidoId);
+  if (!el) return;
+  const aberto = !el.classList.contains('hidden');
+  el.classList.toggle('hidden');
+  if (btn) btn.innerHTML = btn.innerHTML.replace(aberto ? '▴' : '▾', aberto ? '▾' : '▴');
+}
+
+// Monta a tabela comparativa de preço por item entre os fornecedores que
+// cotaram o mesmo pedido -- pra decidir com mais clareza mesmo aprovando um
+// fornecedor só pro pedido inteiro (não faz split de compra por item).
+function opcComparativoItensHTML(pedido, cotacoes) {
+  // Lista canônica dos itens do pedido (catKey/prodId/qty), na mesma ordem
+  // em que aparecem no pedido.
+  const itensPedido = [];
+  Object.entries(pedido.items || {}).forEach(([catKey, prods]) => {
+    Object.entries(prods).forEach(([prodId, qty]) => {
+      const cat = window.CATEGORIAS?.[catKey];
+      const p = cat?.produtos?.find(x => x.id === prodId);
+      itensPedido.push({ catKey, prodId, qty, nome: p?.nome || prodId, unidade: p?.unidade || '' });
+    });
+  });
+  if (!itensPedido.length) return '<div style="font-size:12px;color:var(--text-muted);">Pedido sem itens detalhados.</div>';
+
+  const semDetalhe = cotacoes.filter(q => !Array.isArray(q.itens) || q.itens.length === 0);
+
+  const linhas = itensPedido.map(item => {
+    const precos = cotacoes.map(q => {
+      const it = (q.itens || []).find(x => x.catKey === item.catKey && x.prodId === item.prodId);
+      return it ? parseFloat(it.valorUnit) || 0 : null;
+    });
+    const validos = precos.filter(v => v != null && v > 0);
+    const menor = validos.length ? Math.min(...validos) : null;
+    const celulas = precos.map(v => {
+      if (v == null) return `<td style="text-align:right;color:var(--text-muted);">—</td>`;
+      const ehMenor = menor != null && v === menor;
+      return `<td style="text-align:right;${ehMenor ? 'color:var(--ok);font-weight:700;' : ''}">${FMT_OPC(v)}${ehMenor ? ' ★' : ''}</td>`;
+    }).join('');
+    return `<tr>
+      <td style="font-size:12px;">${item.nome} <span style="color:var(--text-muted);font-size:10px;">${item.unidade}</span></td>
+      <td style="text-align:right;font-size:12px;color:var(--text-muted);">${item.qty}</td>
+      ${celulas}
+    </tr>`;
+  }).join('');
+
+  const linhaTotal = `<tr style="border-top:2px solid var(--border);font-weight:700;">
+    <td colspan="2" style="font-size:12px;">Total do orçamento</td>
+    ${cotacoes.map(q => `<td style="text-align:right;font-size:13px;color:var(--lumen);">${FMT_OPC(parseFloat(q.valor) || 0)}</td>`).join('')}
+  </tr>`;
+
+  return `
+    <div class="table-wrap">
+      <table class="orca-table" style="width:100%;">
+        <thead><tr>
+          <th>Item</th><th style="text-align:right;">Qtd</th>
+          ${cotacoes.map(q => `<th style="text-align:right;">${q.fornecedorNome || '—'}</th>`).join('')}
+        </tr></thead>
+        <tbody>${linhas}${linhaTotal}</tbody>
+      </table>
+    </div>
+    ${semDetalhe.length ? `<div style="font-size:11px;color:var(--text-muted);margin-top:6px;">⚠️ ${semDetalhe.map(q=>q.fornecedorNome).join(', ')} sem preço por item cadastrado (cotação antiga ou lançada só com o total) -- coluna aparece em branco.</div>` : ''}
+  `;
+}
+
 function opcAtualizarTotais() {
   let totalGeral = 0, totalAut = 0, totalNaut = 0, totalPend = 0, totalGer = 0;
   let nAut = 0, nNaut = 0, nPend = 0, nGer = 0;
@@ -902,6 +967,9 @@ function opcAtualizarTotais() {
 function opcRenderizar() {
   const el = document.getElementById('opc-resultados');
   el.dataset.loaded = '1';
+  // Evita repetir a tabela de comparativo item-a-item quando o mesmo pedido
+  // aparece mais de uma vez na visão atual (ex.: pertence a 2 categorias).
+  window._opcComparativoRenderizado = new Set();
 
   // Monta grupos principais
   const grupos = {}; // chaveGrupo -> [{ pedido, cotacao }]
@@ -1150,6 +1218,24 @@ function opcRenderizar() {
               </div>
           </td>
         </tr>`;
+
+        // Comparativo item-a-item: só uma vez por pedido (não repete se ele
+        // aparecer em mais de uma categoria), e só quando há 2+ cotações.
+        const cotsDoPedido = opcCotacoes[p.id] || [];
+        if (cotsDoPedido.length > 1 && !window._opcComparativoRenderizado.has(p.id)) {
+          window._opcComparativoRenderizado.add(p.id);
+          html += `<tr>
+            <td colspan="9" style="padding:0;border-top:none;">
+              <button onclick="opcToggleComparativo('${p.id}')" id="opc-comp-btn-${p.id}"
+                style="width:100%;text-align:left;background:var(--bg);border:none;border-top:1px dashed var(--border);padding:6px 18px;font-size:11px;font-weight:700;color:var(--lumen);cursor:pointer;">
+                📊 Comparar preço por item entre os ${cotsDoPedido.length} fornecedores ▾
+              </button>
+              <div id="opc-comp-${p.id}" class="hidden" style="padding:10px 18px 16px;background:var(--bg);">
+                ${opcComparativoItensHTML(p, cotsDoPedido)}
+              </div>
+            </td>
+          </tr>`;
+        }
       });
 
       html += `</tbody></table></div>`;
