@@ -966,7 +966,7 @@ async function pasBuscarPrecos() {
     return;
   }
 
-  if (btn) { btn.disabled = true; btn.textContent = '⏳ Buscando (pode levar até 1 min)...'; }
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Buscando (pode levar até 2 min)...'; }
   _pasCalDias.forEach((_, i) => {
     const el = document.getElementById(`pas-cal-preco-${i}`);
     if (el) el.innerHTML = `<span style="color:var(--text-muted);">buscando…</span>`;
