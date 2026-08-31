@@ -857,16 +857,42 @@ function abrirPasDetalhe(id) {
 }
 window.abrirPasDetalhe = abrirPasDetalhe;
 
+// Converte 'Cidade - UF' (formato usado pelo datalist de cidades do Brasil,
+// js/cidades-brasil.js) no slug que o ClickBus usa nas URLs de rota
+// (ex.: 'Fortaleza - CE' -> 'fortaleza-ce-todos'). Retorna null se não bater
+// no padrão (ex.: destino internacional digitado livre) -- nesse caso cai
+// no fallback de busca do Google.
+function pasSlugCidadeUF(nome) {
+  const m = String(nome || '').trim().match(/^(.+?)\s*-\s*([A-Za-z]{2})$/);
+  if (!m) return null;
+  const SEM_ACENTO = new RegExp('[̀-ͯ]', 'g'); // marcas diacríticas pós-normalize('NFD')
+  const cidade = m[1]
+    .normalize('NFD').replace(SEM_ACENTO, '')
+    .toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+  if (!cidade) return null;
+  return `${cidade}-${m[2].toLowerCase()}-todos`;
+}
+
 // Calendário "saída até +5 dias": pra cada dia, um botão que abre a busca
-// real (Google, já preenchida com origem/destino/data) numa aba nova — sem
-// tentar extrair preço automaticamente (não existe API gratuita confiável de
-// preço de passagem, nem ônibus nem avião; ver conversa com o usuário).
+// real numa aba nova -- sem tentar extrair preço automaticamente (não existe
+// API gratuita confiável de preço de passagem, nem ônibus nem avião; ver
+// conversa com o usuário). Ônibus vai direto pro comparador de rota do
+// ClickBus (várias viações, preço e horário, sem anúncio no meio -- testado
+// e confirmado que a URL de rota funciona sem precisar de API/scraping);
+// se a cidade não estiver no formato 'Cidade - UF' (ex. destino
+// internacional), cai no fallback de busca do Google. Avião usa o Google
+// Flights, que aceita a rota em linguagem natural na própria URL.
 function pasBuscaUrl(tipo, origem, destino, data) {
   const dataBR = data.toLocaleDateString('pt-BR');
   if (tipo === 'aviao') {
     const dataISO = data.toISOString().slice(0, 10);
     const q = `Flights from ${origem} to ${destino} on ${dataISO}`;
     return `https://www.google.com/travel/flights?q=${encodeURIComponent(q)}`;
+  }
+  const origemSlug = pasSlugCidadeUF(origem);
+  const destinoSlug = pasSlugCidadeUF(destino);
+  if (origemSlug && destinoSlug) {
+    return `https://www.clickbus.com.br/onibus/${origemSlug}/${destinoSlug}`;
   }
   const q = `passagem de ônibus ${origem} para ${destino} dia ${dataBR}`;
   return `https://www.google.com/search?q=${encodeURIComponent(q)}`;
