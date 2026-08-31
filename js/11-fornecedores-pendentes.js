@@ -497,6 +497,7 @@ let opcGrupo = 'casa';
 let opcPedidos = [];       // pedidos com status 'andamento'
 let opcCotacoes = {};      // { orderId: [ {fornecedorNome, valor, status, validade, obs, id} ] }
 let opcAutorizados = {};   // { cotacaoId: true | false | null }
+let opcPrecos = {};        // { 'catKey|prodId|city': price } -- preço de referência (aba Preços por Cidade), pra comparar a cotação atual com a última compra registrada
 
 const FMT_OPC = v => 'R$ ' + v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
@@ -535,10 +536,18 @@ async function initOrcPendentes() {
       return;
     }
 
-    // 2. Busca todas as cotações de uma vez
-    const cotacoesSnap = await db.collection('quotations')
-      .orderBy('valor', 'asc')
-      .get();
+    // 2. Busca todas as cotações e os preços de referência (Preços por
+    // Cidade) de uma vez -- usados no comparativo item-a-item pra saber se
+    // a cotação atual está mais cara/barata que a última compra registrada.
+    const [cotacoesSnap, pricesSnap] = await Promise.all([
+      db.collection('quotations').orderBy('valor', 'asc').get(),
+      db.collection('prices').get(),
+    ]);
+    opcPrecos = {};
+    pricesSnap.docs.forEach(d => {
+      const p = d.data();
+      opcPrecos[`${p.cat}|${p.prodId}|${p.city}`] = p.price;
+    });
 
     const orderIds = new Set(opcPedidos.map(p => p.id));
 
@@ -780,6 +789,22 @@ async function opcGerenteDecisao(cotId, valor) {
             } catch(e) { console.warn('Erro financeiro:', e); }
           }
 
+          // Atualiza o preço de referência (aba Preços por Cidade) de cada
+          // item da cotação aprovada, na cidade da casa do pedido -- assim
+          // o preço fica sempre o da última compra de verdade, sem precisar
+          // digitar de novo à mão. Roda em paralelo, não bloqueia se falhar.
+          if (Array.isArray(cotData.itens) && cotData.itens.length) {
+            const cidadeDoPedido = (typeof CASAS_CIDADES !== 'undefined' ? CASAS_CIDADES : {})[_orderDataOpc.house];
+            if (cidadeDoPedido) {
+              await Promise.all(cotData.itens.map(it => atualizarPrecoReferencia({
+                catKey: it.catKey, prodId: it.prodId, prodNome: it.nome,
+                unidade: (CATEGORIAS[it.catKey]?.produtos?.find(x => x.id === it.prodId)?.unidade) || '',
+                cidade: cidadeDoPedido, price: it.valorUnit,
+                usuario: currentUserData?.name || '',
+              }))).catch(e => console.warn('Erro ao atualizar preços de referência:', e));
+            }
+          }
+
           showToast('✅ Gerente aprovou! Pedido liberado e lançado no financeiro.');
         }
       }
@@ -843,7 +868,13 @@ function opcComparativoItensHTML(pedido, cotacoes) {
 
   const semDetalhe = cotacoes.filter(q => !Array.isArray(q.itens) || q.itens.length === 0);
 
+  // Preço de referência (aba Preços por Cidade) da última compra de cada
+  // item, na cidade da casa do pedido -- pra saber se a cotação de agora
+  // está mais cara ou mais barata que da última vez.
+  const cidadeDoPedido = (typeof CASAS_CIDADES !== 'undefined' ? CASAS_CIDADES[pedido.house] : null) || null;
+
   const linhas = itensPedido.map(item => {
+    const ultimoPreco = cidadeDoPedido ? opcPrecos[`${item.catKey}|${item.prodId}|${cidadeDoPedido}`] : null;
     const precos = cotacoes.map(q => {
       const it = (q.itens || []).find(x => x.catKey === item.catKey && x.prodId === item.prodId);
       return it ? parseFloat(it.valorUnit) || 0 : null;
@@ -853,25 +884,34 @@ function opcComparativoItensHTML(pedido, cotacoes) {
     const celulas = precos.map(v => {
       if (v == null) return `<td style="text-align:right;color:var(--text-muted);">—</td>`;
       const ehMenor = menor != null && v === menor;
-      return `<td style="text-align:right;${ehMenor ? 'color:var(--ok);font-weight:700;' : ''}">${FMT_OPC(v)}${ehMenor ? ' ★' : ''}</td>`;
+      let comparativo = '';
+      if (ultimoPreco > 0) {
+        const diffPct = ((v - ultimoPreco) / ultimoPreco) * 100;
+        if (Math.abs(diffPct) >= 0.5) {
+          comparativo = `<br><span style="font-size:10px;font-weight:400;color:${diffPct > 0 ? 'var(--danger)' : 'var(--ok)'};">${diffPct > 0 ? '▲' : '▼'} ${Math.abs(diffPct).toFixed(0)}% vs última</span>`;
+        }
+      }
+      return `<td style="text-align:right;${ehMenor ? 'color:var(--ok);font-weight:700;' : ''}">${FMT_OPC(v)}${ehMenor ? ' ★' : ''}${comparativo}</td>`;
     }).join('');
     return `<tr>
       <td style="font-size:12px;">${item.nome} <span style="color:var(--text-muted);font-size:10px;">${item.unidade}</span></td>
       <td style="text-align:right;font-size:12px;color:var(--text-muted);">${item.qty}</td>
+      <td style="text-align:right;font-size:12px;color:var(--text-muted);">${ultimoPreco > 0 ? FMT_OPC(ultimoPreco) : '—'}</td>
       ${celulas}
     </tr>`;
   }).join('');
 
   const linhaTotal = `<tr style="border-top:2px solid var(--border);font-weight:700;">
-    <td colspan="2" style="font-size:12px;">Total do orçamento</td>
+    <td colspan="3" style="font-size:12px;">Total do orçamento</td>
     ${cotacoes.map(q => `<td style="text-align:right;font-size:13px;color:var(--lumen);">${FMT_OPC(parseFloat(q.valor) || 0)}</td>`).join('')}
   </tr>`;
 
   return `
+    ${!cidadeDoPedido ? `<div style="font-size:11px;color:var(--text-muted);margin-bottom:6px;">⚠️ Casa "${pedido.house || '—'}" sem cidade cadastrada -- não dá pra comparar com o último preço.</div>` : ''}
     <div class="table-wrap">
       <table class="orca-table" style="width:100%;">
         <thead><tr>
-          <th>Item</th><th style="text-align:right;">Qtd</th>
+          <th>Item</th><th style="text-align:right;">Qtd</th><th style="text-align:right;">Último preço${cidadeDoPedido ? ` (${cidadeDoPedido})` : ''}</th>
           ${cotacoes.map(q => `<th style="text-align:right;">${q.fornecedorNome || '—'}</th>`).join('')}
         </tr></thead>
         <tbody>${linhas}${linhaTotal}</tbody>

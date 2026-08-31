@@ -209,6 +209,34 @@ async function saveProduct() {
   setBtnLoading('btn-save-product', false);
 }
 
+// Atualiza o "preço de referência" (aba Preços por Cidade) de um produto
+// numa cidade + grava no histórico -- mesma tabela/lógica que o salvamento
+// manual de preços já usa (js/melhorias.js). Reaproveitado pela aprovação
+// de cotação (Orçamentos Pendentes) pra manter o preço sempre atualizado
+// com a última compra de verdade, sem precisar digitar de novo à mão.
+async function atualizarPrecoReferencia({ catKey, prodId, prodNome, unidade, cidade, price, usuario }) {
+  if (!catKey || !prodId || !cidade || !(price > 0)) return;
+  try {
+    const existing = await db.collection('prices')
+      .where('cat','==',catKey).where('prodId','==',prodId).where('city','==',cidade).get();
+    const priceData = {
+      cat: catKey, prodId, prodNome: prodNome || prodId, city: cidade,
+      price, unidade: unidade || '',
+      updatedBy: usuario || '',
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    };
+    if (existing.empty) await db.collection('prices').add(priceData);
+    else await db.collection('prices').doc(existing.docs[0].id).update(priceData);
+
+    await db.collection('prices_historico').add({
+      prodId, cat: catKey, city: cidade, price,
+      savedAt: firebase.firestore.FieldValue.serverTimestamp(),
+      savedBy: usuario || '',
+      origem: 'cotacao_aprovada',
+    });
+  } catch (e) { console.warn('atualizarPrecoReferencia falhou:', e); }
+}
+
 async function editProduct(prodId, tipo) {
   mpEditingId = prodId;
   document.getElementById('mp-form-title').textContent = 'Editar Produto';
