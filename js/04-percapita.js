@@ -635,6 +635,7 @@ function goPage(page) {
   if (page === 'rotina-estoque')       { initRotinaEstoque(); }
   if (page === 'inventario')           { if (typeof initPageInventario === 'function') initPageInventario(); }
   if (page === 'coord-dashboard')      { if (typeof initCoordDashboard === 'function') initCoordDashboard(); }
+  if (page === 'importar-precos')      { if (typeof initPageImportarPrecos === 'function') initPageImportarPrecos(); }
 }
 
 // ─────────────────────────────────────────────
