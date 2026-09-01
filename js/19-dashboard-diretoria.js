@@ -23,6 +23,7 @@ function dashdirAtualizarPeriodo() {
   dashdirAtualizarDesvioPassagens();
   dashdirCarregarMotivos();
   dashdirAtualizarEntregasPrazo();
+  if (typeof dashdirAtualizarAcuracia === 'function') dashdirAtualizarAcuracia();
 }
 window.dashdirAtualizarPeriodo = dashdirAtualizarPeriodo;
 
