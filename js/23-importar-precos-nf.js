@@ -138,27 +138,26 @@ async function _impProcessarPedido(pedido) {
       return;
     }
 
-    const listaItens = itens.map(i => `- ${i.nome} (${i.unidade}), qtd: ${i.qty}`).join('\n');
-    const prompt = `Você é um assistente de compras analisando uma nota fiscal brasileira.
+    const listaComId = itens.map(i => `prodId="${i.prodId}" | ${i.nome} (${i.unidade})`).join('\n');
+    const promptFinal = `Analise esta nota fiscal brasileira (NF-e ou cupom fiscal) e extraia o preço unitário de cada produto listado abaixo.
 
-Extraia o preço UNITÁRIO de cada item abaixo que aparecer nesta nota fiscal.
+PRODUTOS PARA ENCONTRAR:
+${listaComId}
 
-Itens do pedido:
-${listaItens}
+INSTRUÇÕES:
+- Procure na coluna "Valor Unit.", "Vl. Unit.", "Preço Unit." ou similar da nota
+- Use o prodId exato de cada linha acima
+- Se o produto não estiver na nota, omita-o
+- Valores em reais, use ponto como decimal (ex: 3.89)
+- Se a nota tiver apenas valor total por item, divida pelo quantidade para obter o unitário
 
-Retorne SOMENTE um JSON válido, sem markdown, sem explicação:
-{"itens":[{"prodId":"id_do_produto","nome":"nome","precoUnitario":valor_numerico}]}
-
-Use o prodId exatamente como listado (ex: "arroz", "feijao"). Se um item não estiver na nota, omita-o. Use ponto como separador decimal.`;
-
-    // Monta payload com prodId para facilitar o match
-    const listaComId = itens.map(i => `- prodId:${i.prodId} | nome:${i.nome} (${i.unidade}), qtd: ${i.qty}`).join('\n');
-    const promptComId = prompt.replace(listaItens, listaComId);
+Retorne APENAS este JSON, sem texto adicional:
+{"itens":[{"prodId":"id_exato","precoUnitario":valor_numerico}]}`;
 
     const payload = {
       contents: [{ parts: [
         { inline_data: { mime_type: mimeType, data: base64 } },
-        { text: promptComId }
+        { text: promptFinal }
       ]}],
       generationConfig: { temperature: 0.1 }
     };
@@ -186,10 +185,18 @@ Use o prodId exatamente como listado (ex: "arroz", "feijao"). Se um item não es
 
     const data = await resp.json();
     const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
-    const parsed = JSON.parse(rawText.replace(/```json|```/g, '').trim());
+    _impLog(`${code} — resposta IA: ${rawText.substring(0, 120)}...`);
+
+    let parsed;
+    try {
+      parsed = JSON.parse(rawText.replace(/```json|```/g, '').trim());
+    } catch(parseErr) {
+      _impLog(`${code} — IA retornou texto não-JSON: "${rawText.substring(0, 200)}"`, 'warn');
+      return;
+    }
 
     if (!parsed.itens?.length) {
-      _impLog(`${code} — IA não extraiu preços desta NF.`, 'warn');
+      _impLog(`${code} — IA não encontrou nenhum dos produtos na NF.`, 'warn');
       return;
     }
 
