@@ -383,6 +383,12 @@ async function showApp() {
     el.style.display = isCSL ? 'block' : 'none';
   });
 
+  // Painel do Coordenador: visível para coordenador, gerente, diretor, admin
+  const isCoordNivel = isAdminLevel || role === 'coordenador';
+  document.querySelectorAll('.coord-dash-section').forEach(el => {
+    el.style.display = isCoordNivel ? 'block' : 'none';
+  });
+
   // Carrega casas e cidades dinamicas do Firebase
   await loadDynamicData();
   populateHouseSelects();
