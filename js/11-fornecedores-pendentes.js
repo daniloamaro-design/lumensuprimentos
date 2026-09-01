@@ -873,16 +873,54 @@ function opcComparativoItensHTML(pedido, cotacoes) {
   // está mais cara ou mais barata que da última vez.
   const cidadeDoPedido = (typeof CASAS_CIDADES !== 'undefined' ? CASAS_CIDADES[pedido.house] : null) || null;
 
-  const linhas = itensPedido.map(item => {
-    const ultimoPreco = cidadeDoPedido ? opcPrecos[`${item.catKey}|${item.prodId}|${cidadeDoPedido}`] : null;
-    const precos = cotacoes.map(q => {
-      const it = (q.itens || []).find(x => x.catKey === item.catKey && x.prodId === item.prodId);
-      return it ? parseFloat(it.valorUnit) || 0 : null;
+  // Para cotações sem itens detalhados, estima o preço unitário por item
+  // usando o total da cotação distribuído proporcionalmente:
+  //   - 1 item no pedido → valorUnit = total / qty (exato)
+  //   - Múltiplos itens  → distribui pelo peso dos preços históricos
+  //                        (opcPrecos); se não houver, divide igualmente.
+  // Valores estimados são marcados com { estimado: true } para exibir "~".
+  function estimarItensCotacao(cotacao, itensPed) {
+    const total = parseFloat(cotacao.valor) || 0;
+    if (!total || !itensPed.length) return itensPed.map(() => null);
+    if (itensPed.length === 1) {
+      const qty = itensPed[0].qty || 1;
+      return [{ valorUnit: total / qty, estimado: true }];
+    }
+    // Pesos baseados em preços históricos × qty; fallback: peso igual
+    const pesos = itensPed.map(it => {
+      const hist = cidadeDoPedido ? (opcPrecos[`${it.catKey}|${it.prodId}|${cidadeDoPedido}`] || 0) : 0;
+      return (hist > 0 ? hist : 1) * (it.qty || 1);
     });
-    const validos = precos.filter(v => v != null && v > 0);
+    const somaPesos = pesos.reduce((s, p) => s + p, 0);
+    return itensPed.map((it, i) => {
+      const frac = pesos[i] / somaPesos;
+      const qty  = it.qty || 1;
+      return { valorUnit: (total * frac) / qty, estimado: true };
+    });
+  }
+
+  // Pré-computa estimativas por cotação sem itens
+  const estimativas = {}; // cotacaoId → [{ valorUnit, estimado }] paralelo a itensPedido
+  cotacoes.forEach(q => {
+    if (!Array.isArray(q.itens) || q.itens.length === 0) {
+      estimativas[q.id] = estimarItensCotacao(q, itensPedido);
+    }
+  });
+
+  const linhas = itensPedido.map((item, idx) => {
+    const ultimoPreco = cidadeDoPedido ? opcPrecos[`${item.catKey}|${item.prodId}|${cidadeDoPedido}`] : null;
+    const precosComFlag = cotacoes.map(q => {
+      const it = (q.itens || []).find(x => x.catKey === item.catKey && x.prodId === item.prodId);
+      if (it) return { v: parseFloat(it.valorUnit) || 0, estimado: false };
+      const est = estimativas[q.id]?.[idx];
+      if (est && est.valorUnit > 0) return { v: est.valorUnit, estimado: true };
+      return null;
+    });
+    const validos = precosComFlag.filter(p => p != null && p.v > 0).map(p => p.v);
     const menor = validos.length ? Math.min(...validos) : null;
-    const celulas = precos.map(v => {
-      if (v == null) return `<td style="text-align:right;color:var(--text-muted);">—</td>`;
+    const celulas = precosComFlag.map(p => {
+      if (p == null) return `<td style="text-align:right;color:var(--text-muted);">—</td>`;
+      const { v, estimado } = p;
       const ehMenor = menor != null && v === menor;
       let comparativo = '';
       if (ultimoPreco > 0) {
@@ -891,7 +929,8 @@ function opcComparativoItensHTML(pedido, cotacoes) {
           comparativo = `<br><span style="font-size:10px;font-weight:400;color:${diffPct > 0 ? 'var(--danger)' : 'var(--ok)'};">${diffPct > 0 ? '▲' : '▼'} ${Math.abs(diffPct).toFixed(0)}% vs última</span>`;
         }
       }
-      return `<td style="text-align:right;${ehMenor ? 'color:var(--ok);font-weight:700;' : ''}">${FMT_OPC(v)}${ehMenor ? ' ★' : ''}${comparativo}</td>`;
+      const label = estimado ? `<span style="font-style:italic;opacity:.8;">~${FMT_OPC(v)}</span>` : FMT_OPC(v);
+      return `<td style="text-align:right;${ehMenor ? 'color:var(--ok);font-weight:700;' : ''}">${label}${ehMenor ? ' ★' : ''}${comparativo}</td>`;
     }).join('');
     return `<tr>
       <td style="font-size:12px;">${item.nome} <span style="color:var(--text-muted);font-size:10px;">${item.unidade}</span></td>
@@ -906,6 +945,8 @@ function opcComparativoItensHTML(pedido, cotacoes) {
     ${cotacoes.map(q => `<td style="text-align:right;font-size:13px;color:var(--lumen);">${FMT_OPC(parseFloat(q.valor) || 0)}</td>`).join('')}
   </tr>`;
 
+  const temEstimativa = Object.keys(estimativas).length > 0;
+
   return `
     ${!cidadeDoPedido ? `<div style="font-size:11px;color:var(--text-muted);margin-bottom:6px;">⚠️ Casa "${pedido.house || '—'}" sem cidade cadastrada -- não dá pra comparar com o último preço.</div>` : ''}
     <div class="table-wrap">
@@ -917,7 +958,7 @@ function opcComparativoItensHTML(pedido, cotacoes) {
         <tbody>${linhas}${linhaTotal}</tbody>
       </table>
     </div>
-    ${semDetalhe.length ? `<div style="font-size:11px;color:var(--text-muted);margin-top:6px;">⚠️ ${semDetalhe.map(q=>q.fornecedorNome).join(', ')} sem preço por item cadastrado (cotação antiga ou lançada só com o total) -- coluna aparece em branco.</div>` : ''}
+    ${temEstimativa ? `<div style="font-size:11px;color:var(--text-muted);margin-top:6px;">ℹ️ Valores em <em>itálico (~)</em> são estimados a partir do total da cotação — o fornecedor não detalhou por item. ${itensPedido.length === 1 ? 'Pedido com 1 item: estimativa exata.' : 'Distribuição proporcional aos preços históricos.'}</div>` : ''}
   `;
 }
 

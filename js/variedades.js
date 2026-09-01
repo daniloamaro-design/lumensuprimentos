@@ -210,13 +210,57 @@ async function salvarNovaVar() {
 
     closeModal('modal-nova-var');
     showToast(itens.length > 1 ? `✅ ${itens.length} solicitações registradas com sucesso!` : '✅ Solicitação registrada com sucesso!');
-    loadVarSolicitacoes();
-    atualizarBadgeVar();
+
+    if (window.guestMode) {
+      mostrarConfirmacaoGuest(itens, codigos, setor, prioridade, obs, dataLimite);
+    } else {
+      loadVarSolicitacoes();
+      atualizarBadgeVar();
+    }
   } catch(e) {
     showToast('Erro ao salvar: ' + e.message);
   } finally {
     btn.disabled = false; btn.textContent = 'Enviar Solicitação';
   }
+}
+
+// ── Confirmação para convidados (sem acesso ao SELECT do DB) ──
+function mostrarConfirmacaoGuest(itens, codigos, setor, prioridade, obs, dataLimite) {
+  const inicio = document.getElementById('guest-var-inicio');
+  const confirmacao = document.getElementById('guest-var-confirmacao');
+  const lista = document.getElementById('guest-var-lista-confirmacao');
+  if (!confirmacao || !lista) return;
+
+  const prioLabel = { urgente: '🔴 Urgente', alta: '🟠 Alta', normal: '🟡 Normal', baixa: '⚪ Baixa' };
+  const dataFmt = dataLimite ? new Date(dataLimite + 'T00:00:00').toLocaleDateString('pt-BR') : '—';
+
+  lista.innerHTML = itens.map((item, i) => `
+    <div style="background:var(--card-bg,#1a1a2e);border:1px solid var(--border,#333);border-radius:10px;padding:14px 16px;margin-bottom:10px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+        <span style="font-family:monospace;font-size:13px;font-weight:700;color:var(--lumen,#7c3aed);">${codigos[i]}</span>
+        <span style="font-size:11px;padding:2px 8px;border-radius:99px;background:#22c55e22;color:#22c55e;">pendente</span>
+      </div>
+      <div style="font-size:14px;font-weight:600;margin-bottom:4px;">${item.material}</div>
+      <div style="font-size:12px;color:var(--text-muted,#888);display:flex;gap:12px;flex-wrap:wrap;">
+        <span>Qtd: <b>${item.quantidade} ${item.unidade}</b></span>
+        <span>Setor: <b>${setor || '—'}</b></span>
+        <span>Prioridade: <b>${prioLabel[prioridade] || prioridade}</b></span>
+        ${dataLimite ? `<span>Data limite: <b>${dataFmt}</b></span>` : ''}
+        ${item.valorEstimado ? `<span>Valor est.: <b>R$ ${item.valorEstimado.toFixed(2)}</b></span>` : ''}
+      </div>
+      ${obs ? `<div style="font-size:12px;color:var(--text-muted,#888);margin-top:4px;">Obs: ${obs}</div>` : ''}
+    </div>
+  `).join('');
+
+  if (inicio) inicio.style.display = 'none';
+  confirmacao.style.display = 'block';
+}
+
+function guestVarNovaSolicitacao() {
+  const inicio = document.getElementById('guest-var-inicio');
+  const confirmacao = document.getElementById('guest-var-confirmacao');
+  if (inicio) inicio.style.display = 'block';
+  if (confirmacao) confirmacao.style.display = 'none';
 }
 
 // ── Carregar solicitações ─────────────────────────────────
