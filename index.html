@@ -432,6 +432,10 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
         Estoque Atual
       </button>
+      <button class="sidebar-item" data-page="inventario" onclick="goPageMobile('inventario')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="11" y2="16"/></svg>
+        Contagem de Inventário
+      </button>
       <button class="sidebar-item" data-page="transferencias" onclick="goPageMobile('transferencias')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
         Transferências
@@ -2448,13 +2452,13 @@
           <div class="dashdir-kpi-delta" id="dashdir-kpi-prazo-delta"></div>
           <div class="dashdir-kpi-meta" id="dashdir-kpi-prazo-meta"></div>
         </div>
-        <div class="dashdir-kpi">
+        <div class="dashdir-kpi" id="dashdir-kpi-acuracia-card">
           <div class="dashdir-kpi-icon">📋</div>
           <div class="dashdir-kpi-label">% de Acuracidade do Estoque</div>
-          <div class="dashdir-kpi-sub">(Físico vs. Sistema no SF)</div>
-          <div class="dashdir-kpi-value">98,3%</div>
-          <div class="dashdir-kpi-delta good">↑ +0,5 p.p. <span>vs. mês anterior</span></div>
-          <div class="dashdir-kpi-meta">Meta: &gt; 98%</div>
+          <div class="dashdir-kpi-sub">(Físico vs. Sistema — última contagem)</div>
+          <div class="dashdir-kpi-value" id="dashdir-kpi-acuracia-valor">—</div>
+          <div class="dashdir-kpi-delta" id="dashdir-kpi-acuracia-delta"></div>
+          <div class="dashdir-kpi-meta" id="dashdir-kpi-acuracia-meta">Meta: &gt; 95%</div>
         </div>
       </div>
 
@@ -2611,6 +2615,53 @@
       <div style="color:var(--text-muted);font-size:12px;margin-bottom:10px;">Cada viagem aparece na sua <b>data de saída</b>. Clique numa viagem para ver os detalhes.</div>
       <div id="pas-cal-grid"></div>
     </div></div>
+  </div>
+
+  <!-- ════════ PAGE: CONTAGEM DE INVENTÁRIO ════════ -->
+  <div class="page" id="page-inventario">
+    <div class="page-header">
+      <div class="page-title">📋 Contagem de Inventário</div>
+      <div class="page-sub">Registre a contagem física do estoque para cálculo de acurácia</div>
+    </div>
+
+    <!-- Cabeçalho da contagem -->
+    <div class="card" style="margin-bottom:16px;">
+      <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;">
+        <div class="form-group" style="flex:1;min-width:160px;margin:0;">
+          <label class="form-label">Casa *</label>
+          <select class="form-select" id="inv-casa"></select>
+        </div>
+        <div class="form-group" style="flex:1;min-width:160px;margin:0;">
+          <label class="form-label">Data da contagem *</label>
+          <input type="date" class="form-input" id="inv-data">
+        </div>
+        <div class="form-group" style="flex:1;min-width:160px;margin:0;">
+          <label class="form-label">Responsável</label>
+          <input type="text" class="form-input" id="inv-responsavel" placeholder="Nome do estoquista">
+        </div>
+        <button class="btn btn-primary" onclick="invCarregarProdutos()" style="height:40px;">
+          Iniciar Contagem
+        </button>
+      </div>
+    </div>
+
+    <!-- Área de contagem por categoria -->
+    <div id="inv-categorias-wrap" style="display:none;">
+      <div id="inv-resumo-topo" style="margin-bottom:12px;"></div>
+      <div id="inv-categorias-lista"></div>
+      <div style="margin-top:20px;display:flex;gap:10px;justify-content:flex-end;">
+        <button class="btn btn-outline" onclick="invLimpar()">Cancelar</button>
+        <button class="btn btn-primary" id="btn-inv-enviar" onclick="invEnviarParaAprovacao()">
+          📨 Enviar para Aprovação
+        </button>
+      </div>
+    </div>
+
+    <!-- Histórico de inventários desta casa -->
+    <div id="inv-historico-wrap" style="margin-top:28px;display:none;">
+      <div style="font-size:13px;font-weight:700;margin-bottom:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;">Histórico de Inventários</div>
+      <div id="inv-historico-lista"></div>
+    </div>
   </div>
 
   </main>
@@ -3351,6 +3402,7 @@
 </div>
 
 <script src="js/variedades.js?v=3"></script>
+<script src="js/21-inventario.js?v=1"></script>
 
 <!-- MODAL: NOVA SOLICITAÇÃO DE VARIEDADES -->
 <div class="modal-overlay hidden" id="modal-nova-var">

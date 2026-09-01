@@ -599,7 +599,7 @@ function goPage(page) {
     'percapita':'Per Capita por Casa','manage-houses':'Gerenciar Casas',
     'manage-cities':'Gerenciar Cidades','manage-products':'Gerenciar Produtos',
     'indicadores':'Indicadores','transferencias':'Transferências',
-    'fornecedores':'Fornecedores','calc-real':'Calculado × Real','orcamento-financeiro':'Orçamento Financeiro','ind-fornecedores':'Indicadores de Fornecedores','orc-pendentes':'Orçamentos Pendentes','financeiro-compras':'Financeiro — Compras','metas':'Metas e Análise Econômica','var-solicitacoes':'Solicitações de Variedades','var-orcamento':'Orçamentos de Variedades','var-proposta':'Proposta Semanal','var-historico':'Histórico de Compras','var-setores':'Gerenciar Setores','rotina-estoque':'Rotina de Estoque','manage-cc':'Gerenciar Centro de Custo','cardapio-diario':'Cardápio Diário','percapita-financeiro':'Per Capita Financeiro'
+    'fornecedores':'Fornecedores','calc-real':'Calculado × Real','orcamento-financeiro':'Orçamento Financeiro','ind-fornecedores':'Indicadores de Fornecedores','orc-pendentes':'Orçamentos Pendentes','financeiro-compras':'Financeiro — Compras','metas':'Metas e Análise Econômica','var-solicitacoes':'Solicitações de Variedades','var-orcamento':'Orçamentos de Variedades','var-proposta':'Proposta Semanal','var-historico':'Histórico de Compras','var-setores':'Gerenciar Setores','rotina-estoque':'Rotina de Estoque','manage-cc':'Gerenciar Centro de Custo','cardapio-diario':'Cardápio Diário','percapita-financeiro':'Per Capita Financeiro','inventario':'Contagem de Inventário'
   };
   document.getElementById('topbar-page-title').textContent = titles[page] || '';
 
@@ -633,6 +633,7 @@ function goPage(page) {
   if (page === 'var-historico')        { loadVarHistorico(); }
   if (page === 'var-setores')          { loadVarSetores(); }
   if (page === 'rotina-estoque')       { initRotinaEstoque(); }
+  if (page === 'inventario')           { if (typeof initPageInventario === 'function') initPageInventario(); }
 }
 
 // ─────────────────────────────────────────────
