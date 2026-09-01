@@ -1754,6 +1754,7 @@ function aplicarPermissoesSidebar(role) {
     if (!algum) sec.style.display = 'none';          // some se ficou sem itens p/ o perfil
   });
   document.querySelectorAll('.modulo-btn').forEach(btn => {
+    if (btn.id === 'btn-mod-coord') return; // visibilidade controlada pelo 02-auth.js por perfil
     const mod = btn.dataset.mod;
     const paginas = [...document.querySelectorAll(`#sidebar .sidebar-section[data-modulo="${mod}"] .sidebar-item[data-page]`)].map(i => i.dataset.page);
     btn.style.display = paginas.some(p => ps.has(p)) ? '' : 'none';
