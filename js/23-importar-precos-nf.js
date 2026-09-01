@@ -83,8 +83,8 @@ async function impIniciar() {
       await _impProcessarPedido(pedido);
       _impState.processados++;
       _impRenderLog();
-      // Pausa de 1s entre chamadas para não sobrecarregar a API
-      await new Promise(r => setTimeout(r, 1000));
+      // Pausa de 5s entre chamadas para respeitar o rate limit da API Gemini
+      await new Promise(r => setTimeout(r, 5000));
     }
 
     _impLog(`✅ Importação concluída! ${_impState.salvos} preços salvos, ${_impState.erros} erros.`, 'ok');
@@ -163,12 +163,22 @@ Use o prodId exatamente como listado (ex: "arroz", "feijao"). Se um item não es
       generationConfig: { temperature: 0.1 }
     };
 
-    const resp = await geminiFetch({
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
-
+    // Tenta até 3x com backoff em caso de rate limit (429)
+    let resp;
+    for (let tentativa = 1; tentativa <= 3; tentativa++) {
+      resp = await geminiFetch({
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (resp.status === 429) {
+        const espera = tentativa * 15000;
+        _impLog(`${code} — rate limit (429), aguardando ${espera/1000}s antes de tentar novamente (tentativa ${tentativa}/3)...`, 'warn');
+        await new Promise(r => setTimeout(r, espera));
+        continue;
+      }
+      break;
+    }
     if (!resp.ok) {
       const errData = await resp.json().catch(() => ({}));
       throw new Error(errData?.error?.message || `HTTP ${resp.status}`);
