@@ -781,72 +781,232 @@ async function openAjustesAdmin() {
   const body = document.getElementById('modal-ajustes-admin-body');
   body.innerHTML = '<div class="loading-state"><div class="spinner spinner-dark"></div>Carregando...</div>';
 
-  let snap;
+  // Carrega ajustes e inventários em paralelo
+  let snapAjustes, snapInv;
   try {
-    snap = await db.collection('ajustes').orderBy('createdAt','desc').get();
+    [snapAjustes, snapInv] = await Promise.all([
+      db.collection('ajustes').orderBy('createdAt','desc').get(),
+      db.collection('inventarios').orderBy('createdAt','desc').get(),
+    ]);
   } catch(e) {
     body.innerHTML = `<div class="alert alert-danger visible" style="margin:0;">
-      Sem permissão para acessar as solicitações de ajuste.<br>
+      Sem permissão para acessar os registros.<br>
       <small style="opacity:0.7;">Erro: ${e.message}</small>
     </div>`;
-    return;
-  }
-  if (snap.empty) {
-    body.innerHTML = '<div class="empty-state"><div class="empty-state-icon">✅</div><div class="empty-state-title">Nenhuma solicitação de ajuste</div></div>';
     return;
   }
 
   const urgColors = { critico:'var(--danger)', urgente:'var(--warn)', normal:'var(--ok)' };
   const statusMap = { pendente:'🟡 Pendente', autorizado:'✅ Autorizado', recusado:'❌ Recusado' };
 
-  body.innerHTML = snap.docs.map(d => {
-    const a = d.data();
-    let dateStr = '—';
-    try { dateStr = a.createdAt?.toDate().toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}); } catch(e){}
-    const cor = urgColors[a.urgencia] || 'var(--text)';
-    const statusAtual = a.status || 'pendente';
-    const tipoInfo = AJUSTE_TIPO_MAP[a.tipo] || { label: a.tipo };
-    const movDir = tipoInfo.movType === 'entrada' ? '→ vai gerar <strong>Entrada</strong>' :
-                   tipoInfo.movType === 'saida'   ? '→ vai gerar <strong>Saída</strong>' : '→ execução manual';
+  // ── Seção de Inventários ─────────────────────────────────────────────
+  const invHtml = snapInv.empty ? '' : `
+    <div style="font-size:11px;font-weight:800;color:var(--lumen,#7c3aed);text-transform:uppercase;
+                letter-spacing:.8px;margin:0 0 10px;padding-bottom:6px;border-bottom:2px solid var(--border);">
+      📋 Contagens de Inventário
+    </div>
+    ${snapInv.docs.map(d => {
+      const inv = d.data();
+      const statusAtual = inv.status || 'pendente';
+      let dateStr = '—';
+      try { dateStr = inv.createdAt?.toDate().toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}); } catch(e){}
+      const dataContagem = inv.data ? new Date(inv.data+'T00:00:00').toLocaleDateString('pt-BR') : '—';
+      const corAcuracia = inv.acuracia >= 98 ? 'var(--ok)' : inv.acuracia >= 95 ? 'var(--warn)' : 'var(--danger)';
+      const divergentes = (inv.itens || []).filter(i => Math.abs(i.diferenca) >= 0.01);
 
-    // Lista de itens estruturados
-    const itensHtml = (a.itens && a.itens.length > 0)
-      ? `<div style="margin-top:8px;">
-          <div style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;margin-bottom:4px;">Produtos</div>
-          ${a.itens.map(it => `
-            <div style="display:flex;justify-content:space-between;font-size:12px;padding:3px 0;border-bottom:1px solid var(--border);">
-              <span>${it.prodNome}</span>
-              <span style="font-weight:700;">${it.qty} ${it.unidade}</span>
-            </div>`).join('')}
-        </div>` : '';
-
-    const resolvidoInfo = statusAtual !== 'pendente'
-      ? `<div style="font-size:11px;color:var(--text-muted);margin-top:6px;">
-           ${statusAtual === 'autorizado' ? '✅' : '❌'} Por: <strong>${a.resolvidoPor || '—'}</strong>
-           ${a.codigoMovimento ? `· Mov: <strong>${a.codigoMovimento}</strong>` : ''}
-         </div>` : '';
-
-    return `<div style="border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:10px;">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:8px;">
-        <div style="flex:1;min-width:0;">
-          <div style="font-weight:700;font-size:13px;">${a.solicitanteNome} — <span style="color:var(--text-muted);">${a.casa || '—'}</span></div>
-          <div style="font-size:11px;color:var(--text-muted);margin-top:2px;">
-            ${dateStr} · ${tipoInfo.label} · <span style="color:${cor};font-weight:700;">${(a.urgencia||'').toUpperCase()}</span>
+      const divergHtml = divergentes.length > 0 ? `
+        <div style="margin-top:8px;">
+          <div style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;margin-bottom:4px;">
+            Divergências (${divergentes.length} ${divergentes.length === 1 ? 'item' : 'itens'})
           </div>
-          <div style="font-size:11px;color:var(--lumen,#7c3aed);margin-top:2px;">${movDir}</div>
+          ${divergentes.map(it => `
+            <div style="display:flex;justify-content:space-between;font-size:12px;padding:4px 0;border-bottom:1px solid var(--border);">
+              <span>${it.prodNome}</span>
+              <span>
+                Sistema: <strong>${it.qtySistema.toFixed(2).replace('.',',')} ${it.unidade}</strong>
+                → Físico: <strong>${it.qtyFisico.toFixed(2).replace('.',',')} ${it.unidade}</strong>
+                <span style="color:${it.diferenca > 0 ? 'var(--ok)' : 'var(--danger)'};">
+                  (${it.diferenca > 0 ? '+' : ''}${it.diferenca.toFixed(2).replace('.',',')} ${it.unidade})
+                </span>
+              </span>
+            </div>`).join('')}
+        </div>` : `<div style="font-size:12px;color:var(--ok);margin-top:6px;">✓ Nenhuma divergência encontrada</div>`;
+
+      const resolvidoInfo = statusAtual !== 'pendente'
+        ? `<div style="font-size:11px;color:var(--text-muted);margin-top:6px;">
+             ${statusAtual === 'autorizado' ? '✅' : '❌'} Por: <strong>${inv.resolvidoPor || '—'}</strong>
+             ${inv.codigosMovimento?.length ? `· Movs: <strong>${inv.codigosMovimento.join(', ')}</strong>` : ''}
+           </div>` : '';
+
+      return `<div style="border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:10px;">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:8px;">
+          <div style="flex:1;min-width:0;">
+            <div style="font-weight:700;font-size:13px;">
+              📋 Inventário — <span style="color:var(--text-muted);">${inv.casa || '—'}</span>
+            </div>
+            <div style="font-size:11px;color:var(--text-muted);margin-top:2px;">
+              Enviado: ${dateStr} · Contagem: ${dataContagem} · Por: ${inv.responsavel || inv.solicitanteNome}
+            </div>
+            <div style="font-size:11px;margin-top:2px;">
+              ${inv.totalItens} itens contados ·
+              <span style="color:var(--ok);">${inv.itensOk} corretos</span> ·
+              <span style="color:var(--danger);">${divergentes.length} divergentes</span>
+            </div>
+            ${divergentes.length > 0 ? `<div style="font-size:11px;color:var(--lumen,#7c3aed);margin-top:2px;">→ vai gerar <strong>${divergentes.filter(i=>i.diferenca<0).length} Saída(s)</strong> e <strong>${divergentes.filter(i=>i.diferenca>0).length} Entrada(s)</strong></div>` : ''}
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex-shrink:0;">
+            <div style="font-size:22px;font-weight:900;color:${corAcuracia};">${inv.acuracia?.toFixed(1).replace('.',',')}%</div>
+            ${statusAtual === 'pendente' ? `
+              <div style="display:flex;gap:6px;">
+                <button class="btn btn-primary btn-sm" onclick="autorizarInventario('${d.id}')">✓ Autorizar</button>
+                <button class="btn btn-danger btn-sm" onclick="recusarInventario('${d.id}')">✕ Recusar</button>
+              </div>` : `<span class="badge ${statusAtual==='autorizado'?'badge-ok':'badge-danger'}">${statusMap[statusAtual]||statusAtual}</span>`}
+          </div>
         </div>
-        <div style="display:flex;gap:6px;flex-shrink:0;">
-          ${statusAtual === 'pendente' ? `
-            <button class="btn btn-primary btn-sm" onclick="autorizarAjuste('${d.id}')">✓ Autorizar</button>
-            <button class="btn btn-danger btn-sm" onclick="resolverAjuste('${d.id}','recusado')">✕ Recusar</button>
-          ` : `<span class="badge ${statusAtual==='autorizado'?'badge-ok':'badge-danger'}">${statusMap[statusAtual]||statusAtual}</span>`}
+        ${divergHtml}
+        ${resolvidoInfo}
+      </div>`;
+    }).join('')}
+  `;
+
+  // ── Seção de Ajustes ─────────────────────────────────────────────────
+  const ajustesHtml = snapAjustes.empty ? '' : `
+    <div style="font-size:11px;font-weight:800;color:var(--text-muted);text-transform:uppercase;
+                letter-spacing:.8px;margin:${snapInv.empty?'0':'20px 0'} 0 10px;padding-bottom:6px;border-bottom:2px solid var(--border);">
+      ✏️ Solicitações de Ajuste
+    </div>
+    ${snapAjustes.docs.map(d => {
+      const a = d.data();
+      let dateStr = '—';
+      try { dateStr = a.createdAt?.toDate().toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}); } catch(e){}
+      const cor = urgColors[a.urgencia] || 'var(--text)';
+      const statusAtual = a.status || 'pendente';
+      const tipoInfo = AJUSTE_TIPO_MAP[a.tipo] || { label: a.tipo };
+      const movDir = tipoInfo.movType === 'entrada' ? '→ vai gerar <strong>Entrada</strong>' :
+                     tipoInfo.movType === 'saida'   ? '→ vai gerar <strong>Saída</strong>' : '→ execução manual';
+      const itensHtml = (a.itens && a.itens.length > 0)
+        ? `<div style="margin-top:8px;">
+            <div style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;margin-bottom:4px;">Produtos</div>
+            ${a.itens.map(it => `
+              <div style="display:flex;justify-content:space-between;font-size:12px;padding:3px 0;border-bottom:1px solid var(--border);">
+                <span>${it.prodNome}</span>
+                <span style="font-weight:700;">${it.qty} ${it.unidade}</span>
+              </div>`).join('')}
+          </div>` : '';
+      const resolvidoInfo = statusAtual !== 'pendente'
+        ? `<div style="font-size:11px;color:var(--text-muted);margin-top:6px;">
+             ${statusAtual === 'autorizado' ? '✅' : '❌'} Por: <strong>${a.resolvidoPor || '—'}</strong>
+             ${a.codigoMovimento ? `· Mov: <strong>${a.codigoMovimento}</strong>` : ''}
+           </div>` : '';
+      return `<div style="border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:10px;">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:8px;">
+          <div style="flex:1;min-width:0;">
+            <div style="font-weight:700;font-size:13px;">${a.solicitanteNome} — <span style="color:var(--text-muted);">${a.casa || '—'}</span></div>
+            <div style="font-size:11px;color:var(--text-muted);margin-top:2px;">
+              ${dateStr} · ${tipoInfo.label} · <span style="color:${cor};font-weight:700;">${(a.urgencia||'').toUpperCase()}</span>
+            </div>
+            <div style="font-size:11px;color:var(--lumen,#7c3aed);margin-top:2px;">${movDir}</div>
+          </div>
+          <div style="display:flex;gap:6px;flex-shrink:0;">
+            ${statusAtual === 'pendente' ? `
+              <button class="btn btn-primary btn-sm" onclick="autorizarAjuste('${d.id}')">✓ Autorizar</button>
+              <button class="btn btn-danger btn-sm" onclick="resolverAjuste('${d.id}','recusado')">✕ Recusar</button>
+            ` : `<span class="badge ${statusAtual==='autorizado'?'badge-ok':'badge-danger'}">${statusMap[statusAtual]||statusAtual}</span>`}
+          </div>
         </div>
-      </div>
-      <div style="font-size:13px;color:var(--text);background:var(--bg);padding:10px;border-radius:6px;">${a.descricao}</div>
-      ${itensHtml}
-      ${resolvidoInfo}
-    </div>`;
-  }).join('');
+        <div style="font-size:13px;color:var(--text);background:var(--bg);padding:10px;border-radius:6px;">${a.descricao}</div>
+        ${itensHtml}
+        ${resolvidoInfo}
+      </div>`;
+    }).join('')}
+  `;
+
+  const tudo = invHtml + ajustesHtml;
+  body.innerHTML = tudo.trim()
+    ? tudo
+    : '<div class="empty-state"><div class="empty-state-icon">✅</div><div class="empty-state-title">Nenhum registro pendente</div></div>';
+}
+
+// ── Autorizar / Recusar Inventário ───────────────────────────────────────
+async function autorizarInventario(id) {
+  const snap = await db.collection('inventarios').doc(id).get();
+  if (!snap.exists) { showToast('Inventário não encontrado.'); return; }
+  const inv = snap.data();
+  if (inv.status !== 'pendente') { showToast('Este inventário já foi processado.'); return; }
+
+  const divergentes = (inv.itens || []).filter(i => Math.abs(i.diferenca) >= 0.01);
+  const codigosMovimento = [];
+
+  // Para cada item divergente, gera uma movimentação individual
+  for (const it of divergentes) {
+    const movType  = it.diferenca > 0 ? 'entrada' : 'saida';
+    const typeCode = movType === 'entrada' ? 'ENT' : 'SAI';
+    const dateStr  = (inv.data || new Date().toISOString().slice(0,10)).replace(/-/g,'');
+
+    try {
+      const todaySnap = await db.collection('movements').where('dateStr','==',dateStr).get();
+      const seq = String(todaySnap.size + codigosMovimento.length + 1).padStart(3,'0');
+      const prefixMov = typeof siglaCasa === 'function' ? siglaCasa(inv.casa) : inv.casa.slice(0,3).toUpperCase();
+      const code = `OB-${prefixMov}-${typeCode}-INV-${dateStr}-${seq}`;
+
+      await db.collection('movements').add({
+        code,
+        house: inv.casa,
+        type: movType,
+        date: inv.data,
+        dateStr,
+        obs: `[Inventário Autorizado] ${it.prodNome}: sistema ${it.qtySistema.toFixed(2)} → físico ${it.qtyFisico.toFixed(2)} ${it.unidade} (Resp.: ${inv.responsavel || inv.solicitanteNome})`,
+        isDonation: false,
+        isAjuste: true,
+        isInventario: true,
+        inventarioId: id,
+        items: [{ catKey: it.catKey, prodId: it.prodId, prodNome: it.prodNome, unidade: it.unidade, qty: Math.abs(it.diferenca) }],
+        photoBase64: null,
+        leituraIA: false,
+        registeredBy: currentUserData?.name || '',
+        registeredUid: currentUser?.uid || '',
+        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+      });
+      codigosMovimento.push(code);
+    } catch(e) {
+      showToast('Erro ao gerar movimentação para ' + it.prodNome + ': ' + e.message);
+      console.error(e);
+      return;
+    }
+  }
+
+  // Atualiza o inventário como autorizado
+  try {
+    await db.collection('inventarios').doc(id).update({
+      status: 'autorizado',
+      resolvidoAt: firebase.firestore.FieldValue.serverTimestamp(),
+      resolvidoPor: currentUserData?.name || '',
+      codigosMovimento,
+    });
+    const msg = codigosMovimento.length > 0
+      ? `✅ Inventário autorizado! ${codigosMovimento.length} movimentação(ões) gerada(s).`
+      : '✅ Inventário autorizado! Nenhuma divergência para corrigir.';
+    showToast(msg);
+    openAjustesAdmin();
+    loadAjustesBadge();
+  } catch(e) {
+    showToast('Erro ao autorizar inventário: ' + e.message);
+  }
+}
+
+async function recusarInventario(id) {
+  try {
+    await db.collection('inventarios').doc(id).update({
+      status: 'recusado',
+      resolvidoAt: firebase.firestore.FieldValue.serverTimestamp(),
+      resolvidoPor: currentUserData?.name || '',
+    });
+    showToast('❌ Inventário recusado. Nenhuma alteração no estoque.');
+    openAjustesAdmin();
+    loadAjustesBadge();
+  } catch(e) {
+    showToast('Erro ao recusar inventário: ' + e.message);
+  }
 }
 
 async function autorizarAjuste(id) {
@@ -940,10 +1100,14 @@ async function resolverAjuste(id, status) {
 
 async function loadAjustesBadge() {
   try {
-    const snap = await db.collection('ajustes').where('status','==','pendente').get();
+    const [snapAjustes, snapInv] = await Promise.all([
+      db.collection('ajustes').where('status','==','pendente').get(),
+      db.collection('inventarios').where('status','==','pendente').get(),
+    ]);
+    const total = snapAjustes.size + snapInv.size;
     const badge = document.getElementById('badge-ajustes');
     if (!badge) return;
-    if (snap.size > 0) { badge.textContent = snap.size; badge.classList.remove('hidden'); }
+    if (total > 0) { badge.textContent = total; badge.classList.remove('hidden'); }
     else { badge.classList.add('hidden'); }
   } catch(e) {}
 }
