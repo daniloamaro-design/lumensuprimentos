@@ -439,7 +439,7 @@ async function showApp() {
 }
 
 function populateHouseSelects() {
-  const selects = ['order-house','filter-house','mov-house','cr-house','card-house'];
+  const selects = ['order-house','filter-house','mov-house','cr-house','card-house','ajuste-casa'];
   selects.forEach(id => {
     const el = document.getElementById(id);
     if (!el) return;

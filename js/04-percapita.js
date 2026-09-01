@@ -638,35 +638,117 @@ function goPage(page) {
 // ─────────────────────────────────────────────
 // ✏️  SOLICITAÇÕES DE AJUSTE (Usuário → Admin)
 // ─────────────────────────────────────────────
+
+const AJUSTE_TIPO_MAP = {
+  desperdicio:      { label: '🗑️ Desperdício/Estragado', movType: 'saida',   movMotivo: 'desperdicio' },
+  inventario_menos: { label: '📉 Inventário (menos)',     movType: 'saida',   movMotivo: 'ajuste_inventario' },
+  inventario_mais:  { label: '📈 Inventário (mais)',      movType: 'entrada', movMotivo: 'ajuste_inventario' },
+  corrigir_entrada: { label: '📥 Corrigir Entrada',       movType: 'entrada', movMotivo: 'correcao' },
+  corrigir_saida:   { label: '📤 Corrigir Saída (estorno)', movType: 'entrada', movMotivo: 'correcao' },
+  outro:            { label: '🔧 Outro',                  movType: null,      movMotivo: null },
+};
+
+let _ajusteItemCount = 0;
+
 function openAjusteModal() {
   document.getElementById('ajuste-tipo').value = '';
   document.getElementById('ajuste-descricao').value = '';
   document.getElementById('ajuste-urgencia').value = 'normal';
+  document.getElementById('ajuste-data').value = new Date().toISOString().slice(0,10);
+  // Popula casas
+  const sel = document.getElementById('ajuste-casa');
+  if (sel) {
+    sel.innerHTML = '<option value="">Selecione...</option>';
+    (window.CASAS || []).forEach(c => {
+      const o = document.createElement('option');
+      o.value = c; o.textContent = c;
+      // pré-seleciona a casa do usuário se disponível
+      if (c === (currentUserData?.house || '')) o.selected = true;
+      sel.appendChild(o);
+    });
+  }
+  // Reset itens
+  _ajusteItemCount = 0;
+  document.getElementById('ajuste-itens-lista').innerHTML = '';
+  ajusteAdicionarItem();
+  document.getElementById('ajuste-itens-section').style.display = 'block';
   hideAlert('ajuste-alert');
   openModal('modal-ajuste');
 }
 
+function ajusteTipoChange() {
+  const tipo = document.getElementById('ajuste-tipo').value;
+  const sec  = document.getElementById('ajuste-itens-section');
+  sec.style.display = tipo === 'outro' ? 'none' : 'block';
+}
+
+function ajusteAdicionarItem() {
+  const lista = document.getElementById('ajuste-itens-lista');
+  const idx   = _ajusteItemCount++;
+  // Monta opções de produto de CATEGORIAS (global)
+  let optsHtml = '<option value="">Selecione o produto...</option>';
+  if (window.CATEGORIAS) {
+    Object.entries(CATEGORIAS).forEach(([catKey, cat]) => {
+      optsHtml += `<optgroup label="${cat.nome}">`;
+      cat.produtos.forEach(p => {
+        optsHtml += `<option value="${catKey}|${p.id}|${p.unidade}|${p.nome}">${p.nome} (${p.unidade})</option>`;
+      });
+      optsHtml += '</optgroup>';
+    });
+  }
+  const row = document.createElement('div');
+  row.id = `ajuste-item-${idx}`;
+  row.style.cssText = 'display:flex;gap:8px;align-items:center;margin-bottom:8px;';
+  row.innerHTML = `
+    <select class="form-select" style="flex:1;" id="ajuste-prod-${idx}">${optsHtml}</select>
+    <input type="number" class="form-input" style="width:90px;" id="ajuste-qty-${idx}"
+      placeholder="Qtd" min="0.01" step="0.01">
+    ${idx > 0 ? `<button class="btn btn-danger btn-sm" style="flex-shrink:0;" onclick="document.getElementById('ajuste-item-${idx}').remove()">✕</button>` : '<div style="width:32px;"></div>'}
+  `;
+  lista.appendChild(row);
+}
+
 async function enviarSolicitacaoAjuste() {
   const tipo      = document.getElementById('ajuste-tipo').value;
+  const casa      = document.getElementById('ajuste-casa').value;
+  const data      = document.getElementById('ajuste-data').value;
   const descricao = document.getElementById('ajuste-descricao').value.trim();
   const urgencia  = document.getElementById('ajuste-urgencia').value;
 
   if (!tipo)      { showAlertInline('ajuste-alert','Selecione o tipo de ajuste.','danger'); return; }
-  if (!descricao) { showAlertInline('ajuste-alert','Descreva o ajuste necessário.','danger'); return; }
+  if (!casa)      { showAlertInline('ajuste-alert','Selecione a casa.','danger'); return; }
+  if (!data)      { showAlertInline('ajuste-alert','Informe a data de referência.','danger'); return; }
+  if (!descricao) { showAlertInline('ajuste-alert','Descreva o motivo do ajuste.','danger'); return; }
+
+  // Coleta itens (se aplicável)
+  const itens = [];
+  if (tipo !== 'outro') {
+    const lista = document.getElementById('ajuste-itens-lista');
+    const rows  = lista.querySelectorAll('[id^="ajuste-item-"]');
+    for (const row of rows) {
+      const idx  = row.id.replace('ajuste-item-','');
+      const prod = document.getElementById(`ajuste-prod-${idx}`)?.value;
+      const qty  = parseFloat(document.getElementById(`ajuste-qty-${idx}`)?.value);
+      if (!prod) { showAlertInline('ajuste-alert','Selecione o produto em todos os itens.','danger'); return; }
+      if (!qty || qty <= 0) { showAlertInline('ajuste-alert','Informe a quantidade (maior que zero) em todos os itens.','danger'); return; }
+      const [catKey, prodId, unidade, prodNome] = prod.split('|');
+      itens.push({ catKey, prodId, unidade, prodNome, qty });
+    }
+    if (itens.length === 0) { showAlertInline('ajuste-alert','Adicione pelo menos 1 produto.','danger'); return; }
+  }
 
   setBtnLoading('btn-enviar-ajuste', true);
   try {
     await db.collection('ajustes').add({
-      tipo, descricao, urgencia,
+      tipo, casa, data, descricao, urgencia, itens,
       status: 'pendente',
-      solicitanteUid:  currentUser.uid,
-      solicitanteNome: currentUserData.name,
-      solicitanteEmail:currentUser.email,
-      casa: currentUserData.house || '',
-      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      solicitanteUid:   currentUser?.uid || '',
+      solicitanteNome:  currentUserData?.name || '',
+      solicitanteEmail: currentUser?.email || '',
+      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
     });
     closeModal('modal-ajuste');
-    showToast('✅ Solicitação de ajuste enviada ao administrador!');
+    showToast('✅ Solicitação enviada! Aguardando autorização do coordenador/gerente.');
   } catch(e) {
     console.error(e);
     showAlertInline('ajuste-alert','Erro ao enviar. Tente novamente.','danger');
@@ -692,7 +774,7 @@ async function openAjustesAdmin() {
   } catch(e) {
     body.innerHTML = `<div class="alert alert-danger visible" style="margin:0;">
       Sem permissão para acessar as solicitações de ajuste.<br>
-      <small style="opacity:0.7;">Verifique as regras do Firestore para a coleção <code>ajustes</code>.<br>Erro: ${e.message}</small>
+      <small style="opacity:0.7;">Erro: ${e.message}</small>
     </div>`;
     return;
   }
@@ -702,44 +784,144 @@ async function openAjustesAdmin() {
   }
 
   const urgColors = { critico:'var(--danger)', urgente:'var(--warn)', normal:'var(--ok)' };
-  const statusMap = { pendente:'🟡 Pendente', resolvido:'✅ Resolvido', recusado:'❌ Recusado' };
-  const tipoMap   = {
-    entrada:'📥 Corrigir Entrada', saida:'📤 Corrigir Saída',
-    pessoas:'👥 Atualizar Pessoas', pedido:'📋 Ajustar Pedido', outro:'🔧 Outro'
-  };
+  const statusMap = { pendente:'🟡 Pendente', autorizado:'✅ Autorizado', recusado:'❌ Recusado' };
 
   body.innerHTML = snap.docs.map(d => {
     const a = d.data();
     let dateStr = '—';
-    try { dateStr = a.createdAt?.toDate().toLocaleDateString('pt-BR', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' }); } catch(e){}
+    try { dateStr = a.createdAt?.toDate().toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}); } catch(e){}
     const cor = urgColors[a.urgencia] || 'var(--text)';
     const statusAtual = a.status || 'pendente';
+    const tipoInfo = AJUSTE_TIPO_MAP[a.tipo] || { label: a.tipo };
+    const movDir = tipoInfo.movType === 'entrada' ? '→ vai gerar <strong>Entrada</strong>' :
+                   tipoInfo.movType === 'saida'   ? '→ vai gerar <strong>Saída</strong>' : '→ execução manual';
+
+    // Lista de itens estruturados
+    const itensHtml = (a.itens && a.itens.length > 0)
+      ? `<div style="margin-top:8px;">
+          <div style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;margin-bottom:4px;">Produtos</div>
+          ${a.itens.map(it => `
+            <div style="display:flex;justify-content:space-between;font-size:12px;padding:3px 0;border-bottom:1px solid var(--border);">
+              <span>${it.prodNome}</span>
+              <span style="font-weight:700;">${it.qty} ${it.unidade}</span>
+            </div>`).join('')}
+        </div>` : '';
+
+    const resolvidoInfo = statusAtual !== 'pendente'
+      ? `<div style="font-size:11px;color:var(--text-muted);margin-top:6px;">
+           ${statusAtual === 'autorizado' ? '✅' : '❌'} Por: <strong>${a.resolvidoPor || '—'}</strong>
+           ${a.codigoMovimento ? `· Mov: <strong>${a.codigoMovimento}</strong>` : ''}
+         </div>` : '';
+
     return `<div style="border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:10px;">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:8px;">
-        <div>
+        <div style="flex:1;min-width:0;">
           <div style="font-weight:700;font-size:13px;">${a.solicitanteNome} — <span style="color:var(--text-muted);">${a.casa || '—'}</span></div>
-          <div style="font-size:11px;color:var(--text-muted);">${dateStr} · ${tipoMap[a.tipo]||a.tipo} · <span style="color:${cor};font-weight:700;">${a.urgencia?.toUpperCase()}</span></div>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:2px;">
+            ${dateStr} · ${tipoInfo.label} · <span style="color:${cor};font-weight:700;">${(a.urgencia||'').toUpperCase()}</span>
+          </div>
+          <div style="font-size:11px;color:var(--lumen,#7c3aed);margin-top:2px;">${movDir}</div>
         </div>
         <div style="display:flex;gap:6px;flex-shrink:0;">
           ${statusAtual === 'pendente' ? `
-            <button class="btn btn-secondary btn-sm" onclick="resolverAjuste('${d.id}','resolvido')">✓ Resolver</button>
+            <button class="btn btn-primary btn-sm" onclick="autorizarAjuste('${d.id}')">✓ Autorizar</button>
             <button class="btn btn-danger btn-sm" onclick="resolverAjuste('${d.id}','recusado')">✕ Recusar</button>
-          ` : `<span class="badge ${statusAtual==='resolvido'?'badge-ok':'badge-danger'}">${statusMap[statusAtual]}</span>`}
+          ` : `<span class="badge ${statusAtual==='autorizado'?'badge-ok':'badge-danger'}">${statusMap[statusAtual]||statusAtual}</span>`}
         </div>
       </div>
       <div style="font-size:13px;color:var(--text);background:var(--bg);padding:10px;border-radius:6px;">${a.descricao}</div>
+      ${itensHtml}
+      ${resolvidoInfo}
     </div>`;
   }).join('');
 }
 
-async function resolverAjuste(id, status) {
+async function autorizarAjuste(id) {
+  const snap = await db.collection('ajustes').doc(id).get();
+  if (!snap.exists) { showToast('Solicitação não encontrada.'); return; }
+  const a = snap.data();
+  if (a.status !== 'pendente') { showToast('Esta solicitação já foi processada.'); return; }
+
+  const tipoInfo = AJUSTE_TIPO_MAP[a.tipo];
+
+  // Se tem movimentação automática a criar
+  let codigoMovimento = null;
+  if (tipoInfo?.movType && a.itens?.length > 0 && a.casa && a.data) {
+    try {
+      const dateStr = (a.data || '').replace(/-/g,'');
+      const todaySnap = await db.collection('movements').where('dateStr','==',dateStr).get();
+      const seq = String(todaySnap.size + 1).padStart(3,'0');
+      const typeCode = tipoInfo.movType === 'entrada' ? 'ENT' : 'SAI';
+      const motivoCode = tipoInfo.movMotivo === 'desperdicio' ? '-DESP' :
+                         tipoInfo.movMotivo === 'ajuste_inventario' ? '-INV' :
+                         tipoInfo.movMotivo === 'correcao' ? '-COR' : '';
+      const prefixMov = typeof siglaCasa === 'function' ? siglaCasa(a.casa) : a.casa.slice(0,3).toUpperCase();
+      codigoMovimento = `OB-${prefixMov}-${typeCode}${motivoCode}-${dateStr}-${seq}`;
+
+      const movData = {
+        code: codigoMovimento,
+        house: a.casa,
+        type: tipoInfo.movType,
+        date: a.data,
+        dateStr,
+        obs: `[Ajuste Autorizado] ${tipoInfo.label} — ${a.descricao} (Sol. por: ${a.solicitanteNome})`,
+        isDonation: false,
+        isAjuste: true,
+        ajusteId: id,
+        ajusteTipo: a.tipo,
+        items: a.itens.map(it => ({
+          catKey: it.catKey,
+          prodId: it.prodId,
+          prodNome: it.prodNome,
+          unidade: it.unidade,
+          qty: it.qty,
+        })),
+        photoBase64: null,
+        leituraIA: false,
+        registeredBy: currentUserData?.name || '',
+        registeredUid: currentUser?.uid || '',
+        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+      };
+
+      await db.collection('movements').add(movData);
+    } catch(e) {
+      showToast('Erro ao criar movimentação: ' + e.message);
+      console.error(e);
+      return;
+    }
+  }
+
+  // Atualiza o ticket
   try {
-    await db.collection('ajustes').doc(id).update({ status, resolvidoAt: firebase.firestore.FieldValue.serverTimestamp(), resolvidoPor: currentUserData.name });
-    showToast(status === 'resolvido' ? '✅ Marcado como resolvido!' : '❌ Solicitação recusada.');
+    await db.collection('ajustes').doc(id).update({
+      status: 'autorizado',
+      resolvidoAt: firebase.firestore.FieldValue.serverTimestamp(),
+      resolvidoPor: currentUserData?.name || '',
+      codigoMovimento,
+    });
+    const msg = codigoMovimento
+      ? `✅ Autorizado! Movimentação gerada: ${codigoMovimento}`
+      : '✅ Autorizado! (execução manual necessária para tipo "Outro")';
+    showToast(msg);
     openAjustesAdmin();
     loadAjustesBadge();
   } catch(e) {
-    showToast('Erro ao atualizar ajuste: ' + e.message);
+    showToast('Erro ao autorizar: ' + e.message);
+  }
+}
+
+async function resolverAjuste(id, status) {
+  try {
+    await db.collection('ajustes').doc(id).update({
+      status,
+      resolvidoAt: firebase.firestore.FieldValue.serverTimestamp(),
+      resolvidoPor: currentUserData?.name || '',
+    });
+    showToast(status === 'autorizado' ? '✅ Autorizado!' : '❌ Solicitação recusada.');
+    openAjustesAdmin();
+    loadAjustesBadge();
+  } catch(e) {
+    showToast('Erro ao atualizar: ' + e.message);
   }
 }
 

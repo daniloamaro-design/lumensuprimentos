@@ -3089,30 +3089,61 @@
 
 <!-- ════════ MODAL: SOLICITAÇÃO DE AJUSTE (Usuário) ════════ -->
 <div class="modal-overlay hidden" id="modal-ajuste">
-  <div class="modal">
+  <div class="modal" style="max-width:600px;">
     <div class="modal-header">
-      <div class="modal-title">✏️ Solicitar Ajuste</div>
+      <div class="modal-title">✏️ Solicitar Ajuste de Estoque</div>
       <button class="modal-close" onclick="closeModal('modal-ajuste')">×</button>
     </div>
     <div class="modal-body">
       <div class="info-box" style="margin-bottom:16px;">
-        <strong>Atenção:</strong> Como usuário, você não pode realizar alterações diretamente. Preencha este formulário para solicitar um ajuste ao administrador.
+        <strong>Atenção:</strong> Nenhuma alteração ocorre até que um coordenador, gerente ou diretor autorize esta solicitação.
       </div>
+
+      <!-- Tipo -->
       <div class="form-group">
         <label class="form-label">Tipo de Ajuste *</label>
-        <select class="form-select" id="ajuste-tipo">
+        <select class="form-select" id="ajuste-tipo" onchange="ajusteTipoChange()">
           <option value="">Selecione...</option>
-          <option value="entrada">📥 Corrigir Entrada de Estoque</option>
-          <option value="saida">📤 Corrigir Saída de Estoque</option>
-          <option value="pessoas">👥 Atualizar Nº de Pessoas</option>
-          <option value="pedido">📋 Ajustar Pedido/Solicitação</option>
-          <option value="outro">🔧 Outro</option>
+          <option value="desperdicio">🗑️ Desperdício / Item Estragado — gera Saída</option>
+          <option value="inventario_menos">📉 Inventário: estoque real menor que o sistema — gera Saída</option>
+          <option value="inventario_mais">📈 Inventário: estoque real maior que o sistema — gera Entrada</option>
+          <option value="corrigir_entrada">📥 Corrigir Entrada lançada errado — gera Entrada</option>
+          <option value="corrigir_saida">📤 Corrigir Saída lançada errado — gera Entrada (estorno)</option>
+          <option value="outro">🔧 Outro (admin executa manualmente)</option>
         </select>
       </div>
+
+      <!-- Casa -->
       <div class="form-group">
-        <label class="form-label">Descrição do Ajuste *</label>
-        <textarea class="form-input" id="ajuste-descricao" rows="4" placeholder="Descreva detalhadamente o que precisa ser corrigido, incluindo datas, produtos e quantidades..."></textarea>
+        <label class="form-label">Casa *</label>
+        <select class="form-select" id="ajuste-casa">
+          <option value="">Selecione...</option>
+        </select>
       </div>
+
+      <!-- Data de referência -->
+      <div class="form-group">
+        <label class="form-label">Data de Referência *</label>
+        <input type="date" class="form-input" id="ajuste-data">
+      </div>
+
+      <!-- Itens (produto + quantidade) — oculto para tipo "outro" -->
+      <div id="ajuste-itens-section">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+          <label class="form-label" style="margin:0;">Produtos *</label>
+          <button class="btn btn-outline btn-sm" onclick="ajusteAdicionarItem()">+ Produto</button>
+        </div>
+        <div id="ajuste-itens-lista"></div>
+      </div>
+
+      <!-- Motivo -->
+      <div class="form-group">
+        <label class="form-label">Motivo / Descrição *</label>
+        <textarea class="form-input" id="ajuste-descricao" rows="3"
+          placeholder="Descreva o motivo do ajuste (ex: produto vencido encontrado durante limpeza, contagem de inventário, etc.)"></textarea>
+      </div>
+
+      <!-- Urgência -->
       <div class="form-group">
         <label class="form-label">Urgência</label>
         <select class="form-select" id="ajuste-urgencia">
@@ -3121,6 +3152,7 @@
           <option value="critico">🔴 Crítico</option>
         </select>
       </div>
+
       <div id="ajuste-alert" class="alert" style="margin-top:8px;"></div>
     </div>
     <div class="modal-footer">
