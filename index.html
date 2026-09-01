@@ -2982,37 +2982,9 @@
             <input type="text" class="form-input" id="quot-obs" placeholder="Condições, frete, desconto...">
           </div>
           <div class="form-group" style="margin-bottom:12px;">
-            <label class="form-label" style="display:flex;justify-content:space-between;align-items:center;">
-              <span>Preço por item (do que o fornecedor mandou)</span>
-              <span style="font-weight:400;color:var(--text-muted);font-size:11px;">valor total é a soma dos itens</span>
-            </label>
-            <div class="table-wrap">
-              <table class="orca-table" style="width:100%;">
-                <thead><tr>
-                  <th>Item</th>
-                  <th style="text-align:right;">Qtd pedida</th>
-                  <th style="text-align:right;width:140px;">Valor unitário (R$)</th>
-                  <th style="text-align:right;">Subtotal</th>
-                </tr></thead>
-                <tbody id="quot-itens-tbody"></tbody>
-              </table>
-            </div>
+            <label class="form-label">Valor Total do Orçamento (R$)</label>
+            <input type="number" class="form-input" id="quot-valor" placeholder="0,00" step="0.01" min="0" style="font-weight:700;">
           </div>
-          <div style="display:flex;justify-content:flex-end;align-items:center;gap:10px;margin-bottom:12px;">
-            <span class="form-label" style="margin:0;">Valor Total (R$)</span>
-            <input type="number" class="form-input" id="quot-valor" placeholder="0.00" step="0.01" min="0" readonly style="max-width:160px;font-weight:700;text-align:right;background:var(--lumen-lt);">
-          </div>
-          <!-- Upload orçamento IA -->
-          <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;padding:10px 12px;background:var(--lumen-lt,rgba(124,58,237,.08));border-radius:8px;border:1px dashed var(--lumen,#7c3aed);">
-            <label style="cursor:pointer;display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:var(--lumen,#7c3aed);">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:18px;height:18px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-              Enviar orçamento (PDF/imagem)
-              <input type="file" id="quot-orca-file" accept="image/*,application/pdf" style="display:none;" onchange="quotArquivoSelecionado()">
-            </label>
-            <span id="quot-orca-nome" style="font-size:12px;color:var(--text-muted);flex:1;">Nenhum arquivo</span>
-            <button class="btn btn-secondary btn-sm" id="btn-quot-ia" onclick="quotLerOrcamentoIA()" disabled style="white-space:nowrap;">🤖 Ler com IA</button>
-          </div>
-          <div id="quot-ia-status" style="display:none;font-size:13px;padding:8px 12px;border-radius:6px;margin-bottom:10px;"></div>
           <button class="btn btn-primary" style="width:auto;" onclick="saveQuotation()">+ Adicionar Cotação</button>
         </div>
       </div>

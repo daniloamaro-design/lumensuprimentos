@@ -1677,31 +1677,15 @@ async function saveQuotation() {
   const validade       = document.getElementById('quot-validade').value;
   const obs            = document.getElementById('quot-obs').value;
 
-  // Preço por item (valor total é sempre a soma dos itens preenchidos) --
-  // guarda o detalhamento pra comparar fornecedor a fornecedor item a item
-  // na tela de Orçamentos Pendentes.
-  const itens = [];
-  let valor = 0;
-  document.querySelectorAll('#quot-itens-tbody tr[data-catkey]').forEach(tr => {
-    const valorUnit = parseFloat(tr.querySelector('.quot-item-unit')?.value) || 0;
-    if (valorUnit <= 0) return;
-    const qty = parseFloat(tr.querySelector('[data-qty]')?.dataset.qty) || 0;
-    const valorItemTotal = qty * valorUnit;
-    itens.push({
-      catKey: tr.dataset.catkey, prodId: tr.dataset.prodid, nome: tr.dataset.nome,
-      qty, valorUnit, valorTotal: valorItemTotal,
-    });
-    valor += valorItemTotal;
-  });
-
-  if (!fornecedorId || !valor) { showToast('Selecione o fornecedor e informe ao menos um valor unitário!'); return; }
+  const valor = parseFloat(document.getElementById('quot-valor').value) || 0;
+  if (!fornecedorId || !valor) { showToast('Selecione o fornecedor e informe o valor total do orçamento!'); return; }
   await db.collection('quotations').add({
-    orderId, fornecedorId, fornecedorNome, valor, status, validade, obs, itens,
+    orderId, fornecedorId, fornecedorNome, valor, status, validade, obs,
     createdBy: currentUserData.name,
     createdAt: firebase.firestore.FieldValue.serverTimestamp()
   });
   document.getElementById('quot-obs').value = '';
-  montarItensCotacaoForm();
+  document.getElementById('quot-valor').value = '';
   showToast('✅ Cotação adicionada!');
   loadQuotations(orderId);
 }
