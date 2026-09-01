@@ -83,8 +83,8 @@ async function impIniciar() {
       await _impProcessarPedido(pedido);
       _impState.processados++;
       _impRenderLog();
-      // Pausa de 5s entre chamadas para respeitar o rate limit da API Gemini
-      await new Promise(r => setTimeout(r, 5000));
+      // Pausa de 10s entre chamadas para respeitar o rate limit da API Gemini
+      await new Promise(r => setTimeout(r, 10000));
     }
 
     _impLog(`✅ Importação concluída! ${_impState.salvos} preços salvos, ${_impState.erros} erros.`, 'ok');
