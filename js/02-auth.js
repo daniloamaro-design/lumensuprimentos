@@ -386,7 +386,7 @@ async function showApp() {
   // Painel do Coordenador: visível para coordenador, gerente, diretor, admin
   const isCoordNivel = isAdminLevel || role === 'coordenador';
   document.querySelectorAll('.coord-dash-section').forEach(el => {
-    el.style.display = isCoordNivel ? 'block' : 'none';
+    el.style.display = isCoordNivel ? '' : 'none';
   });
 
   // Carrega casas e cidades dinamicas do Firebase

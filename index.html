@@ -316,6 +316,7 @@
       <button class="modulo-btn" data-mod="frete" onclick="selecionarModulo('frete')" title="Fretes">🚚 Fretes</button>
       <button class="modulo-btn" data-mod="financeiro" onclick="selecionarModulo('financeiro')" title="Financeiro">💰 Financeiro</button>
       <button class="modulo-btn" data-mod="diretoria" onclick="selecionarModulo('diretoria')" title="Diretoria">🏛️ Diretoria</button>
+      <button class="modulo-btn coord-dash-section" data-mod="coord" onclick="selecionarModulo('coord')" title="Painel do Coordenador" style="display:none;">🎯 Coordenador</button>
     </div>
     <div class="sidebar-section" data-modulo="diretoria" id="sidebar-transversal">
       <div class="sidebar-section-title">Visão Geral</div>
@@ -356,10 +357,10 @@
         Permissões
       </button>
     </div>
-    <!-- Painel do Coordenador — visível para coordenador/gerente/diretor/admin -->
-    <div class="sidebar-section coord-dash-section" data-modulo="suprimentos" style="display:none;">
-      <div class="sidebar-section-title" style="color:var(--lumen,#7c3aed);">Meu Painel</div>
-      <button class="sidebar-item" data-page="coord-dashboard" onclick="goPageMobile('coord-dashboard')" style="border-left:3px solid var(--lumen,#7c3aed);">
+    <!-- Painel do Coordenador — módulo visível para coordenador/gerente/diretor/admin -->
+    <div class="sidebar-section coord-dash-section" data-modulo="coord" style="display:none;">
+      <div class="sidebar-section-title">Visão Geral</div>
+      <button class="sidebar-item" data-page="coord-dashboard" onclick="goPageMobile('coord-dashboard')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
         Painel do Coordenador
       </button>

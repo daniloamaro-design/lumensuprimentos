@@ -115,7 +115,7 @@ function frtMesDaData(v) { // 'YYYY-MM' a partir do campo data/created_at do fre
   return m ? `${m[1]}-${m[2]}` : '';
 }
 function frtBadgePag(sp) {
-  const map = { pago: ['✅ Pago', 'var(--ok,#16a34a)'], pendente: ['⏳ Pendente', 'var(--warn,#d97706)'], parcial: ['◑ Parcial', 'var(--lumen)'] };
+  const map = { pago: ['✅ Pago', 'var(--ok,#16a34a)'], pendente: ['⏳ Pendente', 'var(--warn,#d97706)'], parcial: ['◑ Parcial', 'var(--lumen)'], cancelado: ['❌ Cancelado', '#DC2626'] };
   const [txt, cor] = map[sp] || ['—', 'var(--text-muted)'];
   return `<span style="font-weight:600;color:${cor};">${txt}</span>`;
 }
@@ -170,9 +170,10 @@ function renderFrtLista() {
     return true;
   });
 
-  // KPIs
-  const total = lista.reduce((s, f) => s + (Number(f.valor) || 0), 0);
-  const pago = lista.filter(f => f.statusPag === 'pago').reduce((s, f) => s + (Number(f.valor) || 0), 0);
+  // KPIs (exclui cancelados dos totais financeiros)
+  const listaFin = lista.filter(f => f.status !== 'cancelado');
+  const total = listaFin.reduce((s, f) => s + (Number(f.valor) || 0), 0);
+  const pago = listaFin.filter(f => f.statusPag === 'pago').reduce((s, f) => s + (Number(f.valor) || 0), 0);
   const pend = total - pago;
   document.getElementById('frt-kpi-qtd').textContent = lista.length;
   document.getElementById('frt-kpi-total').textContent = frtBRL(total);
@@ -448,7 +449,7 @@ async function frtMarcarEntregue(id) {
 async function frtCancelar(id) {
   const f = _fretesCache.find(x => x.id === id);
   if (!confirm(`Cancelar o frete ${f?.code || ''}? Esta ação registra o cancelamento.`)) return;
-  frtMudarStatus(id, 'cancelado', 'Frete cancelado');
+  frtMudarStatus(id, 'cancelado', 'Frete cancelado', { statusPag: 'cancelado' });
 }
 window.frtMarcarEntregue = frtMarcarEntregue;
 window.frtCancelar = frtCancelar;
