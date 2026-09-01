@@ -356,6 +356,15 @@
         Permissões
       </button>
     </div>
+    <!-- Painel do Coordenador — visível para coordenador/gerente/diretor/admin -->
+    <div class="sidebar-section coord-dash-section" data-modulo="suprimentos" style="display:none;">
+      <div class="sidebar-section-title" style="color:var(--lumen,#7c3aed);">Meu Painel</div>
+      <button class="sidebar-item" data-page="coord-dashboard" onclick="goPageMobile('coord-dashboard')" style="border-left:3px solid var(--lumen,#7c3aed);">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        Painel do Coordenador
+      </button>
+    </div>
+
     <div class="sidebar-section" data-modulo="suprimentos" id="sidebar-admin" style="display:none;">
       <div class="sidebar-section-title">Administração</div>
       <button class="sidebar-item" data-page="dashboard" onclick="goPageMobile('dashboard')">
@@ -2617,6 +2626,16 @@
     </div></div>
   </div>
 
+  <!-- ════════ PAGE: PAINEL DO COORDENADOR ════════ -->
+  <div class="page" id="page-coord-dashboard">
+    <div class="page-header">
+      <div class="page-title">🎯 Painel do Coordenador</div>
+      <div class="page-sub">Visão operacional unificada — Passagens · Fretes · Suprimentos</div>
+      <button class="btn btn-outline btn-sm" style="margin-top:8px;" onclick="initCoordDashboard()">↻ Atualizar</button>
+    </div>
+    <div id="coord-dash-root"></div>
+  </div>
+
   <!-- ════════ PAGE: CONTAGEM DE INVENTÁRIO ════════ -->
   <div class="page" id="page-inventario">
     <div class="page-header">
@@ -3403,6 +3422,7 @@
 
 <script src="js/variedades.js?v=3"></script>
 <script src="js/21-inventario.js?v=1"></script>
+<script src="js/22-coord-dashboard.js?v=1"></script>
 
 <!-- MODAL: NOVA SOLICITAÇÃO DE VARIEDADES -->
 <div class="modal-overlay hidden" id="modal-nova-var">
