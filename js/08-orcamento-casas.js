@@ -353,6 +353,7 @@ async function loadPrices() {
         <span style="font-size:13px;color:var(--text-muted);">R$</span>
         <input class="prod-qty-input" type="number" min="0" step="0.01" id="price-inp-${p.id}"
           value="${currentPrice}" placeholder="0,00" style="width:90px;">
+        <button onclick="verHistoricoPreco('${p.id}','${p.nome.replace(/'/g,"\\'")}','${cat}','${city}')" title="Ver histórico de preços" style="background:none;border:none;cursor:pointer;font-size:16px;padding:2px 4px;opacity:.7;" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=.7">📈</button>
       </div>
     </div>`;
   }).join('');
