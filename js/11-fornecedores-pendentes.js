@@ -932,29 +932,43 @@ function opcComparativoItensHTML(pedido, cotacoes) {
       const label = estimado ? `<span style="font-style:italic;opacity:.8;">~${FMT_OPC(v)}</span>` : FMT_OPC(v);
       return `<td style="text-align:right;${ehMenor ? 'color:var(--ok);font-weight:700;' : ''}">${label}${ehMenor ? ' ★' : ''}${comparativo}</td>`;
     }).join('');
-    return `<tr>
-      <td style="font-size:12px;">${item.nome} <span style="color:var(--text-muted);font-size:10px;">${item.unidade}</span></td>
-      <td style="text-align:right;font-size:12px;color:var(--text-muted);">${item.qty}</td>
-      <td style="text-align:right;font-size:12px;color:var(--text-muted);">${ultimoPreco > 0 ? FMT_OPC(ultimoPreco) : '—'}</td>
+    return `<tr style="border-top:1px solid var(--border);">
+      <td style="padding:7px 10px;font-size:12px;white-space:nowrap;">${item.nome} <span style="color:var(--text-muted);font-size:10px;">${item.unidade}</span></td>
+      <td style="padding:7px 10px;text-align:right;font-size:12px;color:var(--text-muted);">${item.qty}</td>
+      <td style="padding:7px 10px;text-align:right;font-size:12px;color:var(--text-muted);">${ultimoPreco > 0 ? FMT_OPC(ultimoPreco) : '—'}</td>
       ${celulas}
     </tr>`;
   }).join('');
 
-  const linhaTotal = `<tr style="border-top:2px solid var(--border);font-weight:700;">
-    <td colspan="3" style="font-size:12px;">Total do orçamento</td>
-    ${cotacoes.map(q => `<td style="text-align:right;font-size:13px;color:var(--lumen);">${FMT_OPC(parseFloat(q.valor) || 0)}</td>`).join('')}
+  const linhaTotal = `<tr style="border-top:2px solid var(--border);font-weight:700;background:var(--bg-card,var(--bg));">
+    <td colspan="3" style="padding:8px 10px;font-size:12px;">Total do orçamento</td>
+    ${cotacoes.map(q => `<td style="padding:8px 10px;text-align:right;font-size:13px;color:var(--lumen);">${FMT_OPC(parseFloat(q.valor) || 0)}</td>`).join('')}
   </tr>`;
 
   const temEstimativa = Object.keys(estimativas).length > 0;
 
+  // Cabeçalhos de fornecedor: abrevia nomes longos para não duplicar visualmente
+  const fornHeaders = cotacoes.map(q => {
+    const nome = q.fornecedorNome || '—';
+    // Abrevia após 22 caracteres, mostrando o nome completo no title
+    const abrev = nome.length > 22 ? nome.slice(0, 20) + '…' : nome;
+    return `<th style="text-align:right;min-width:110px;max-width:150px;white-space:normal;word-break:break-word;font-size:11px;" title="${nome}">${abrev}</th>`;
+  }).join('');
+
   return `
-    ${!cidadeDoPedido ? `<div style="font-size:11px;color:var(--text-muted);margin-bottom:6px;">⚠️ Casa "${pedido.house || '—'}" sem cidade cadastrada -- não dá pra comparar com o último preço.</div>` : ''}
-    <div class="table-wrap">
-      <table class="orca-table" style="width:100%;">
-        <thead><tr>
-          <th>Item</th><th style="text-align:right;">Qtd</th><th style="text-align:right;">Último preço${cidadeDoPedido ? ` (${cidadeDoPedido})` : ''}</th>
-          ${cotacoes.map(q => `<th style="text-align:right;">${q.fornecedorNome || '—'}</th>`).join('')}
-        </tr></thead>
+    ${!cidadeDoPedido ? `<div style="font-size:11px;color:var(--text-muted);margin-bottom:6px;">⚠️ Casa "${pedido.house || '—'}" sem cidade cadastrada — sem comparativo de último preço.</div>` : ''}
+    <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;border-radius:8px;border:1px solid var(--border);">
+      <table class="orca-table" style="width:100%;border-collapse:collapse;font-size:12px;">
+        <thead>
+          <tr style="background:var(--bg-card,var(--bg));position:sticky;top:0;z-index:1;">
+            <th style="text-align:left;padding:8px 10px;white-space:nowrap;min-width:120px;">Item</th>
+            <th style="text-align:right;padding:8px 10px;white-space:nowrap;width:48px;">Qtd</th>
+            <th style="text-align:right;padding:8px 10px;white-space:nowrap;min-width:110px;color:var(--text-muted);">
+              Último preço${cidadeDoPedido ? `<br><span style="font-weight:400;font-size:10px;">(${cidadeDoPedido})</span>` : ''}
+            </th>
+            ${fornHeaders}
+          </tr>
+        </thead>
         <tbody>${linhas}${linhaTotal}</tbody>
       </table>
     </div>
