@@ -655,17 +655,29 @@ function openAjusteModal() {
   document.getElementById('ajuste-descricao').value = '';
   document.getElementById('ajuste-urgencia').value = 'normal';
   document.getElementById('ajuste-data').value = new Date().toISOString().slice(0,10);
-  // Popula casas
+  // Popula casas sempre ao abrir (CASAS pode não ter sido carregado quando populateHouseSelects rodou)
   const sel = document.getElementById('ajuste-casa');
   if (sel) {
+    const casas = window.CASAS || [];
     sel.innerHTML = '<option value="">Selecione...</option>';
-    (window.CASAS || []).forEach(c => {
+    casas.forEach(c => {
       const o = document.createElement('option');
       o.value = c; o.textContent = c;
-      // pré-seleciona a casa do usuário se disponível
       if (c === (currentUserData?.house || '')) o.selected = true;
       sel.appendChild(o);
     });
+    // Se CASAS ainda vazio, tenta buscar do banco
+    if (casas.length === 0) {
+      db.collection('houses').orderBy('nome').get().then(snap => {
+        snap.docs.forEach(d => {
+          const nome = d.data().nome || d.id;
+          const o = document.createElement('option');
+          o.value = nome; o.textContent = nome;
+          if (nome === (currentUserData?.house || '')) o.selected = true;
+          sel.appendChild(o);
+        });
+      }).catch(() => {});
+    }
   }
   // Reset itens
   _ajusteItemCount = 0;
