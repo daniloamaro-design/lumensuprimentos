@@ -1752,6 +1752,13 @@ function onAttachFileChange(type) {
     area.classList.remove('has-file');
     nameEl.textContent = '';
   }
+  // Mostra botão de IA quando NF for selecionada
+  if (type === 'nf') {
+    const btnIA = document.getElementById('btn-attach-ia');
+    const stIA  = document.getElementById('attach-ia-status');
+    if (btnIA) { btnIA.style.display = file ? '' : 'none'; btnIA.disabled = !file; }
+    if (stIA)  stIA.style.display = 'none';
+  }
 }
 
 async function saveAttachment() {
@@ -2175,6 +2182,114 @@ function formatDate(ts) {
   const d = ts.toDate ? ts.toDate() : new Date(ts);
   return d.toLocaleDateString('pt-BR', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' });
 }
+
+// ── Extração de preços da NF via Gemini ──
+async function attachExtrairPrecosIA() {
+  const file = document.getElementById('attach-nf-file')?.files[0];
+  if (!file) return;
+
+  const btn = document.getElementById('btn-attach-ia');
+  const st  = document.getElementById('attach-ia-status');
+  const orig = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = '⏳ Analisando NF...';
+  st.style.display = 'none';
+
+  try {
+    // Monta lista de itens do pedido atual
+    const itens = [];
+    const items = detailOrderData?.items || {};
+    Object.entries(items).forEach(([catKey, prods]) => {
+      const cat = CATEGORIAS?.[catKey];
+      Object.entries(prods || {}).forEach(([prodId, qty]) => {
+        const p = cat?.produtos?.find(x => x.id === prodId);
+        if (p) itens.push({ catKey, prodId, nome: p.nome, unidade: p.unidade || '', qty });
+      });
+    });
+    if (!itens.length) throw new Error('Pedido sem itens identificados.');
+
+    // Converte arquivo para base64
+    const base64 = await new Promise((res, rej) => {
+      const r = new FileReader();
+      r.onload = e => res(e.target.result.split(',')[1]);
+      r.onerror = rej;
+      r.readAsDataURL(file);
+    });
+    const mimeType = file.type || 'application/pdf';
+
+    const listaComId = itens.map(i => `prodId="${i.prodId}" | ${i.nome} (${i.unidade})`).join('\n');
+    const prompt = `Analise esta nota fiscal brasileira (NF-e ou cupom fiscal) e extraia o preço unitário de cada produto listado abaixo.
+
+PRODUTOS PARA ENCONTRAR:
+${listaComId}
+
+INSTRUÇÕES:
+- Procure na coluna "Valor Unit.", "Vl. Unit.", "Preço Unit." ou similar da nota
+- Use o prodId exato de cada linha acima
+- Se o produto não estiver na nota, omita-o
+- Valores em reais, use ponto como decimal (ex: 3.89)
+- Se a nota tiver apenas valor total por item, divida pela quantidade para obter o unitário
+
+Retorne APENAS este JSON, sem texto adicional:
+{"itens":[{"prodId":"id_exato","precoUnitario":valor_numerico}]}`;
+
+    const payload = {
+      contents: [{ parts: [
+        { inline_data: { mime_type: mimeType, data: base64 } },
+        { text: prompt }
+      ]}],
+      generationConfig: { temperature: 0.1 }
+    };
+
+    const resp = await geminiFetch({ method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+    if (!resp.ok) { const e = await resp.json().catch(()=>({})); throw new Error(e?.error?.message || `HTTP ${resp.status}`); }
+
+    const data = await resp.json();
+    const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    const parsed = JSON.parse(rawText.replace(/```json|```/g,'').trim());
+
+    if (!parsed.itens?.length) throw new Error('IA não encontrou preços na nota. Verifique se o arquivo está legível.');
+
+    // Salva em prices_historico
+    const city = detailOrderData?.city || CASAS_CIDADES?.[detailOrderData?.house] || '';
+    const dataCompra = new Date();
+    const batch = db.batch();
+    let salvos = 0;
+
+    parsed.itens.forEach(({ prodId, precoUnitario }) => {
+      if (!prodId || !precoUnitario || precoUnitario <= 0) return;
+      const item = itens.find(i => i.prodId === prodId);
+      if (!item) return;
+      const ref = db.collection('prices_historico').doc();
+      batch.set(ref, {
+        prodId, cat: item.catKey, city, price: Number(precoUnitario),
+        savedAt: firebase.firestore.Timestamp.fromDate(dataCompra),
+        savedBy: currentUserData?.name || '',
+        pedidoCode: detailOrderData?.code || '',
+        fornecedorNome: document.getElementById('attach-supplier')?.options[document.getElementById('attach-supplier')?.selectedIndex]?.text || '',
+        nfNumero: document.getElementById('attach-nf-num')?.value || '',
+      });
+      salvos++;
+    });
+
+    await batch.commit();
+
+    st.style.display = 'block';
+    st.style.background = 'rgba(22,163,74,.12)';
+    st.style.borderLeft = '3px solid #16a34a';
+    st.innerHTML = `✅ <b>${salvos} preço(s)</b> extraído(s) e salvos no histórico automaticamente.`;
+
+  } catch(e) {
+    st.style.display = 'block';
+    st.style.background = 'rgba(220,38,38,.1)';
+    st.style.borderLeft = '3px solid #dc2626';
+    st.innerHTML = '❌ ' + e.message;
+  }
+
+  btn.disabled = false;
+  btn.innerHTML = orig;
+}
+window.attachExtrairPrecosIA = attachExtrairPrecosIA;
 
 function formatCats(cats) {
   if (!cats?.length) return '—';

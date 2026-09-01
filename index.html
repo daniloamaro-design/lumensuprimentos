@@ -3071,6 +3071,8 @@
             <div class="attach-name" id="attach-nf-filename"></div>
           </div>
           <input type="file" id="attach-nf-file" style="display:none;" accept=".pdf,.jpg,.jpeg,.png" onchange="onAttachFileChange('nf')">
+          <button id="btn-attach-ia" onclick="attachExtrairPrecosIA()" disabled style="display:none;margin-top:8px;width:100%;" class="btn btn-secondary btn-sm">🤖 Extrair preços com IA</button>
+          <div id="attach-ia-status" style="display:none;font-size:12px;margin-top:6px;padding:6px 10px;border-radius:6px;"></div>
         </div>
         <div>
           <label class="form-label">Arquivo Boleto (PDF/imagem)</label>
