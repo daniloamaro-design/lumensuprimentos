@@ -1518,6 +1518,124 @@ function atualizarQuotTotalItens() {
   if (totalInput) totalInput.value = total > 0 ? total.toFixed(2) : '';
 }
 
+function quotArquivoSelecionado() {
+  const file = document.getElementById('quot-orca-file')?.files[0];
+  const nome = document.getElementById('quot-orca-nome');
+  const btn  = document.getElementById('btn-quot-ia');
+  if (file) {
+    if (nome) nome.textContent = '📎 ' + file.name;
+    if (btn)  btn.disabled = false;
+  }
+  const st = document.getElementById('quot-ia-status');
+  if (st) st.style.display = 'none';
+}
+window.quotArquivoSelecionado = quotArquivoSelecionado;
+
+async function quotLerOrcamentoIA() {
+  const fileInput = document.getElementById('quot-orca-file');
+  const file = fileInput?.files[0];
+  if (!file) return;
+  const btn = document.getElementById('btn-quot-ia');
+  const st  = document.getElementById('quot-ia-status');
+  const orig = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = '⏳ Analisando...';
+  st.style.display = 'none';
+
+  try {
+    // Coleta itens do pedido para orientar o Gemini
+    const linhas = [];
+    document.querySelectorAll('#quot-itens-tbody tr[data-catkey]').forEach(tr => {
+      linhas.push({ nome: tr.dataset.nome, qty: tr.querySelector('[data-qty]')?.dataset.qty || '?' });
+    });
+    if (!linhas.length) throw new Error('Nenhum item no pedido para comparar.');
+
+    // Converte arquivo para base64
+    let base64, mimeType;
+    if (file.type === 'application/pdf') {
+      // PDF: envia como application/pdf
+      base64 = await new Promise((res, rej) => {
+        const r = new FileReader();
+        r.onload = e => res(e.target.result.split(',')[1]);
+        r.onerror = rej;
+        r.readAsDataURL(file);
+      });
+      mimeType = 'application/pdf';
+    } else {
+      // Imagem: comprime antes de enviar
+      const compressed = await (typeof compressImageFile === 'function'
+        ? compressImageFile(file) : Promise.resolve(file));
+      base64 = await new Promise((res, rej) => {
+        const r = new FileReader();
+        r.onload = e => res(e.target.result.split(',')[1]);
+        r.onerror = rej;
+        r.readAsDataURL(compressed);
+      });
+      mimeType = compressed.type || 'image/jpeg';
+    }
+
+    const listaProdutos = linhas.map(l => `- ${l.nome} (qtd pedida: ${l.qty}`).join('\n');
+    const prompt = `Você é um assistente de compras. Analise este orçamento/cotação de fornecedor e extraia o preço unitário de cada item listado abaixo.
+
+Itens do pedido que precisam de preço:
+${listaProdutos}
+
+Retorne SOMENTE um JSON válido, sem markdown, sem explicação:
+{"itens":[{"nome":"nome exato do item conforme a lista acima","precoUnitario":valor_numerico}]}
+
+Se um item não aparecer no orçamento, omita-o. Use ponto como separador decimal.`;
+
+    const payload = {
+      contents: [{ parts: [
+        { inline_data: { mime_type: mimeType, data: base64 } },
+        { text: prompt }
+      ]}],
+      generationConfig: { temperature: 0.1 }
+    };
+
+    const resp = await geminiFetch({ method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+    if (!resp.ok) { const e = await resp.json().catch(()=>({})); throw new Error(e?.error?.message || `HTTP ${resp.status}`); }
+
+    const data = await resp.json();
+    const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    const parsed = JSON.parse(rawText.replace(/```json|```/g,'').trim());
+
+    if (!parsed.itens?.length) throw new Error('IA não encontrou preços no documento. Verifique se o arquivo está legível.');
+
+    // Preenche os inputs da tabela
+    let preenchidos = 0;
+    parsed.itens.forEach(({ nome, precoUnitario }) => {
+      if (!nome || !precoUnitario) return;
+      const normIA = nome.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').trim();
+      document.querySelectorAll('#quot-itens-tbody tr[data-catkey]').forEach(tr => {
+        const normRow = (tr.dataset.nome || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').trim();
+        if (normRow === normIA || normRow.includes(normIA) || normIA.includes(normRow)) {
+          const input = tr.querySelector('.quot-item-unit');
+          if (input) { input.value = Number(precoUnitario).toFixed(2); preenchidos++; }
+        }
+      });
+    });
+    atualizarQuotTotalItens();
+
+    st.style.display = 'block';
+    st.style.background = preenchidos > 0 ? 'rgba(22,163,74,.12)' : 'rgba(217,119,6,.12)';
+    st.style.borderLeft = '3px solid ' + (preenchidos > 0 ? '#16a34a' : '#d97706');
+    st.innerHTML = preenchidos > 0
+      ? `✅ IA preencheu <b>${preenchidos} item(ns)</b>. Revise os valores e clique em "+ Adicionar Cotação".`
+      : '⚠️ IA não conseguiu associar os itens. Preencha manualmente.';
+
+  } catch(e) {
+    st.style.display = 'block';
+    st.style.background = 'rgba(220,38,38,.1)';
+    st.style.borderLeft = '3px solid #dc2626';
+    st.innerHTML = '❌ Erro: ' + e.message;
+  }
+
+  btn.disabled = false;
+  btn.innerHTML = orig;
+}
+window.quotLerOrcamentoIA = quotLerOrcamentoIA;
+
 async function loadQuotations(orderId) {
   const listEl = document.getElementById('quotation-list');
   if (!orderId) return;
@@ -1559,31 +1677,15 @@ async function saveQuotation() {
   const validade       = document.getElementById('quot-validade').value;
   const obs            = document.getElementById('quot-obs').value;
 
-  // Preço por item (valor total é sempre a soma dos itens preenchidos) --
-  // guarda o detalhamento pra comparar fornecedor a fornecedor item a item
-  // na tela de Orçamentos Pendentes.
-  const itens = [];
-  let valor = 0;
-  document.querySelectorAll('#quot-itens-tbody tr[data-catkey]').forEach(tr => {
-    const valorUnit = parseFloat(tr.querySelector('.quot-item-unit')?.value) || 0;
-    if (valorUnit <= 0) return;
-    const qty = parseFloat(tr.querySelector('[data-qty]')?.dataset.qty) || 0;
-    const valorItemTotal = qty * valorUnit;
-    itens.push({
-      catKey: tr.dataset.catkey, prodId: tr.dataset.prodid, nome: tr.dataset.nome,
-      qty, valorUnit, valorTotal: valorItemTotal,
-    });
-    valor += valorItemTotal;
-  });
-
-  if (!fornecedorId || !valor) { showToast('Selecione o fornecedor e informe ao menos um valor unitário!'); return; }
+  const valor = parseFloat(document.getElementById('quot-valor').value) || 0;
+  if (!fornecedorId || !valor) { showToast('Selecione o fornecedor e informe o valor total do orçamento!'); return; }
   await db.collection('quotations').add({
-    orderId, fornecedorId, fornecedorNome, valor, status, validade, obs, itens,
+    orderId, fornecedorId, fornecedorNome, valor, status, validade, obs,
     createdBy: currentUserData.name,
     createdAt: firebase.firestore.FieldValue.serverTimestamp()
   });
   document.getElementById('quot-obs').value = '';
-  montarItensCotacaoForm();
+  document.getElementById('quot-valor').value = '';
   showToast('✅ Cotação adicionada!');
   loadQuotations(orderId);
 }
