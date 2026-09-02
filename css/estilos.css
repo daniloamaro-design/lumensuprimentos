@@ -492,7 +492,11 @@
     .sidebar::-webkit-scrollbar { width: 4px; }
     .sidebar::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
     .sidebar-section { margin-bottom: 28px; }
-    .sidebar-section-title { font-size: 10px; font-weight: 800; color: var(--lumen); text-transform: uppercase; letter-spacing: 1px; padding: 0 10px; margin-bottom: 8px; }
+    .sidebar-section-title { font-size: 10px; font-weight: 800; color: var(--lumen); text-transform: uppercase; letter-spacing: 1px; padding: 0 10px; margin-bottom: 8px; cursor: pointer; display: flex; align-items: center; justify-content: space-between; user-select: none; }
+    .sidebar-section-title::after { content: '▾'; font-size: 12px; transition: transform 0.2s; }
+    .sidebar-section.collapsed .sidebar-section-title::after { transform: rotate(-90deg); }
+    .sidebar-section-items { overflow: hidden; transition: max-height 0.25s ease; max-height: 2000px; }
+    .sidebar-section.collapsed .sidebar-section-items { max-height: 0; }
     .sidebar-item {
       display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-radius: 12px;
       cursor: pointer; font-size: 13px; font-weight: 500; color: var(--text-muted);

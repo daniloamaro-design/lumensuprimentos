@@ -3833,4 +3833,44 @@
 
 <script src="js/rotina-estoque.js?v=1"></script>
 
+<script>
+// Accordion da sidebar — inicializa após o DOM carregar
+(function initSidebarAccordion() {
+  function setup() {
+    document.querySelectorAll('.sidebar-section').forEach(section => {
+      const title = section.querySelector('.sidebar-section-title');
+      if (!title || title.dataset.accordion) return;
+      title.dataset.accordion = '1';
+
+      // Envolve todos os filhos exceto o título num wrapper para animar
+      const wrapper = document.createElement('div');
+      wrapper.className = 'sidebar-section-items';
+      Array.from(section.children).forEach(el => {
+        if (!el.classList.contains('sidebar-section-title')) wrapper.appendChild(el);
+      });
+      section.appendChild(wrapper);
+
+      // Restaura estado salvo (localStorage)
+      const key = 'sidebar-acc-' + (title.textContent.trim());
+      if (localStorage.getItem(key) === 'collapsed') section.classList.add('collapsed');
+
+      title.addEventListener('click', () => {
+        section.classList.toggle('collapsed');
+        localStorage.setItem(key, section.classList.contains('collapsed') ? 'collapsed' : 'open');
+      });
+    });
+  }
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', setup);
+  else setup();
+
+  // Re-executa quando módulos mudam (sidebar pode ser modificada dinamicamente)
+  const observer = new MutationObserver(setup);
+  document.addEventListener('DOMContentLoaded', () => {
+    const sidebar = document.getElementById('sidebar');
+    if (sidebar) observer.observe(sidebar, { childList: true, subtree: true });
+  });
+})();
+</script>
+
 </body>
