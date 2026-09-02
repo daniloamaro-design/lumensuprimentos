@@ -89,9 +89,10 @@ async function histCompararPeriodos() {
     const ate = new Date(fim + 'T23:59:59');
     // Busca por approvedAt (data real de aprovação) e por createdAt (cotações antigas sem approvedAt)
     const [snapApproved, snapCreated] = await Promise.all([
-      db.collection('quotations').where('status','==','aprovado').where('approvedAt','>=',de).where('approvedAt','<=',ate).get().catch(()=>({docs:[]})),
-      db.collection('quotations').where('status','==','aprovado').where('createdAt','>=',de).where('createdAt','<=',ate).get().catch(()=>({docs:[]})),
+      db.collection('quotations').where('status','==','aprovado').where('approvedAt','>=',de).where('approvedAt','<=',ate).get().catch(e=>{console.error('[COMP] approvedAt query erro:',e); return {docs:[]};}),
+      db.collection('quotations').where('status','==','aprovado').where('createdAt','>=',de).where('createdAt','<=',ate).get().catch(e=>{console.error('[COMP] createdAt query erro:',e); return {docs:[]};}),
     ]);
+    console.log(`[COMP] ${ini}→${fim}: approvedAt=${snapApproved.docs.length} createdAt=${snapCreated.docs.length}`);
     // Junta e deduplica por id (preferindo approvedAt)
     const visto = new Set();
     const docs = [...snapApproved.docs, ...snapCreated.docs].filter(d => {
@@ -175,8 +176,8 @@ async function somarPeriodoPorCasa(ini, fim) {
   const de = new Date(ini + 'T00:00:00');
   const ate = new Date(fim + 'T23:59:59');
   const [snapApproved, snapCreated] = await Promise.all([
-    db.collection('quotations').where('status','==','aprovado').where('approvedAt','>=',de).where('approvedAt','<=',ate).get().catch(()=>({docs:[]})),
-    db.collection('quotations').where('status','==','aprovado').where('createdAt','>=',de).where('createdAt','<=',ate).get().catch(()=>({docs:[]})),
+    db.collection('quotations').where('status','==','aprovado').where('approvedAt','>=',de).where('approvedAt','<=',ate).get().catch(e=>{console.error('[COMP2] approvedAt query erro:',e); return {docs:[]};}),
+    db.collection('quotations').where('status','==','aprovado').where('createdAt','>=',de).where('createdAt','<=',ate).get().catch(e=>{console.error('[COMP2] createdAt query erro:',e); return {docs:[]};}),
   ]);
   const visto = new Set();
   const docs = [...snapApproved.docs, ...snapCreated.docs].filter(d => {
