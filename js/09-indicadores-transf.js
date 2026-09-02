@@ -349,7 +349,9 @@ async function renderEvolucaoChart() {
 
   const valoresPorMes = await Promise.all(meses.map(async (mes) => {
     const de = `${mes}-01`;
-    const ate = `${mes}-31`;
+    const [y, m] = mes.split('-').map(Number);
+    const ultimoDia = new Date(y, m, 0).getDate(); // último dia real do mês
+    const ate = `${mes}-${String(ultimoDia).padStart(2,'0')}`;
     let q = db.collection('movements').where('date','>=',de).where('date','<=',ate);
     if (casaSel) q = q.where('house','==',casaSel);
     const snap = await q.get();
@@ -410,6 +412,77 @@ function exportIndicadoresCSV() {
   a.download = `LM-Indicadores-${indDataCache.de}-${indDataCache.ate}.csv`;
   a.click(); URL.revokeObjectURL(url);
 }
+
+// ── Compras por Item (lê pedidos concluídos no período) ──────────────────────
+let _comprasCache = [];
+
+async function loadComprasPorItem() {
+  const de  = document.getElementById('ind-de').value;
+  const ate = document.getElementById('ind-ate').value;
+  const tb  = document.getElementById('ind-comp-tbody');
+  if (!de || !ate) { showToast('Selecione o período nos filtros acima primeiro!'); return; }
+  if (tb) tb.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:20px;color:var(--text-muted);">Consultando pedidos…</td></tr>';
+
+  try {
+    const snap = await db.collection('orders')
+      .where('status', '==', 'concluido')
+      .where('createdAt', '>=', new Date(de + 'T00:00:00'))
+      .where('createdAt', '<=', new Date(ate + 'T23:59:59'))
+      .get();
+
+    const totais = {}; // { prodId: { nome, cat, unidade, qty, pedidos } }
+
+    snap.docs.forEach(d => {
+      const order = d.data();
+      Object.entries(order.items || {}).forEach(([catKey, prods]) => {
+        Object.entries(prods || {}).forEach(([prodId, qty]) => {
+          if (!qty) return;
+          const cat  = CATEGORIAS?.[catKey];
+          const prod = cat?.produtos?.find(p => p.id === prodId);
+          const nome = prod?.nome || prodId;
+          const unidade = prod?.unidade || '';
+          if (!totais[prodId]) totais[prodId] = { nome, cat: cat?.nome || catKey, unidade, qty: 0, pedidos: 0 };
+          totais[prodId].qty     += Number(qty) || 0;
+          totais[prodId].pedidos += 1;
+        });
+      });
+    });
+
+    _comprasCache = Object.entries(totais)
+      .map(([prodId, v]) => ({ prodId, ...v }))
+      .sort((a, b) => b.qty - a.qty);
+
+    renderTabelaCompras(_comprasCache);
+  } catch(e) {
+    console.error(e);
+    if (tb) tb.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:20px;color:var(--danger);">Erro: ${e.message}</td></tr>`;
+  }
+}
+window.loadComprasPorItem = loadComprasPorItem;
+
+function renderTabelaCompras(lista) {
+  const tb = document.getElementById('ind-comp-tbody');
+  if (!tb) return;
+  if (!lista.length) {
+    tb.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:24px;color:var(--text-muted);">Nenhum pedido concluído no período.</td></tr>';
+    return;
+  }
+  tb.innerHTML = lista.map(r => `
+    <tr>
+      <td style="font-weight:600;">${r.nome}</td>
+      <td style="color:var(--text-muted);">${r.cat}</td>
+      <td style="color:var(--text-muted);">${r.unidade}</td>
+      <td style="text-align:right;font-weight:700;">${r.qty % 1 === 0 ? r.qty : r.qty.toFixed(2)}</td>
+      <td style="text-align:right;color:var(--text-muted);">${r.pedidos}</td>
+    </tr>`).join('');
+}
+
+function filtrarTabelaCompras() {
+  const q = (document.getElementById('ind-comp-busca')?.value || '').toLowerCase().trim();
+  if (!q) { renderTabelaCompras(_comprasCache); return; }
+  renderTabelaCompras(_comprasCache.filter(r => r.nome.toLowerCase().includes(q) || r.cat.toLowerCase().includes(q)));
+}
+window.filtrarTabelaCompras = filtrarTabelaCompras;
 
 // ─────────────────────────────────────────────
 // 🔄  TRANSFERÊNCIAS

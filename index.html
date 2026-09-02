@@ -1871,12 +1871,37 @@
       </div>
 
       <!-- Tabela detalhada -->
-      <div class="card">
+      <div class="card" style="margin-bottom:16px;">
         <div class="card-header"><div class="card-header-title">Detalhamento por Casa e Produto</div></div>
         <div class="table-wrap"><table>
           <thead><tr><th>Casa</th><th>Categoria</th><th>Produto</th><th>Qtd Entrada</th><th>Qtd Saída</th><th>Saldo</th><th>Valor Entrada (R$)</th><th>Valor Saída (R$)</th><th>Unid.</th></tr></thead>
           <tbody id="ind-tbody"><tr><td colspan="9" class="text-muted" style="text-align:center;padding:32px;">Clique em Analisar para carregar os dados.</td></tr></tbody>
         </table></div>
+      </div>
+
+      <!-- Compras por Item (via pedidos) -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-header-title">📦 Quantidade Comprada por Item (via Pedidos)</div>
+        </div>
+        <div class="card-body" style="padding-bottom:8px;">
+          <div style="color:var(--text-muted);font-size:13px;margin-bottom:12px;">
+            Soma as quantidades de cada produto nos pedidos <b>concluídos</b> no período selecionado acima.
+          </div>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-bottom:14px;">
+            <div>
+              <label class="form-label">Buscar produto</label>
+              <input type="text" class="form-input" id="ind-comp-busca" placeholder="Ex: arroz, sabão..." style="width:220px;" oninput="filtrarTabelaCompras()">
+            </div>
+            <button class="btn btn-primary" onclick="loadComprasPorItem()">Consultar compras</button>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table class="fin-table">
+            <thead><tr><th>Produto</th><th>Categoria</th><th>Unid.</th><th style="text-align:right;">Qtd Total Comprada</th><th style="text-align:right;">Nº Pedidos</th></tr></thead>
+            <tbody id="ind-comp-tbody"><tr><td colspan="5" style="text-align:center;padding:24px;color:var(--text-muted);">Selecione um período e clique em "Consultar compras".</td></tr></tbody>
+          </table>
+        </div>
       </div>
     </div>
 
