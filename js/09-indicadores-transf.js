@@ -484,6 +484,116 @@ function filtrarTabelaCompras() {
 }
 window.filtrarTabelaCompras = filtrarTabelaCompras;
 
+// ── Compras por Produto — página dedicada do Coordenador ─────────────────────
+function initCoordCompras() {
+  // Popula categorias
+  const selCat = document.getElementById('cc-cat');
+  if (selCat && typeof CATEGORIAS !== 'undefined') {
+    selCat.innerHTML = '<option value="">Todas as categorias</option>' +
+      Object.entries(CATEGORIAS).map(([k, c]) => `<option value="${k}">${c.icon} ${c.nome}</option>`).join('');
+  }
+  ccPopularProdutos();
+
+  // Data padrão: primeiro e último dia do mês atual
+  const hoje = new Date();
+  const primeiroDia = new Date(hoje.getFullYear(), hoje.getMonth(), 1).toISOString().slice(0, 10);
+  const ultimoDia  = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0).toISOString().slice(0, 10);
+  const de = document.getElementById('cc-de');
+  const ate = document.getElementById('cc-ate');
+  if (de && !de.value) de.value = primeiroDia;
+  if (ate && !ate.value) ate.value = ultimoDia;
+}
+window.initCoordCompras = initCoordCompras;
+
+function ccPopularProdutos() {
+  const catVal = document.getElementById('cc-cat')?.value || '';
+  const selProd = document.getElementById('cc-prod');
+  if (!selProd || typeof CATEGORIAS === 'undefined') return;
+
+  const cats = catVal ? { [catVal]: CATEGORIAS[catVal] } : CATEGORIAS;
+  const opts = ['<option value="">Todos os produtos</option>'];
+  Object.entries(cats).forEach(([catKey, cat]) => {
+    if (!cat?.produtos?.length) return;
+    opts.push(`<optgroup label="${cat.icon} ${cat.nome}">`);
+    cat.produtos.forEach(p => opts.push(`<option value="${catKey}|${p.id}">${p.nome}${p.unidade ? ' ('+p.unidade+')' : ''}</option>`));
+    opts.push('</optgroup>');
+  });
+  selProd.innerHTML = opts.join('');
+}
+window.ccPopularProdutos = ccPopularProdutos;
+
+async function loadComprasPorProduto() {
+  const de  = document.getElementById('cc-de')?.value;
+  const ate = document.getElementById('cc-ate')?.value;
+  const catFiltro  = document.getElementById('cc-cat')?.value  || '';
+  const prodFiltro = document.getElementById('cc-prod')?.value || '';
+  const tb  = document.getElementById('cc-tbody');
+  const stats = document.getElementById('cc-stats');
+
+  if (!de || !ate) { showToast('⚠️ Informe o período.'); return; }
+  if (tb) tb.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:24px;color:var(--text-muted);">Consultando pedidos…</td></tr>';
+  if (stats) stats.style.display = 'none';
+
+  try {
+    const snap = await db.collection('orders')
+      .where('status', '==', 'concluido')
+      .where('createdAt', '>=', new Date(de + 'T00:00:00'))
+      .where('createdAt', '<=', new Date(ate + 'T23:59:59'))
+      .get();
+
+    const totais = {};
+    let totalPedidos = 0;
+
+    snap.docs.forEach(d => {
+      const order = d.data();
+      let contouPedido = false;
+      Object.entries(order.items || {}).forEach(([catKey, prods]) => {
+        if (catFiltro && catKey !== catFiltro) return;
+        Object.entries(prods || {}).forEach(([prodId, qty]) => {
+          if (!qty) return;
+          if (prodFiltro && prodFiltro !== `${catKey}|${prodId}`) return;
+          const cat  = CATEGORIAS?.[catKey];
+          const prod = cat?.produtos?.find(p => p.id === prodId);
+          const chave = `${catKey}|${prodId}`;
+          if (!totais[chave]) totais[chave] = { nome: prod?.nome || prodId, cat: cat?.nome || catKey, unidade: prod?.unidade || '', qty: 0, pedidos: new Set() };
+          totais[chave].qty += Number(qty) || 0;
+          totais[chave].pedidos.add(d.id);
+          contouPedido = true;
+        });
+      });
+      if (contouPedido) totalPedidos++;
+    });
+
+    const lista = Object.values(totais)
+      .map(v => ({ ...v, pedidos: v.pedidos.size }))
+      .sort((a, b) => b.qty - a.qty);
+
+    if (!tb) return;
+    if (!lista.length) {
+      tb.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:32px;color:var(--text-muted);">Nenhum pedido concluído no período com os filtros selecionados.</td></tr>';
+      return;
+    }
+
+    if (stats) {
+      stats.style.display = '';
+      stats.innerHTML = `<span style="font-size:13px;color:var(--text-muted);">📋 <strong>${totalPedidos}</strong> pedido(s) encontrado(s) &nbsp;·&nbsp; <strong>${lista.length}</strong> produto(s) diferente(s)</span>`;
+    }
+
+    tb.innerHTML = lista.map(r => `
+      <tr>
+        <td style="font-weight:600;">${r.nome}</td>
+        <td style="color:var(--text-muted);">${r.cat}</td>
+        <td style="color:var(--text-muted);">${r.unidade}</td>
+        <td style="text-align:right;font-weight:700;">${r.qty % 1 === 0 ? r.qty : r.qty.toFixed(2)}</td>
+        <td style="text-align:right;color:var(--text-muted);">${r.pedidos}</td>
+      </tr>`).join('');
+  } catch(e) {
+    console.error(e);
+    if (tb) tb.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:24px;color:var(--danger);">Erro: ${e.message}</td></tr>`;
+  }
+}
+window.loadComprasPorProduto = loadComprasPorProduto;
+
 // ─────────────────────────────────────────────
 // 🔄  TRANSFERÊNCIAS
 // ─────────────────────────────────────────────

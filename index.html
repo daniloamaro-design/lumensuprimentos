@@ -364,6 +364,10 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
         Painel do Coordenador
       </button>
+      <button class="sidebar-item" data-page="coord-compras" onclick="goPageMobile('coord-compras')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
+        Compras por Produto
+      </button>
     </div>
 
     <div class="sidebar-section" data-modulo="suprimentos" id="sidebar-admin" style="display:none;">
@@ -2664,36 +2668,51 @@
       <button class="btn btn-outline btn-sm" style="margin-top:8px;" onclick="initCoordDashboard()">↻ Atualizar</button>
     </div>
     <div id="coord-dash-root"></div>
+  </div>
 
-    <!-- Compras por Item -->
-    <div class="card" style="margin-top:20px;">
-      <div class="card-header">
-        <div class="card-header-title">📦 Quantidade Comprada por Item</div>
-      </div>
-      <div class="card-body" style="padding-bottom:8px;">
-        <div style="color:var(--text-muted);font-size:13px;margin-bottom:12px;">
-          Soma as quantidades de cada produto nos pedidos <b>concluídos</b> no período selecionado.
+  <!-- PAGE: COMPRAS POR PRODUTO (Coordenador) -->
+  <div class="page" id="page-coord-compras">
+    <div class="page-header">
+      <div class="page-title">📦 Compras por Produto</div>
+      <div class="page-sub">Consulte a quantidade comprada de cada item por período e categoria</div>
+    </div>
+
+    <div class="card" style="margin-bottom:16px;">
+      <div class="card-body">
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;align-items:end;">
+          <div>
+            <label class="form-label">De *</label>
+            <input type="date" class="form-input" id="cc-de">
+          </div>
+          <div>
+            <label class="form-label">Até *</label>
+            <input type="date" class="form-input" id="cc-ate">
+          </div>
+          <div>
+            <label class="form-label">Categoria</label>
+            <select class="form-input" id="cc-cat" onchange="ccPopularProdutos()">
+              <option value="">Todas as categorias</option>
+            </select>
+          </div>
+          <div>
+            <label class="form-label">Produto</label>
+            <select class="form-input" id="cc-prod">
+              <option value="">Todos os produtos</option>
+            </select>
+          </div>
+          <div style="display:flex;align-items:flex-end;">
+            <button class="btn btn-primary" style="width:100%;" onclick="loadComprasPorProduto()">Consultar</button>
+          </div>
         </div>
-        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-bottom:14px;">
-          <div>
-            <label class="form-label">De</label>
-            <input type="date" class="form-input" id="coord-comp-de" style="width:160px;">
-          </div>
-          <div>
-            <label class="form-label">Até</label>
-            <input type="date" class="form-input" id="coord-comp-ate" style="width:160px;">
-          </div>
-          <div>
-            <label class="form-label">Buscar produto</label>
-            <input type="text" class="form-input" id="ind-comp-busca" placeholder="Ex: arroz, sabão..." style="width:200px;" oninput="filtrarTabelaCompras()">
-          </div>
-          <button class="btn btn-primary" onclick="loadComprasPorItem()">Consultar</button>
-        </div>
       </div>
+    </div>
+
+    <div class="card">
+      <div class="card-body" id="cc-stats" style="display:none;padding:12px 18px;border-bottom:1px solid var(--border);"></div>
       <div class="table-wrap">
         <table class="fin-table">
           <thead><tr><th>Produto</th><th>Categoria</th><th>Unid.</th><th style="text-align:right;">Qtd Total Comprada</th><th style="text-align:right;">Nº Pedidos</th></tr></thead>
-          <tbody id="ind-comp-tbody"><tr><td colspan="5" style="text-align:center;padding:24px;color:var(--text-muted);">Selecione um período e clique em "Consultar".</td></tr></tbody>
+          <tbody id="cc-tbody"><tr><td colspan="5" style="text-align:center;padding:32px;color:var(--text-muted);">Selecione o período e clique em Consultar.</td></tr></tbody>
         </table>
       </div>
     </div>

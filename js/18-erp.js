@@ -1686,7 +1686,7 @@ const _MOD_PAGES = ['pas-solicitacoes', 'pas-nova', 'pas-detalhe', 'pas-indicado
 // todas as páginas do Suprimentos (perfis de gestão têm tudo)
 const _SUP_PAGES = ['dashboard', 'users', 'houses', 'manage-houses', 'manage-cities', 'manage-products',
   'manage-cats', 'percapita-financeiro', 'manage-cc', 'all-orders', 'produtividade', 'kanban',
-  'coord-dashboard', 'importar-precos', 'new-order', 'movement', 'stock-view', 'inventario', 'transferencias', 'orcamento-financeiro', 'orc-pendentes',
+  'coord-dashboard', 'coord-compras', 'importar-precos', 'new-order', 'movement', 'stock-view', 'inventario', 'transferencias', 'orcamento-financeiro', 'orc-pendentes',
   'fornecedores', 'my-orders', 'prices', 'percapita', 'calc-real', 'previsao', 'rotina-estoque',
   'cardapio-diario', 'financeiro-compras', 'indicadores', 'irmaos', 'ind-fornecedores', 'metas',
   'var-solicitacoes', 'var-orcamento', 'var-proposta', 'var-historico', 'var-setores', 'solicitar-ajuste',
