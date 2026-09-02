@@ -26,12 +26,15 @@ async function initCoordDashboard() {
   el.innerHTML = `<div class="loading-state"><div class="spinner spinner-dark"></div>Carregando painel…</div>`;
 
   try {
-    const [fretesSnap, pasSnap, ordersSnap, finSnap, metasSnap] = await Promise.all([
+    const ano = new Date().getFullYear();
+    const [fretesSnap, pasSnap, ordersSnap, finSnap, frtMetasSnap, supMetasSnap, pasMetasSnap] = await Promise.all([
       db.collection('fretes').get(),
       db.collection('passagens_solicitacoes').get(),
       db.collection('orders').get(),
       db.collection('compras_financeiro').get(),
       db.collection('fretes_metas').orderBy('mes','desc').limit(12).get().catch(()=>({docs:[]})),
+      db.collection('metas').doc('categorias_' + ano).get().catch(()=>null),
+      db.collection('metas').where('modulo','==','passagens').where('ano','==',ano).get().catch(()=>({docs:[]})),
     ]);
 
     const fretes  = fretesSnap.docs.map(d => ({ id: d.id, ...d.data() }));
@@ -44,10 +47,23 @@ async function initCoordDashboard() {
     const mesStr = String(mes).padStart(2,'0');
     const prefixMes = `${ano}-${mesStr}`;
 
+    // Metas: suprimentos = soma de metaMes de todas as categorias
+    const supMetasData = supMetasSnap?.data?.() || {};
+    const metaSup = Object.values(supMetasData).reduce((s, m) => s + (Number(m?.metaMes) || 0), 0);
+
+    // Metas: passagens = meta_mes do registro do ano atual
+    const pasMetaDoc = pasMetasSnap?.docs?.[0]?.data?.() || {};
+    const metaPas = Number(pasMetaDoc.meta_mes) || 0;
+
+    // Metas: fretes = meta_mes do mês atual
+    const mesStr2 = `${ano}-${String(mes).padStart(2,'0')}`;
+    const frtMetaDoc = frtMetasSnap.docs.map(d => d.data()).find(m => (m.mes||'').startsWith(mesStr2));
+    const metaFrete = Number(frtMetaDoc?.meta_mes) || 0;
+
     el.innerHTML = [
       _cdAlertas(fretes, passagens, orders, hoje),
       _cdBlocos(fretes, passagens, orders),
-      _cdCustoMes(fretes, fin, passagens, prefixMes, mes, ano),
+      _cdCustoMes(fretes, fin, passagens, prefixMes, mes, ano, metaSup, metaPas, metaFrete),
       _cdCalendario(fretes, passagens, hoje),
     ].join('');
 
@@ -182,7 +198,7 @@ function _cdBlocos(fretes, passagens, orders) {
 }
 
 // ── 3. CUSTO DO MÊS ──────────────────────────────────────────────────────
-function _cdCustoMes(fretes, fin, passagens, prefixMes, mes, ano) {
+function _cdCustoMes(fretes, fin, passagens, prefixMes, mes, ano, metaSup, metaPas, metaFrete) {
   // Suprimentos e Passagens vêm de compras_financeiro
   let custoSup = 0, custoPas = 0;
   fin.forEach(f => {
@@ -193,46 +209,72 @@ function _cdCustoMes(fretes, fin, passagens, prefixMes, mes, ano) {
     else if (f.modulo === 'passagens') custoPas += val;
   });
 
-  // Fretes vêm da coleção fretes
+  // Fretes vêm da coleção fretes (apenas entregues/em transporte, não cancelados)
   let custoFrete = 0;
   fretes.forEach(f => {
     const data = f.data || '';
-    if (!data.startsWith(prefixMes)) return;
+    if (!data.startsWith(prefixMes) || f.status === 'cancelado') return;
     custoFrete += Number(f.valor) || 0;
   });
 
-  const total = custoSup + custoPas + custoFrete;
-  const maior = Math.max(custoSup, custoPas, custoFrete, 1);
+  const total     = custoSup + custoPas + custoFrete;
+  const metaTotal = metaSup + metaPas + metaFrete;
 
-  const barra = (label, icone, val, cor) => {
-    const pct = Math.round((val / maior) * 100);
+  const moduloCard = (label, icone, cor, gasto, meta) => {
+    const temMeta   = meta > 0;
+    const saldo     = meta - gasto;
+    const pct       = temMeta ? Math.min(Math.round((gasto / meta) * 100), 100) : 0;
+    const corBarra  = pct >= 100 ? '#dc2626' : pct >= 85 ? '#d97706' : cor;
+    const corSaldo  = saldo < 0 ? '#dc2626' : saldo < meta * 0.15 ? '#d97706' : '#16a34a';
+
     return `
-      <div style="margin-bottom:12px;">
-        <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px;">
-          <span>${icone} ${label}</span>
-          <strong>${_cd.BRL(val)}</strong>
+      <div class="card" style="padding:16px 18px;flex:1;min-width:200px;">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+          <span style="font-size:18px;">${icone}</span>
+          <span style="font-weight:800;font-size:13px;color:${cor};">${label}</span>
         </div>
-        <div style="height:8px;border-radius:4px;background:var(--border);">
-          <div style="height:8px;border-radius:4px;background:${cor};width:${pct}%;transition:width .4s;"></div>
+        <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--text-muted);margin-bottom:4px;">
+          <span>Gasto</span><strong style="color:var(--text);">${_cd.BRL(gasto)}</strong>
         </div>
+        ${temMeta ? `
+        <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--text-muted);margin-bottom:4px;">
+          <span>Orçamento</span><strong style="color:var(--text);">${_cd.BRL(meta)}</strong>
+        </div>
+        <div style="height:8px;border-radius:4px;background:var(--border);margin:8px 0;">
+          <div style="height:8px;border-radius:4px;background:${corBarra};width:${pct}%;transition:width .4s;"></div>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:12px;margin-top:4px;">
+          <span style="color:var(--text-muted);">${pct}% utilizado</span>
+          <strong style="color:${corSaldo};">${saldo >= 0 ? 'Saldo: ' + _cd.BRL(saldo) : 'Excedido: ' + _cd.BRL(Math.abs(saldo))}</strong>
+        </div>` : `
+        <div style="font-size:11px;color:var(--text-muted);margin-top:6px;font-style:italic;">Meta não definida para este mês</div>`}
       </div>`;
   };
 
+  const saldoTotal = metaTotal - total;
+  const pctTotal   = metaTotal > 0 ? Math.min(Math.round((total / metaTotal) * 100), 100) : 0;
+  const corSaldoTotal = saldoTotal < 0 ? '#dc2626' : saldoTotal < metaTotal * 0.15 ? '#d97706' : '#16a34a';
+
   return `
     <div class="card" style="padding:18px;margin-bottom:16px;">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;flex-wrap:wrap;gap:12px;">
         <div>
           <div style="font-weight:800;font-size:15px;">💰 Custo do Mês — ${_cd.nomeMes(mes, ano)}</div>
           <div style="font-size:12px;color:var(--text-muted);">Total comprometido nos 3 módulos</div>
         </div>
         <div style="text-align:right;">
-          <div style="font-size:24px;font-weight:900;">${_cd.BRL(total)}</div>
-          <button class="btn btn-outline btn-sm" onclick="goPage('ind-geral')" style="font-size:11px;margin-top:4px;">Ver financeiro completo →</button>
+          <div style="font-size:22px;font-weight:900;">${_cd.BRL(total)}</div>
+          ${metaTotal > 0 ? `
+          <div style="font-size:12px;color:${corSaldoTotal};font-weight:700;">${saldoTotal >= 0 ? '✅ Saldo: ' + _cd.BRL(saldoTotal) : '⚠️ Excedido: ' + _cd.BRL(Math.abs(saldoTotal))}</div>
+          <div style="font-size:11px;color:var(--text-muted);">de ${_cd.BRL(metaTotal)} orçados (${pctTotal}% utilizado)</div>` : ''}
+          <button class="btn btn-outline btn-sm" onclick="goPage('ind-geral')" style="font-size:11px;margin-top:6px;">Ver financeiro completo →</button>
         </div>
       </div>
-      ${barra('Suprimentos', '📦', custoSup, '#0284C7')}
-      ${barra('Passagens',   '✈️', custoPas, '#7C3AED')}
-      ${barra('Fretes',      '🚚', custoFrete, '#0D9488')}
+      <div style="display:flex;gap:12px;flex-wrap:wrap;">
+        ${moduloCard('Suprimentos', '📦', '#0284C7', custoSup, metaSup)}
+        ${moduloCard('Passagens',   '✈️', '#7C3AED', custoPas, metaPas)}
+        ${moduloCard('Fretes',      '🚚', '#0D9488', custoFrete, metaFrete)}
+      </div>
     </div>`;
 }
 
