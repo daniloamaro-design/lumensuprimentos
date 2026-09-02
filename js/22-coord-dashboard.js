@@ -45,18 +45,19 @@ async function initCoordDashboard() {
     const mesStr = String(mes).padStart(2,'0');
     const prefixMes = `${ano}-${mesStr}`;
 
+    const mesStr2 = `${ano}-${String(mes).padStart(2,'0')}`;
+
     // Metas: suprimentos = soma de metaMes de todas as categorias
     const supMetasData = supMetasSnap?.data?.() || {};
     const metaSup = Object.values(supMetasData).reduce((s, m) => s + (Number(m?.metaMes) || 0), 0);
 
-    // Metas: passagens = meta do mês atual (coleção passagens_metas, campo mensal)
+    // Metas: fretes = campo 'mensal' do mês atual
+    const frtMetaDoc = frtMetasSnap.docs.map(d => d.data()).find(m => (m.mes||'').startsWith(mesStr2));
+    const metaFrete = Number(frtMetaDoc?.mensal) || 0;
+
+    // Metas: passagens = campo 'mensal' do mês atual (coleção passagens_metas)
     const pasMetaDoc = pasMetasSnap.docs.map(d => d.data()).find(m => (m.mes||'').startsWith(mesStr2));
     const metaPas = Number(pasMetaDoc?.mensal) || 0;
-
-    // Metas: fretes = meta_mes do mês atual
-    const mesStr2 = `${ano}-${String(mes).padStart(2,'0')}`;
-    const frtMetaDoc = frtMetasSnap.docs.map(d => d.data()).find(m => (m.mes||'').startsWith(mesStr2));
-    const metaFrete = Number(frtMetaDoc?.meta_mes) || 0;
 
     el.innerHTML = [
       _cdAlertas(fretes, passagens, orders, hoje),
