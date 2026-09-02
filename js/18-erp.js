@@ -1661,9 +1661,9 @@ async function salvarPasOrcamento() {
     // Verifica se já existe meta para o mês e atualiza, senão cria
     const snap = await db.collection('passagens_metas').where('mes','==',mes).get();
     if (snap.docs.length) {
-      await db.collection('passagens_metas').doc(snap.docs[0].id).update({ mensal, criadoPor: (typeof currentUserData !== 'undefined' && currentUserData?.name) || null });
+      await db.collection('passagens_metas').doc(snap.docs[0].id).update({ mensal });
     } else {
-      await db.collection('passagens_metas').add({ mes, mensal, criadoPor: (typeof currentUserData !== 'undefined' && currentUserData?.name) || null, criadoEm: firebase.firestore.FieldValue.serverTimestamp() });
+      await db.collection('passagens_metas').add({ mes, mensal });
     }
     showToast('✅ Meta salva.');
     document.getElementById('pas-orc-mensal').value = '';
