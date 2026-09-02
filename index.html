@@ -1879,30 +1879,6 @@
         </table></div>
       </div>
 
-      <!-- Compras por Item (via pedidos) -->
-      <div class="card">
-        <div class="card-header">
-          <div class="card-header-title">📦 Quantidade Comprada por Item (via Pedidos)</div>
-        </div>
-        <div class="card-body" style="padding-bottom:8px;">
-          <div style="color:var(--text-muted);font-size:13px;margin-bottom:12px;">
-            Soma as quantidades de cada produto nos pedidos <b>concluídos</b> no período selecionado acima.
-          </div>
-          <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-bottom:14px;">
-            <div>
-              <label class="form-label">Buscar produto</label>
-              <input type="text" class="form-input" id="ind-comp-busca" placeholder="Ex: arroz, sabão..." style="width:220px;" oninput="filtrarTabelaCompras()">
-            </div>
-            <button class="btn btn-primary" onclick="loadComprasPorItem()">Consultar compras</button>
-          </div>
-        </div>
-        <div class="table-wrap">
-          <table class="fin-table">
-            <thead><tr><th>Produto</th><th>Categoria</th><th>Unid.</th><th style="text-align:right;">Qtd Total Comprada</th><th style="text-align:right;">Nº Pedidos</th></tr></thead>
-            <tbody id="ind-comp-tbody"><tr><td colspan="5" style="text-align:center;padding:24px;color:var(--text-muted);">Selecione um período e clique em "Consultar compras".</td></tr></tbody>
-          </table>
-        </div>
-      </div>
     </div>
 
     <!-- PAGE: TRANSFERÊNCIAS -->
@@ -2688,6 +2664,39 @@
       <button class="btn btn-outline btn-sm" style="margin-top:8px;" onclick="initCoordDashboard()">↻ Atualizar</button>
     </div>
     <div id="coord-dash-root"></div>
+
+    <!-- Compras por Item -->
+    <div class="card" style="margin-top:20px;">
+      <div class="card-header">
+        <div class="card-header-title">📦 Quantidade Comprada por Item</div>
+      </div>
+      <div class="card-body" style="padding-bottom:8px;">
+        <div style="color:var(--text-muted);font-size:13px;margin-bottom:12px;">
+          Soma as quantidades de cada produto nos pedidos <b>concluídos</b> no período selecionado.
+        </div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-bottom:14px;">
+          <div>
+            <label class="form-label">De</label>
+            <input type="date" class="form-input" id="coord-comp-de" style="width:160px;">
+          </div>
+          <div>
+            <label class="form-label">Até</label>
+            <input type="date" class="form-input" id="coord-comp-ate" style="width:160px;">
+          </div>
+          <div>
+            <label class="form-label">Buscar produto</label>
+            <input type="text" class="form-input" id="ind-comp-busca" placeholder="Ex: arroz, sabão..." style="width:200px;" oninput="filtrarTabelaCompras()">
+          </div>
+          <button class="btn btn-primary" onclick="loadComprasPorItem()">Consultar</button>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table class="fin-table">
+          <thead><tr><th>Produto</th><th>Categoria</th><th>Unid.</th><th style="text-align:right;">Qtd Total Comprada</th><th style="text-align:right;">Nº Pedidos</th></tr></thead>
+          <tbody id="ind-comp-tbody"><tr><td colspan="5" style="text-align:center;padding:24px;color:var(--text-muted);">Selecione um período e clique em "Consultar".</td></tr></tbody>
+        </table>
+      </div>
+    </div>
   </div>
 
   <!-- ════════ PAGE: CONTAGEM DE INVENTÁRIO ════════ -->

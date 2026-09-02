@@ -417,10 +417,10 @@ function exportIndicadoresCSV() {
 let _comprasCache = [];
 
 async function loadComprasPorItem() {
-  const de  = document.getElementById('ind-de').value;
-  const ate = document.getElementById('ind-ate').value;
+  const de  = document.getElementById('coord-comp-de')?.value || document.getElementById('ind-de')?.value;
+  const ate = document.getElementById('coord-comp-ate')?.value || document.getElementById('ind-ate')?.value;
   const tb  = document.getElementById('ind-comp-tbody');
-  if (!de || !ate) { showToast('Selecione o período nos filtros acima primeiro!'); return; }
+  if (!de || !ate) { showToast('Selecione o período antes de consultar.'); return; }
   if (tb) tb.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:20px;color:var(--text-muted);">Consultando pedidos…</td></tr>';
 
   try {
