@@ -26,7 +26,7 @@ async function initCoordDashboard() {
   el.innerHTML = `<div class="loading-state"><div class="spinner spinner-dark"></div>Carregando painel…</div>`;
 
   try {
-    const ano = new Date().getFullYear();
+    const { mes, ano } = _cd.mesAtual();
     const [fretesSnap, pasSnap, ordersSnap, finSnap, frtMetasSnap, supMetasSnap, pasMetasSnap] = await Promise.all([
       db.collection('fretes').get(),
       db.collection('passagens_solicitacoes').get(),
@@ -37,12 +37,10 @@ async function initCoordDashboard() {
       db.collection('metas').where('modulo','==','passagens').where('ano','==',ano).get().catch(()=>({docs:[]})),
     ]);
 
-    const fretes  = fretesSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+    const fretes   = fretesSnap.docs.map(d => ({ id: d.id, ...d.data() }));
     const passagens = pasSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-    const orders  = ordersSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-    const fin     = finSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-
-    const { mes, ano } = _cd.mesAtual();
+    const orders   = ordersSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+    const fin      = finSnap.docs.map(d => ({ id: d.id, ...d.data() }));
     const hoje = _cd.hoje();
     const mesStr = String(mes).padStart(2,'0');
     const prefixMes = `${ano}-${mesStr}`;
