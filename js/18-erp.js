@@ -1623,43 +1623,50 @@ async function salvarPasSolicitacao() {
 }
 window.salvarPasSolicitacao = salvarPasSolicitacao;
 
-// ── Orçamento de Passagens (usa a tabela metas já existente, modulo='passagens',
-// cat_key fixo 'geral' — 1 linha por ano; meta_mes é aplicada a todos os meses
-// daquele ano no indicador "Desvio Orçamentário" do Dashboard/Diretoria) ──
+// ── Metas de Passagens por mês (coleção passagens_metas, igual a fretes_metas) ──
 async function loadPasOrcamento() {
-  const anoEl = document.getElementById('pas-orc-ano');
-  if (anoEl && !anoEl.value) anoEl.value = new Date().getFullYear();
+  const mesEl = document.getElementById('pas-orc-mes');
+  if (mesEl && !mesEl.value) {
+    const d = new Date();
+    mesEl.value = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+  }
   const tb = document.getElementById('pas-orc-tbody');
-  if (tb) tb.innerHTML = '<tr><td colspan="3" style="text-align:center;padding:24px;color:var(--text-muted);">Carregando…</td></tr>';
+  if (tb) tb.innerHTML = '<tr><td colspan="2" style="text-align:center;padding:24px;color:var(--text-muted);">Carregando…</td></tr>';
   try {
-    const { data, error } = await window._sb.from('metas').select('ano,meta_mes,meta_ano')
-      .eq('modulo', 'passagens').eq('cat_key', 'geral').order('ano', { ascending: false });
-    if (error) throw error;
+    const snap = await db.collection('passagens_metas').get();
+    const metas = snap.docs.map(x => ({ id: x.id, ...x.data() }))
+      .sort((a, b) => String(b.mes || '').localeCompare(String(a.mes || '')));
     if (!tb) return;
-    tb.innerHTML = (data && data.length)
-      ? data.map(m => `<tr><td>${m.ano}</td><td style="text-align:right;">${frtBRL(m.meta_mes)}</td><td style="text-align:right;">${frtBRL(m.meta_ano)}</td></tr>`).join('')
-      : '<tr><td colspan="3" style="text-align:center;padding:24px;color:var(--text-muted);">Nenhum orçamento cadastrado ainda.</td></tr>';
+    const fmt = mes => {
+      const [y, m] = (mes || '').split('-');
+      if (!y || !m) return mes || '—';
+      return new Date(Number(y), Number(m)-1, 1).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+    };
+    tb.innerHTML = metas.length
+      ? metas.map(m => `<tr><td>${frtEsc(fmt(m.mes))}</td><td style="text-align:right;">${frtBRL(m.mensal)}</td></tr>`).join('')
+      : '<tr><td colspan="2" style="text-align:center;padding:24px;color:var(--text-muted);">Nenhuma meta cadastrada ainda.</td></tr>';
   } catch (e) {
     console.error('loadPasOrcamento', e);
-    if (tb) tb.innerHTML = `<tr><td colspan="3" style="text-align:center;padding:24px;color:var(--danger,#dc2626);">Erro: ${frtEsc(e.message)}</td></tr>`;
+    if (tb) tb.innerHTML = `<tr><td colspan="2" style="text-align:center;padding:24px;color:var(--danger,#dc2626);">Erro: ${frtEsc(e.message)}</td></tr>`;
   }
 }
 window.loadPasOrcamento = loadPasOrcamento;
 
 async function salvarPasOrcamento() {
-  const ano = parseInt(document.getElementById('pas-orc-ano').value, 10);
+  const mes = document.getElementById('pas-orc-mes').value;
   const mensal = Number(document.getElementById('pas-orc-mensal').value);
-  const anual = Number(document.getElementById('pas-orc-anual').value) || 0;
-  if (!ano) return showToast('⚠️ Informe o ano.');
-  if (!(mensal > 0)) return showToast('⚠️ Informe o orçamento mensal.');
+  if (!mes) return showToast('⚠️ Informe o mês.');
+  if (!(mensal > 0)) return showToast('⚠️ Informe a meta mensal.');
   try {
-    const { error } = await window._sb.from('metas').upsert({
-      ano, cat_key: 'geral', modulo: 'passagens', meta_semana: 0, meta_mes: mensal, meta_ano: anual,
-    }, { onConflict: 'ano,cat_key,modulo' });
-    if (error) throw error;
-    showToast('✅ Orçamento salvo.');
+    // Verifica se já existe meta para o mês e atualiza, senão cria
+    const snap = await db.collection('passagens_metas').where('mes','==',mes).get();
+    if (snap.docs.length) {
+      await db.collection('passagens_metas').doc(snap.docs[0].id).update({ mensal, criadoPor: (typeof currentUserData !== 'undefined' && currentUserData?.name) || null });
+    } else {
+      await db.collection('passagens_metas').add({ mes, mensal, criadoPor: (typeof currentUserData !== 'undefined' && currentUserData?.name) || null, criadoEm: firebase.firestore.FieldValue.serverTimestamp() });
+    }
+    showToast('✅ Meta salva.');
     document.getElementById('pas-orc-mensal').value = '';
-    document.getElementById('pas-orc-anual').value = '';
     loadPasOrcamento();
   } catch (e) { console.error(e); showToast('❌ Erro ao salvar: ' + e.message); }
 }

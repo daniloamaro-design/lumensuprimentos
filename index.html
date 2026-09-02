@@ -2388,23 +2388,22 @@
   <!-- PAGE: Orçamento de Passagens -->
   <div class="page" id="page-pas-orcamento">
     <div class="page-header"><h1 class="page-title">🎯 Metas de Passagens</h1></div>
-    <div class="card" style="margin-bottom:16px;"><div class="card-header"><b>Definir meta do ano</b></div>
+    <div class="card" style="margin-bottom:16px;"><div class="card-header"><b>Definir meta do mês</b></div>
       <div class="card-body" style="display:flex;flex-direction:column;gap:10px;">
         <div style="color:var(--text-muted);font-size:13px;">
-          O valor <b>mensal</b> é usado como meta em todos os meses desse ano no indicador "Desvio Orçamentário de Passagens" do Dashboard (Diretoria). O <b>anual</b> é calculado automaticamente (mensal × 12).
+          Defina o valor limite de gasto com passagens para cada mês. O Painel do Coordenador usará esse valor para mostrar o progresso de gastos do mês atual.
         </div>
-        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;align-items:end;">
-          <div><label class="form-label">Ano *</label><input type="number" class="form-input" id="pas-orc-ano" min="2020" max="2100"></div>
-          <div><label class="form-label">Meta mensal (R$) *</label><input type="number" step="0.01" min="0" class="form-input" id="pas-orc-mensal" oninput="document.getElementById('pas-orc-anual').value = (parseFloat(this.value)||0)*12 || ''"></div>
-          <div><label class="form-label">Meta anual (R$)</label><input type="number" step="0.01" min="0" class="form-input" id="pas-orc-anual"></div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;align-items:end;">
+          <div><label class="form-label">Mês *</label><input type="month" class="form-input" id="pas-orc-mes"></div>
+          <div><label class="form-label">Meta do mês (R$) *</label><input type="number" step="0.01" min="0" class="form-input" id="pas-orc-mensal" placeholder="0,00"></div>
           <div><button class="btn btn-primary" onclick="salvarPasOrcamento()">Salvar</button></div>
         </div>
       </div>
     </div>
     <div class="card"><div class="card-body">
       <div class="table-wrap"><table class="fin-table">
-        <thead><tr><th>Ano</th><th style="text-align:right;">Meta mensal</th><th style="text-align:right;">Meta anual</th></tr></thead>
-        <tbody id="pas-orc-tbody"><tr><td colspan="3" style="text-align:center;padding:24px;color:var(--text-muted);">Carregando…</td></tr></tbody>
+        <thead><tr><th>Mês</th><th style="text-align:right;">Meta</th></tr></thead>
+        <tbody id="pas-orc-tbody"><tr><td colspan="2" style="text-align:center;padding:24px;color:var(--text-muted);">Carregando…</td></tr></tbody>
       </table></div>
     </div></div>
   </div>

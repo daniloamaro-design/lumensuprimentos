@@ -34,7 +34,7 @@ async function initCoordDashboard() {
       db.collection('compras_financeiro').get(),
       db.collection('fretes_metas').orderBy('mes','desc').limit(12).get().catch(()=>({docs:[]})),
       db.collection('metas').doc('categorias_' + ano).get().catch(()=>null),
-      db.collection('metas').where('modulo','==','passagens').where('ano','==',ano).get().catch(()=>({docs:[]})),
+      db.collection('passagens_metas').orderBy('mes','desc').limit(12).get().catch(()=>({docs:[]})),
     ]);
 
     const fretes   = fretesSnap.docs.map(d => ({ id: d.id, ...d.data() }));
@@ -49,9 +49,9 @@ async function initCoordDashboard() {
     const supMetasData = supMetasSnap?.data?.() || {};
     const metaSup = Object.values(supMetasData).reduce((s, m) => s + (Number(m?.metaMes) || 0), 0);
 
-    // Metas: passagens = meta_mes do registro do ano atual
-    const pasMetaDoc = pasMetasSnap?.docs?.[0]?.data?.() || {};
-    const metaPas = Number(pasMetaDoc.meta_mes) || 0;
+    // Metas: passagens = meta do mês atual (coleção passagens_metas, campo mensal)
+    const pasMetaDoc = pasMetasSnap.docs.map(d => d.data()).find(m => (m.mes||'').startsWith(mesStr2));
+    const metaPas = Number(pasMetaDoc?.mensal) || 0;
 
     // Metas: fretes = meta_mes do mês atual
     const mesStr2 = `${ano}-${String(mes).padStart(2,'0')}`;
