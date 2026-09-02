@@ -698,6 +698,7 @@ async function opcGerenteDecisao(cotId, valor) {
       gerenteNome: currentUserData?.name || '',
       gerenteEm: firebase.firestore.FieldValue.serverTimestamp(),
       status: novoStatus, // atualiza status final
+      ...(valor === true ? { approvedAt: firebase.firestore.FieldValue.serverTimestamp() } : {}),
     };
 
     if (valor === true && isGerentePlus && cotData.statusCoordenador !== 'aprovado') {

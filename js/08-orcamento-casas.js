@@ -85,11 +85,24 @@ async function histCompararPeriodos() {
   const fmtD = d => d.split('-').reverse().join('/');
 
   async function somarPeriodo(ini, fim) {
-    const snap = await db.collection('quotations')
-      .where('status', '==', 'aprovado')
-      .where('createdAt', '>=', new Date(ini + 'T00:00:00'))
-      .where('createdAt', '<=', new Date(fim + 'T23:59:59'))
-      .get();
+    const de = new Date(ini + 'T00:00:00');
+    const ate = new Date(fim + 'T23:59:59');
+    // Busca por approvedAt (data real de aprovação) e por createdAt (cotações antigas sem approvedAt)
+    const [snapApproved, snapCreated] = await Promise.all([
+      db.collection('quotations').where('status','==','aprovado').where('approvedAt','>=',de).where('approvedAt','<=',ate).get().catch(()=>({docs:[]})),
+      db.collection('quotations').where('status','==','aprovado').where('createdAt','>=',de).where('createdAt','<=',ate).get().catch(()=>({docs:[]})),
+    ]);
+    // Junta e deduplica por id (preferindo approvedAt)
+    const visto = new Set();
+    const docs = [...snapApproved.docs, ...snapCreated.docs].filter(d => {
+      const data = d.data();
+      if (data.approvedAt) { // se tem approvedAt, só conta pela query de approvedAt
+        if (snapApproved.docs.some(x => x.id === d.id)) { if (visto.has(d.id)) return false; visto.add(d.id); return true; }
+        return false; // ignora da query createdAt se já tem approvedAt
+      }
+      if (visto.has(d.id)) return false; visto.add(d.id); return true;
+    });
+    const snap = { docs };
     const orderIds = [...new Set(snap.docs.map(d => d.data().orderId).filter(Boolean))];
     const pedMap = {};
     const chunks = [];
@@ -159,11 +172,22 @@ async function histCompararPeriodos() {
 }
 
 async function somarPeriodoPorCasa(ini, fim) {
-  const snap = await db.collection('quotations')
-    .where('status', '==', 'aprovado')
-    .where('createdAt', '>=', new Date(ini + 'T00:00:00'))
-    .where('createdAt', '<=', new Date(fim + 'T23:59:59'))
-    .get();
+  const de = new Date(ini + 'T00:00:00');
+  const ate = new Date(fim + 'T23:59:59');
+  const [snapApproved, snapCreated] = await Promise.all([
+    db.collection('quotations').where('status','==','aprovado').where('approvedAt','>=',de).where('approvedAt','<=',ate).get().catch(()=>({docs:[]})),
+    db.collection('quotations').where('status','==','aprovado').where('createdAt','>=',de).where('createdAt','<=',ate).get().catch(()=>({docs:[]})),
+  ]);
+  const visto = new Set();
+  const docs = [...snapApproved.docs, ...snapCreated.docs].filter(d => {
+    const data = d.data();
+    if (data.approvedAt) {
+      if (snapApproved.docs.some(x => x.id === d.id)) { if (visto.has(d.id)) return false; visto.add(d.id); return true; }
+      return false;
+    }
+    if (visto.has(d.id)) return false; visto.add(d.id); return true;
+  });
+  const snap = { docs };
   const orderIds = [...new Set(snap.docs.map(d => d.data().orderId).filter(Boolean))];
   const pedMap = {};
   const chunks = [];
