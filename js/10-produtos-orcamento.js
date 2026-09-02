@@ -1405,43 +1405,189 @@ async function loadSuppliers() {
 }
 
 function renderSupplierCard(s) {
-  const limite     = parseFloat(s.limite)    || 0;
-  const utilizado  = parseFloat(s.utilizado) || 0;
-  const disponivel = Math.max(0, limite - utilizado);
-  const pct        = limite > 0 ? (utilizado / limite) * 100 : 0;
-  const barClass   = pct >= 90 ? 'danger' : pct >= 50 ? 'warn' : 'safe';
-  const alertTag   = pct >= 50 ? `<span class="badge ${pct >= 90 ? 'badge-danger' : 'badge-warn'}">${pct >= 90 ? '🔴 Acima de 90%' : '⚠️ Acima de 50%'}</span>` : '';
+  const limite  = parseFloat(s.limite) || 0;
+  const pct     = limite > 0 ? (parseFloat(s.utilizado) || 0) / limite * 100 : 0;
+  const alertTag = pct >= 90 ? `<span class="badge badge-danger" style="font-size:11px;">🔴 Limite crítico</span>`
+                 : pct >= 50 ? `<span class="badge badge-warn" style="font-size:11px;">⚠️ Acima de 50%</span>` : '';
 
-  const prazoMap = { a_vista:'À vista', '7':'7 dias', '14':'14 dias', '21':'21 dias', '28':'28 dias', '30':'30 dias', '45':'45 dias', '60':'60 dias' };
-  const cats = (s.categorias || []).map(c => CATEGORIAS[c]?.icon + ' ' + CATEGORIAS[c]?.nome).join(', ') || '—';
+  let ultimoContato = '<span style="color:var(--text-muted);font-size:12px;">Nunca contatado</span>';
+  if (s.ultimoContato) {
+    const uc = s.ultimoContato;
+    const dataFmt = uc.data ? new Date(uc.data + 'T00:00:00').toLocaleDateString('pt-BR', { day:'2-digit', month:'short' }) : '—';
+    ultimoContato = `<span style="font-size:12px;color:var(--text-muted);">📞 Último contato: <strong>${dataFmt}</strong> via ${uc.canal || '—'}${uc.obs ? ` — <em>${uc.obs.substring(0,40)}${uc.obs.length>40?'…':''}</em>` : ''}</span>`;
+  }
 
-  return `<div class="supplier-card">
-    <div class="supplier-header">
-      <div>
-        <div class="supplier-name">${s.nome} ${alertTag}</div>
-        <div class="supplier-meta">CNPJ: ${s.cnpj || '—'} | Tel: ${s.contato || '—'} | E-mail: ${s.email || '—'}</div>
-        <div class="supplier-meta">Contato: <strong>${s.contatoNome || '—'}</strong> | Prazo: ${prazoMap[s.prazo] || s.prazo || '—'}</div>
-        <div class="supplier-meta">Categorias: ${cats}</div>
-        ${s.obs ? `<div class="supplier-meta" style="margin-top:4px;font-style:italic;">${s.obs}</div>` : ''}
+  return `<div class="supplier-card" data-sup-id="${s.id}" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;padding:14px 18px;">
+    <div style="display:flex;flex-direction:column;gap:4px;min-width:0;">
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+        <span class="supplier-name" style="font-size:15px;font-weight:700;">${s.nome}</span>
+        ${alertTag}
       </div>
-      <div style="display:flex;gap:8px;flex-shrink:0;flex-wrap:wrap;justify-content:flex-end;">
-        <button class="btn btn-outline btn-sm" onclick="abrirHistoricoFornecedor('${s.id}','${s.nome}')" style="font-size:11px;">📋 Histórico</button>
-        ${(s.contato||s.telefone) ? `<button class="btn btn-outline btn-sm" onclick="abrirWhatsAppFornecedor('${(s.contato||s.telefone||'').replace(/'/g,"\\'")}','${(s.nome||'').replace(/'/g,"\\'")}')">📲 WhatsApp</button>` : ''}
-        <button class="btn btn-outline btn-sm" onclick="editSupplier('${s.id}')">Editar</button>
-        <button class="btn btn-danger btn-sm" onclick="deleteSupplier('${s.id}','${s.nome}')">Remover</button>
-      </div>
+      ${ultimoContato}
     </div>
-    ${limite > 0 ? `
-    <div class="limit-bar-wrap">
-      <div class="limit-bar-bg"><div class="limit-bar-fill ${barClass}" style="width:${Math.min(100,pct).toFixed(1)}%"></div></div>
-      <div class="limit-bar-label">
-        <span>Utilizado: <strong>R$ ${utilizado.toFixed(2)}</strong></span>
-        <span>Disponível: <strong>R$ ${disponivel.toFixed(2)}</strong></span>
-        <span>Limite: <strong>R$ ${limite.toFixed(2)}</strong> (${pct.toFixed(0)}%)</span>
-      </div>
-    </div>` : '<div class="text-sm text-muted" style="margin-top:6px;">Sem limite de crédito cadastrado</div>'}
+    <div style="display:flex;gap:8px;flex-shrink:0;flex-wrap:wrap;">
+      <button class="btn btn-primary btn-sm" onclick="abrirFornecedorModal('${s.id}')">Ver dados</button>
+      <button class="btn btn-danger btn-sm" onclick="deleteSupplier('${s.id}','${s.nome.replace(/'/g,"\\'")}')">Remover</button>
+    </div>
   </div>`;
 }
+
+// ── Modal de fornecedor (Informações + Contatos) ──────────────────────────────
+let _supModalId = null;
+
+async function abrirFornecedorModal(id) {
+  _supModalId = id;
+  const s = suppliersCache.find(x => x.id === id);
+  if (!s) return;
+
+  const prazoMap = { a_vista:'À vista', '7':'7 dias', '14':'14 dias', '21':'21 dias', '28':'28 dias', '30':'30 dias', '45':'45 dias', '60':'60 dias' };
+  const limite    = parseFloat(s.limite) || 0;
+  const utilizado = parseFloat(s.utilizado) || 0;
+  const disponivel = Math.max(0, limite - utilizado);
+  const pct       = limite > 0 ? (utilizado / limite * 100) : 0;
+  const barClass  = pct >= 90 ? 'danger' : pct >= 50 ? 'warn' : 'safe';
+  const cats      = (s.categorias || []).map(c => CATEGORIAS[c]?.icon + ' ' + CATEGORIAS[c]?.nome).join(', ') || '—';
+  const tipos     = (s.tipos || []).join(', ') || '—';
+  const tel       = s.contato || s.telefone || '';
+
+  const hoje = new Date().toISOString().slice(0, 10);
+
+  document.getElementById('forn-modal-titulo').textContent = s.nome;
+  document.getElementById('forn-modal-body').innerHTML = `
+    <!-- Abas -->
+    <div style="display:flex;border-bottom:1px solid var(--border);margin-bottom:16px;">
+      <button id="forn-tab-info" onclick="_supAba('info')" style="padding:8px 18px;border:none;background:none;cursor:pointer;font-weight:700;color:var(--lumen);border-bottom:2px solid var(--lumen);">Informações</button>
+      <button id="forn-tab-contatos" onclick="_supAba('contatos')" style="padding:8px 18px;border:none;background:none;cursor:pointer;font-weight:500;color:var(--text-muted);border-bottom:2px solid transparent;">Contatos</button>
+    </div>
+
+    <!-- Aba Informações -->
+    <div id="forn-aba-info">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px 20px;font-size:13px;">
+        <div><span style="color:var(--text-muted);">CNPJ</span><div style="font-weight:600;">${s.cnpj || '—'}</div></div>
+        <div><span style="color:var(--text-muted);">Telefone</span><div style="font-weight:600;">${tel || '—'}</div></div>
+        <div><span style="color:var(--text-muted);">E-mail</span><div style="font-weight:600;">${s.email || '—'}</div></div>
+        <div><span style="color:var(--text-muted);">Contato</span><div style="font-weight:600;">${s.contatoNome || '—'}</div></div>
+        <div><span style="color:var(--text-muted);">Prazo de pagamento</span><div style="font-weight:600;">${prazoMap[s.prazo] || s.prazo || '—'}</div></div>
+        <div><span style="color:var(--text-muted);">Tipo</span><div style="font-weight:600;">${tipos}</div></div>
+        <div style="grid-column:1/-1;"><span style="color:var(--text-muted);">Categorias</span><div style="font-weight:600;">${cats}</div></div>
+        ${s.obs ? `<div style="grid-column:1/-1;"><span style="color:var(--text-muted);">Observações</span><div style="font-style:italic;">${s.obs}</div></div>` : ''}
+      </div>
+      ${limite > 0 ? `
+      <div style="margin-top:14px;">
+        <div style="font-size:12px;color:var(--text-muted);margin-bottom:4px;">Limite de crédito</div>
+        <div style="background:rgba(255,255,255,.08);border-radius:6px;height:10px;overflow:hidden;margin-bottom:6px;">
+          <div style="background:${pct>=90?'var(--danger)':pct>=50?'#d97706':'var(--ok,#16a34a)'};height:100%;width:${Math.min(100,pct).toFixed(1)}%;transition:width .3s;"></div>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:12px;">
+          <span>Utilizado: <strong>R$ ${utilizado.toFixed(2)}</strong></span>
+          <span>Disponível: <strong>R$ ${disponivel.toFixed(2)}</strong></span>
+          <span>Limite: <strong>R$ ${limite.toFixed(2)}</strong> (${pct.toFixed(0)}%)</span>
+        </div>
+      </div>` : ''}
+      <div style="display:flex;gap:8px;margin-top:18px;flex-wrap:wrap;">
+        ${tel ? `<button class="btn btn-outline btn-sm" onclick="abrirWhatsAppFornecedor('${tel.replace(/'/g,"\\'")}','${s.nome.replace(/'/g,"\\'")}')">📲 WhatsApp</button>` : ''}
+        <button class="btn btn-outline btn-sm" onclick="abrirHistoricoFornecedor('${s.id}','${s.nome.replace(/'/g,"\\'")}')">📋 Histórico de compras</button>
+        <button class="btn btn-primary btn-sm" onclick="closeModal('modal-fornecedor');editSupplier('${s.id}')">✏️ Editar dados</button>
+      </div>
+    </div>
+
+    <!-- Aba Contatos -->
+    <div id="forn-aba-contatos" style="display:none;">
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:14px;margin-bottom:16px;">
+        <div style="font-weight:600;margin-bottom:10px;">📞 Registrar novo contato</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
+          <div><label class="form-label">Data</label><input type="date" class="form-input" id="forn-cont-data" value="${hoje}"></div>
+          <div><label class="form-label">Canal</label>
+            <select class="form-input" id="forn-cont-canal">
+              <option value="WhatsApp">WhatsApp</option>
+              <option value="Telefone">Telefone</option>
+              <option value="E-mail">E-mail</option>
+              <option value="Visita">Visita</option>
+              <option value="Outro">Outro</option>
+            </select>
+          </div>
+        </div>
+        <div style="margin-bottom:10px;"><label class="form-label">Observação (opcional)</label><input type="text" class="form-input" id="forn-cont-obs" placeholder="Ex: solicitou catálogo, negociamos prazo..."></div>
+        <button class="btn btn-primary" onclick="salvarContatoFornecedor()">Salvar contato</button>
+      </div>
+      <div id="forn-contatos-lista" style="display:flex;flex-direction:column;gap:8px;">
+        <div style="text-align:center;color:var(--text-muted);padding:16px;">Carregando histórico…</div>
+      </div>
+    </div>`;
+
+  document.getElementById('modal-fornecedor').classList.remove('hidden');
+  _supAba('info');
+}
+window.abrirFornecedorModal = abrirFornecedorModal;
+
+function _supAba(aba) {
+  document.getElementById('forn-aba-info').style.display      = aba === 'info'     ? '' : 'none';
+  document.getElementById('forn-aba-contatos').style.display  = aba === 'contatos' ? '' : 'none';
+  document.getElementById('forn-tab-info').style.cssText      = `padding:8px 18px;border:none;background:none;cursor:pointer;font-weight:${aba==='info'?'700':'500'};color:${aba==='info'?'var(--lumen)':'var(--text-muted)'};border-bottom:2px solid ${aba==='info'?'var(--lumen)':'transparent'};`;
+  document.getElementById('forn-tab-contatos').style.cssText  = `padding:8px 18px;border:none;background:none;cursor:pointer;font-weight:${aba==='contatos'?'700':'500'};color:${aba==='contatos'?'var(--lumen)':'var(--text-muted)'};border-bottom:2px solid ${aba==='contatos'?'var(--lumen)':'transparent'};`;
+  if (aba === 'contatos') _carregarContatosFornecedor();
+}
+window._supAba = _supAba;
+
+async function _carregarContatosFornecedor() {
+  const el = document.getElementById('forn-contatos-lista');
+  if (!el) return;
+  try {
+    const snap = await db.collection('suppliers').doc(_supModalId).collection('contatos').orderBy('data', 'desc').get();
+    const lista = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    if (!lista.length) {
+      el.innerHTML = '<div style="text-align:center;color:var(--text-muted);padding:16px;">Nenhum contato registrado ainda.</div>';
+      return;
+    }
+    const canalIcon = { WhatsApp:'📲', Telefone:'📞', 'E-mail':'✉️', Visita:'🤝', Outro:'📌' };
+    el.innerHTML = lista.map(c => {
+      const dataFmt = c.data ? new Date(c.data + 'T00:00:00').toLocaleDateString('pt-BR') : '—';
+      return `<div style="border:1px solid var(--border);border-radius:8px;padding:10px 14px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
+          <span style="font-weight:600;">${canalIcon[c.canal]||'📌'} ${c.canal || '—'}</span>
+          <span style="font-size:12px;color:var(--text-muted);">${dataFmt}${c.registradoPor ? ' · ' + c.registradoPor : ''}</span>
+        </div>
+        ${c.obs ? `<div style="font-size:13px;margin-top:4px;color:var(--text-muted);font-style:italic;">${c.obs}</div>` : ''}
+      </div>`;
+    }).join('');
+  } catch(e) {
+    el.innerHTML = `<div style="color:var(--danger);padding:8px;">Erro: ${e.message}</div>`;
+  }
+}
+
+async function salvarContatoFornecedor() {
+  const data  = document.getElementById('forn-cont-data').value;
+  const canal = document.getElementById('forn-cont-canal').value;
+  const obs   = document.getElementById('forn-cont-obs').value.trim();
+  if (!data) return showToast('⚠️ Informe a data do contato.');
+
+  const registro = {
+    data, canal, obs,
+    registradoPor: (typeof currentUserData !== 'undefined' && currentUserData?.name) || null,
+    criadoEm: firebase.firestore.FieldValue.serverTimestamp(),
+  };
+
+  try {
+    // Salva no histórico (subcoleção)
+    await db.collection('suppliers').doc(_supModalId).collection('contatos').add(registro);
+    // Atualiza o campo ultimoContato no documento principal (para exibir no card)
+    await db.collection('suppliers').doc(_supModalId).update({ ultimoContato: { data, canal, obs, registradoPor: registro.registradoPor } });
+
+    // Atualiza cache local
+    const idx = suppliersCache.findIndex(x => x.id === _supModalId);
+    if (idx !== -1) suppliersCache[idx].ultimoContato = { data, canal, obs, registradoPor: registro.registradoPor };
+
+    showToast('✅ Contato registrado!');
+    document.getElementById('forn-cont-obs').value = '';
+    _carregarContatosFornecedor();
+
+    // Atualiza card na lista sem recarregar tudo
+    const cardEl = document.querySelector(`[data-sup-id="${_supModalId}"]`);
+    if (cardEl) cardEl.outerHTML = renderSupplierCard(suppliersCache[idx]);
+    else loadSuppliers();
+  } catch(e) { console.error(e); showToast('❌ Erro: ' + e.message); }
+}
+window.salvarContatoFornecedor = salvarContatoFornecedor;
 
 function onPrazoChange() {
   const val  = document.getElementById('sup-prazo').value;

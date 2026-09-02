@@ -2715,6 +2715,17 @@
   </main>
 
   <!-- MODAL: detalhe do frete -->
+  <!-- MODAL: fornecedor (informações + contatos) -->
+  <div class="modal-overlay hidden" id="modal-fornecedor">
+    <div class="modal" style="max-width:560px;width:100%;">
+      <div class="modal-header">
+        <div class="modal-title" id="forn-modal-titulo">Fornecedor</div>
+        <button class="modal-close" onclick="closeModal('modal-fornecedor')">×</button>
+      </div>
+      <div class="modal-body" id="forn-modal-body" style="padding:20px;display:flex;flex-direction:column;gap:0;"></div>
+    </div>
+  </div>
+
   <div class="modal-overlay hidden" id="modal-frete-detalhe">
     <div class="modal" style="max-width:600px;width:100%;">
       <div class="modal-header">
