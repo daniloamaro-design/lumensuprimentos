@@ -169,7 +169,13 @@ function filterIndFornecedores() {
 }
 
 function renderIndFornecedores() {
-  const data = indFornecedoresFiltered || [];
+  const sort = document.getElementById('indf-sort')?.value || 'valor-desc';
+  let data = (indFornecedoresFiltered || []).slice().sort((a, b) => {
+    if (sort === 'valor-asc')   return (a.valorAberto||0) - (b.valorAberto||0);
+    if (sort === 'alpha')       return String(a.nome||'').localeCompare(String(b.nome||''), 'pt-BR');
+    if (sort === 'limite-desc') return (Number(b.limite)||0) - (Number(a.limite)||0);
+    return (b.valorAberto||0) - (a.valorAberto||0); // valor-desc default
+  });
   const totalLimite    = data.reduce((s,x)=>s+x.limite,0);
   const totalUtilizado = data.reduce((s,x)=>s+x.utilizado,0);
   const totalPago      = data.reduce((s,x)=>s+x.valorPago,0);

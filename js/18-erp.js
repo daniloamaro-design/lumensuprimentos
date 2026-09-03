@@ -159,7 +159,8 @@ function renderFrtLista() {
   const ffret = document.getElementById('frt-f-freteiro')?.value || '';
   const fmes = document.getElementById('frt-f-mes')?.value || '';
 
-  const lista = _fretesCache.filter(f => {
+  const sort = document.getElementById('frt-sort')?.value || 'data-desc';
+  let lista = _fretesCache.filter(f => {
     if (fpag && (f.statusPag || '') !== fpag) return false;
     if (ffret && (f.freteiroNome || '') !== ffret) return false;
     if (fmes && frtMesDaData(f.data || f.createdAt) !== fmes) return false;
@@ -168,6 +169,13 @@ function renderFrtLista() {
       if (!alvo.includes(busca)) return false;
     }
     return true;
+  });
+  lista = lista.slice().sort((a, b) => {
+    if (sort === 'data-asc')   return String(a.data||a.createdAt||'').localeCompare(String(b.data||b.createdAt||''));
+    if (sort === 'alpha')      return String(a.freteiroNome||'').localeCompare(String(b.freteiroNome||''), 'pt-BR');
+    if (sort === 'valor-desc') return (Number(b.valor)||0) - (Number(a.valor)||0);
+    if (sort === 'valor-asc')  return (Number(a.valor)||0) - (Number(b.valor)||0);
+    return String(b.data||b.createdAt||'').localeCompare(String(a.data||a.createdAt||'')); // data-desc default
   });
 
   // KPIs (exclui cancelados dos totais financeiros)
@@ -749,13 +757,19 @@ window.loadPasSolic = loadPasSolic;
 function renderPasSolic() {
   const busca = (document.getElementById('pas-f-busca')?.value || '').toLowerCase().trim();
   const fst = document.getElementById('pas-f-status')?.value || '';
-  const lista = _pasCache.filter(s => {
+  const sort = document.getElementById('pas-sort')?.value || 'data-desc';
+  let lista = _pasCache.filter(s => {
     if (fst && (s.status || '') !== fst) return false;
     if (busca) {
       const alvo = `${s.codigo || ''} ${s.passageiro || ''} ${s.solicitante || ''} ${s.origem || ''} ${s.destino || ''}`.toLowerCase();
       if (!alvo.includes(busca)) return false;
     }
     return true;
+  });
+  lista = lista.slice().sort((a, b) => {
+    if (sort === 'data-asc') return String(a.criadoEm||'').localeCompare(String(b.criadoEm||''));
+    if (sort === 'alpha')    return String(a.passageiro||'').localeCompare(String(b.passageiro||''), 'pt-BR');
+    return String(b.criadoEm||'').localeCompare(String(a.criadoEm||'')); // data-desc default
   });
   const tb = document.getElementById('pas-tbody');
   if (!tb) return;

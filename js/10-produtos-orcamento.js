@@ -109,6 +109,12 @@ async function loadMpProducts() {
     return;
   }
 
+  const mpSort = document.getElementById('mp-sort')?.value || 'alpha';
+  rows.sort((a, b) => {
+    if (mpSort === 'alpha-desc') return String(b.nome||'').localeCompare(String(a.nome||''), 'pt-BR');
+    return String(a.nome||'').localeCompare(String(b.nome||''), 'pt-BR');
+  });
+
   tbody.innerHTML = rows.map(r => `
     <tr>
       <td><strong>${r.nome}</strong></td>
@@ -1389,7 +1395,7 @@ async function loadSuppliers() {
       wrap.innerHTML = '<div class="empty-state"><div class="empty-state-icon">🏢</div><div class="empty-state-title">Nenhum fornecedor cadastrado</div><div>Adicione o primeiro fornecedor acima.</div></div>';
       return;
     }
-    wrap.innerHTML = suppliersCache.map(s => renderSupplierCard(s)).join('');
+    renderSuppliersList();
     renderSuppDashboard();
 
     // Check 50% limit alerts
@@ -1403,6 +1409,20 @@ async function loadSuppliers() {
     });
   } catch(e) { wrap.innerHTML = `<div class="alert alert-danger visible">Erro: ${e.message}</div>`; }
 }
+
+function renderSuppliersList() {
+  const wrap = document.getElementById('supplier-list-wrap');
+  if (!wrap || !suppliersCache.length) return;
+  const sort = document.getElementById('sup-sort')?.value || 'alpha';
+  const lista = suppliersCache.slice().sort((a, b) => {
+    if (sort === 'alpha-desc')  return String(b.nome||'').localeCompare(String(a.nome||''), 'pt-BR');
+    if (sort === 'limite-desc') return (Number(b.limite)||0) - (Number(a.limite)||0);
+    if (sort === 'limite-asc')  return (Number(a.limite)||0) - (Number(b.limite)||0);
+    return String(a.nome||'').localeCompare(String(b.nome||''), 'pt-BR'); // alpha default
+  });
+  wrap.innerHTML = lista.map(s => renderSupplierCard(s)).join('');
+}
+window.renderSuppliersList = renderSuppliersList;
 
 function renderSupplierCard(s) {
   const limite  = parseFloat(s.limite) || 0;

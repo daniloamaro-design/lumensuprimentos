@@ -1090,6 +1090,14 @@
               </select>
             </div>
             <div>
+              <label class="form-label">Ordenar por</label>
+              <select class="form-select" id="orders-sort" onchange="loadAllOrders()" style="font-size:13px;">
+                <option value="data-desc">Data ↓ (mais recente)</option>
+                <option value="data-asc">Data ↑ (mais antigo)</option>
+                <option value="alpha">Casa A → Z</option>
+              </select>
+            </div>
+            <div>
               <label class="form-label">&nbsp;</label>
               <button class="export-btn" onclick="exportOrdersExcel()">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
@@ -2161,6 +2169,11 @@
     <div class="card" style="margin-bottom:16px;"><div class="card-body" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;">
       <div><label class="form-label">Buscar</label><input type="text" class="form-input" id="pas-f-busca" placeholder="passageiro, destino, código…" oninput="renderPasSolic()"></div>
       <div><label class="form-label">Status</label><select class="form-select" id="pas-f-status" onchange="renderPasSolic()"><option value="">Todos</option></select></div>
+      <div><label class="form-label">Ordenar por</label><select class="form-select" id="pas-sort" onchange="renderPasSolic()">
+        <option value="data-desc">Data ↓ (mais recente)</option>
+        <option value="data-asc">Data ↑ (mais antigo)</option>
+        <option value="alpha">A → Z (passageiro)</option>
+      </select></div>
       <div style="align-self:end;color:var(--text-muted);font-size:13px;">O financeiro das passagens já está consolidado em <b>Passagens → Financeiro</b>.</div>
     </div></div>
     <div class="card"><div class="card-body">
@@ -2284,6 +2297,13 @@
       </select></div>
       <div><label class="form-label">Freteiro</label><select class="form-select" id="frt-f-freteiro" onchange="renderFrtLista()"><option value="">Todos</option></select></div>
       <div><label class="form-label">Mês</label><input type="month" class="form-input" id="frt-f-mes" onchange="renderFrtLista()"></div>
+      <div><label class="form-label">Ordenar por</label><select class="form-select" id="frt-sort" onchange="renderFrtLista()">
+        <option value="data-desc">Data ↓ (mais recente)</option>
+        <option value="data-asc">Data ↑ (mais antigo)</option>
+        <option value="alpha">A → Z (freteiro)</option>
+        <option value="valor-desc">Valor ↓ (maior)</option>
+        <option value="valor-asc">Valor ↑ (menor)</option>
+      </select></div>
     </div></div>
     <div class="card"><div class="card-body">
       <div class="table-wrap">

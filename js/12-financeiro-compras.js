@@ -284,6 +284,14 @@ function finRenderizarTabela(dados) {
     tb.innerHTML = '<tr><td colspan="10" style="text-align:center;padding:32px;color:var(--text-muted);">Nenhum registro encontrado para os filtros selecionados.</td></tr>';
     return;
   }
+  const sort = document.getElementById('fin-sort')?.value || 'data-desc';
+  dados = dados.slice().sort((a, b) => {
+    if (sort === 'data-asc')   return String(a.dataCompraStr||'').localeCompare(String(b.dataCompraStr||''));
+    if (sort === 'alpha')      return String(a.fornecedor||'').localeCompare(String(b.fornecedor||''), 'pt-BR');
+    if (sort === 'valor-desc') return (Number(b.valor)||0) - (Number(a.valor)||0);
+    if (sort === 'valor-asc')  return (Number(a.valor)||0) - (Number(b.valor)||0);
+    return String(b.dataCompraStr||'').localeCompare(String(a.dataCompraStr||'')); // data-desc
+  });
   tb.innerHTML = dados.slice(0, 500).map(d => {
     const isPago = FIN_PAGO(d.pago);
     const badge = isPago

@@ -221,6 +221,18 @@ document.querySelector('.main-content').insertAdjacentHTML('beforeend', `
     </div>
   </div>
 
+  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin:12px 0 6px;">
+    <span style="font-size:13px;font-weight:600;color:var(--text-muted);">Lista de Fornecedores</span>
+    <div style="display:flex;align-items:center;gap:8px;">
+      <label style="font-size:12px;color:var(--text-muted);">Ordenar por</label>
+      <select class="form-select" id="sup-sort" onchange="renderSuppliersList()" style="font-size:12px;padding:5px 10px;width:auto;">
+        <option value="alpha">A → Z (nome)</option>
+        <option value="alpha-desc">Z → A (nome)</option>
+        <option value="limite-desc">Limite ↓ (maior)</option>
+        <option value="limite-asc">Limite ↑ (menor)</option>
+      </select>
+    </div>
+  </div>
   <div id="supplier-list-wrap">
     <div class="loading-state"><div class="spinner spinner-dark"></div>Carregando...</div>
   </div>
@@ -1205,6 +1217,15 @@ document.querySelector('.main-content').insertAdjacentHTML('beforeend', `
           <input type="date" class="form-input" id="indf-ate" onchange="filterIndFornecedores()">
         </div>
         <div>
+          <label class="form-label">Ordenar por</label>
+          <select class="form-select" id="indf-sort" onchange="renderIndFornecedores()">
+            <option value="valor-desc">Valor ↓ (maior)</option>
+            <option value="valor-asc">Valor ↑ (menor)</option>
+            <option value="alpha">A → Z (nome)</option>
+            <option value="limite-desc">Limite ↓ (maior)</option>
+          </select>
+        </div>
+        <div>
           <button class="btn btn-primary" onclick="loadIndFornecedores()" id="btn-load-indf" style="width:100%;margin-top:18px;">🔄 Analisar</button>
         </div>
       </div>
@@ -1795,6 +1816,15 @@ document.querySelector('.main-content').insertAdjacentHTML('beforeend', `
               <option value="suprimentos">Suprimentos</option>
               <option value="passagens">Passagens</option>
               <option value="frete">Fretes</option>
+            </select>
+          </div>
+          <div class="form-group"><label class="form-label">Ordenar por</label>
+            <select class="form-select" id="fin-sort" onchange="finAplicarFiltros()">
+              <option value="data-desc">Data ↓ (mais recente)</option>
+              <option value="data-asc">Data ↑ (mais antigo)</option>
+              <option value="alpha">A → Z (fornecedor)</option>
+              <option value="valor-desc">Valor ↓ (maior)</option>
+              <option value="valor-asc">Valor ↑ (menor)</option>
             </select>
           </div>
           <div style="align-self:flex-end;display:flex;gap:8px;">

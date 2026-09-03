@@ -518,6 +518,15 @@ async function loadAllOrders() {
   const efetivoPorId = {};
   window._allOrdersCache.forEach(o => { efetivoPorId[o.id] = o; });
 
+  // Ordenação client-side após filtros
+  const orderSort = document.getElementById('orders-sort')?.value || 'data-desc';
+  if (orderSort === 'data-asc') {
+    docs = docs.slice().sort((a, b) => String(a.data().createdAt||'').localeCompare(String(b.data().createdAt||'')));
+  } else if (orderSort === 'alpha') {
+    docs = docs.slice().sort((a, b) => String(a.data().house||'').localeCompare(String(b.data().house||''), 'pt-BR'));
+  }
+  // data-desc já vem ordenado do Firestore (orderBy createdAt desc)
+
   tbody.dataset.loaded = '1';
   tbody.innerHTML = docs.map(d => {
     const o = d.data();
