@@ -1,0 +1,44 @@
+name: Sincronizar planilha de Passagens
+
+# Importa (só leitura — Fase 1) a planilha Google Sheets "Controle das
+# passagens" pro sistema, 2x ao dia. Ver tools/passagens/sync-planilha.mjs
+# e docs do plano em C:\Users\compu\.claude\plans\merry-percolating-thunder.md
+# (na máquina onde o plano foi gerado) para o desenho completo.
+#
+# - Automático: 6h e 18h em Fortaleza/BA (UTC-3) = 09:00 e 21:00 UTC
+# - Manual: aba "Actions" → "Sincronizar planilha de Passagens" → "Run workflow"
+#
+# PRÉ-REQUISITO: usa o MESMO secret SUPABASE_DB_PASSWORD já configurado
+# pro workflow de backup (.github/workflows/backup-supabase.yml). Se esse
+# secret ainda não existir: GitHub → Settings → Secrets and variables →
+# Actions → New repository secret → nome SUPABASE_DB_PASSWORD, valor = a
+# senha do banco Supabase (sem codificar nada).
+
+on:
+  schedule:
+    - cron: '0 9,21 * * *'   # 09:00 e 21:00 UTC = 6h e 18h em Fortaleza/BA
+  workflow_dispatch:
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Instalar dependências
+        run: npm ci
+
+      - name: Rodar sincronização
+        env:
+          PGHOST: aws-0-sa-east-1.pooler.supabase.com
+          PGPORT: '5432'
+          PGUSER: postgres.saalwqfjhnvleltqfftr
+          PGDATABASE: postgres
+          PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: |
+          if [ -z "$PGPASSWORD" ]; then echo "❌ Falta o secret SUPABASE_DB_PASSWORD"; exit 1; fi
+          node tools/passagens/sync-planilha.mjs
