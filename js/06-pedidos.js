@@ -1029,7 +1029,8 @@ async function updateOrderStatus() {
 // 🏪  AVALIAÇÃO DE ESTOQUE
 // ─────────────────────────────────────────────
 let stockEvalData = {}; // { catKey__prodId: { transfer: bool, qty: number } }
-let centralStockData = {}; // estoque central (casa = 'Central' ou todas somadas exceto a solicitante)
+let centralStockData = {}; // estoque central: só a casa CASA_ESTOQUE_CENTRAL (depósito de distribuição)
+const CASA_ESTOQUE_CENTRAL = 'Estoque - Céu';
 
 async function openStockEvalModal() {
   if (!detailOrderData) return;
@@ -1050,8 +1051,13 @@ async function openStockEvalModal() {
   // Se já tem avaliação salva, pré-carregar
   const existingEval = detailOrderData.stockEval || null;
 
-  // Carregar estoque central: soma de todos os movimentos de casas "Central" ou casas diferentes da solicitante
-  // Aqui pegamos todos os movimentos e calculamos o saldo por produto (independente de casa, como estoque geral disponível)
+  // Carregar estoque central: SÓ os movimentos da casa "Estoque - Céu" (o
+  // depósito de distribuição). Antes somava o estoque de TODAS as casas
+  // exceto a solicitante — mas a transferência real, quando confirmada
+  // (saveStockEval → casaEstoque), sempre sai do Estoque - Céu especificamente.
+  // Contar o estoque de outras casas aqui era enganoso: mostrava disponível
+  // um total que nunca sairia dali, e escondia o risco de retirar de uma
+  // casa que precisa daquele estoque pra seu próprio consumo.
   // Usa svCarregarMovements() (07-estoque-ia-form.js) em vez de db.collection('movements').get():
   // o select=*,movement_items(*) embutido trava com "statement timeout" no Supabase quando a
   // tabela cresce (mesmo problema já corrigido na tela Estoque Atual — ver PR #44/#45). Sem essa
@@ -1061,8 +1067,7 @@ async function openStockEvalModal() {
     const movSnap = await svCarregarMovements();
     movSnap.docs.forEach(d => {
       const m = d.data();
-      // Considera estoque central = tudo exceto a casa que está solicitando
-      if (m.house === detailOrderData.house) return;
+      if (m.house !== CASA_ESTOQUE_CENTRAL) return;
       (m.items || []).forEach(item => {
         const key = `${item.catKey}__${item.prodId}`;
         if (!centralStockData[key]) centralStockData[key] = 0;
@@ -1204,7 +1209,7 @@ async function saveStockEval() {
     // Elemento 'se-estoque-select' nunca existiu no HTML (bug antigo): o fallback
     // sempre caía num nome fantasma 'Estoque', separado da casa real onde as
     // doações são recebidas e redistribuídas. Fixado no nome real da casa.
-    const casaEstoque   = 'Estoque - Céu';
+    const casaEstoque   = CASA_ESTOQUE_CENTRAL;
 
     // Sempre avança para "andamento" — compras cotará só o que não foi transferido
     const newStatus = 'andamento';
