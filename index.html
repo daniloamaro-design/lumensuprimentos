@@ -319,7 +319,7 @@
       <button class="modulo-btn" id="btn-mod-coord" data-mod="coord" onclick="selecionarModulo('coord')" title="Painel do Coordenador" style="display:none;">🎯 Coordenador</button>
     </div>
     <div class="sidebar-section" data-modulo="diretoria" id="sidebar-transversal">
-      <div class="sidebar-section-title">Visão Geral</div>
+      <div class="sidebar-section-title">Diretoria</div>
       <button class="sidebar-item" data-page="diretoria-dashboard" onclick="goPageMobile('diretoria-dashboard')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg>
         Dashboard
@@ -359,7 +359,7 @@
     </div>
     <!-- Painel do Coordenador — módulo visível para coordenador/gerente/diretor/admin -->
     <div class="sidebar-section coord-dash-section" data-modulo="coord" style="display:none;">
-      <div class="sidebar-section-title">Visão Geral</div>
+      <div class="sidebar-section-title">Coordenador</div>
       <button class="sidebar-item" data-page="coord-dashboard" onclick="goPageMobile('coord-dashboard')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
         Painel do Coordenador
@@ -462,6 +462,10 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
         Orçamento Financeiro
       </button>
+      <button class="sidebar-item" data-page="orc-historico-fin" onclick="goPageMobile('orc-historico-fin')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
+        Histórico de Orçamentos
+      </button>
       <button class="sidebar-item" data-page="orc-pendentes" onclick="goPageMobile('orc-pendentes')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><line x1="9" y1="12" x2="15" y2="12"/></svg>
         Orç. Pendentes
@@ -485,7 +489,7 @@
       </button>
       <button class="sidebar-item" data-page="calc-real" onclick="goPageMobile('calc-real')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M7 16l4-4 4 4 4-8"/></svg>
-        Calculado × Real
+        Previsão de Suprimentos
       </button>
       <button class="sidebar-item" onclick="checkCriticalStock(true)">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
@@ -577,7 +581,7 @@
 
     <!-- SIDEBAR: CSL (csl + coord_csl) -->
     <div class="sidebar-section" data-modulo="suprimentos" id="sidebar-csl" style="display:none;">
-      <div class="sidebar-section-title">CSL / Projetos</div>
+      <div class="sidebar-section-title">Centros & Proj. Sociais</div>
       <button class="sidebar-item" data-page="new-order" onclick="goPageMobile('new-order')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
         Nova Solicitação
@@ -1077,7 +1081,7 @@
                 <option value="higiene">🧴 Higiene</option>
                 <option value="proteina">🥩 Proteína</option>
                 <option value="missa_sf">⛪ Missa Ser Feliz</option>
-                <option value="lanches_csl">🥪 Lanches CSL</option>
+                <option value="lanches_csl">🥪 Lanches Proj. Sociais</option>
                 <option value="mix">Mix (várias)</option>
               </select>
             </div>
@@ -1194,7 +1198,7 @@
         <button class="cat-tab" data-cat="higiene" onclick="setOrderCat('higiene')">🧴 Higiene <span class="cat-count" id="count-higiene">0</span></button>
         <button class="cat-tab" data-cat="proteina" onclick="setOrderCat('proteina')">🥩 Proteína <span class="cat-count" id="count-proteina">0</span></button>
         <button class="cat-tab" data-cat="missa_sf" onclick="setOrderCat('missa_sf')">⛪ Missa Ser Feliz <span class="cat-count" id="count-missa_sf">0</span></button>
-        <button class="cat-tab" data-cat="lanches_csl" onclick="setOrderCat('lanches_csl')">🥪 Lanches CSL <span class="cat-count" id="count-lanches_csl">0</span></button>
+        <button class="cat-tab" data-cat="lanches_csl" onclick="setOrderCat('lanches_csl')">🥪 Lanches Proj. Sociais <span class="cat-count" id="count-lanches_csl">0</span></button>
       </div>
 
       <div class="card" id="order-products-card">
@@ -1357,7 +1361,7 @@
         <button class="cat-tab" data-cat="higiene" onclick="setMovCat('higiene')">🧴 Higiene <span class="cat-count" id="mcount-higiene"></span></button>
         <button class="cat-tab" data-cat="proteina" onclick="setMovCat('proteina')">🥩 Proteína <span class="cat-count" id="mcount-proteina"></span></button>
         <button class="cat-tab" data-cat="missa_sf" onclick="setMovCat('missa_sf')">⛪ Missa Ser Feliz <span class="cat-count" id="mcount-missa_sf"></span></button>
-        <button class="cat-tab" data-cat="lanches_csl" onclick="setMovCat('lanches_csl')">🥪 Lanches CSL <span class="cat-count" id="mcount-lanches_csl"></span></button>
+        <button class="cat-tab" data-cat="lanches_csl" onclick="setMovCat('lanches_csl')">🥪 Lanches Proj. Sociais <span class="cat-count" id="mcount-lanches_csl"></span></button>
       </div>
 
       <div class="card">
@@ -1572,7 +1576,7 @@
             <option value="higiene">🧴 Higiene</option>
             <option value="proteina">🥩 Proteína</option>
             <option value="missa_sf">⛪ Missa Ser Feliz</option>
-            <option value="lanches_csl">🥪 Lanches CSL</option>
+            <option value="lanches_csl">🥪 Lanches Proj. Sociais</option>
           </select>
         </div>
         <button class="btn btn-secondary" onclick="resetPercapitaToDefault()">Usar padrão global</button>
@@ -1604,7 +1608,7 @@
             <option value="higiene">🧴 Higiene</option>
             <option value="proteina">🥩 Proteína</option>
             <option value="missa_sf">⛪ Missa Ser Feliz</option>
-            <option value="lanches_csl">🥪 Lanches CSL</option>
+            <option value="lanches_csl">🥪 Lanches Proj. Sociais</option>
           </select>
         </div>
         <div>
@@ -1728,7 +1732,7 @@
                 <option value="higiene">🧴 Higiene</option>
                 <option value="proteina">🥩 Proteína</option>
                 <option value="missa_sf">⛪ Missa Ser Feliz</option>
-                <option value="lanches_csl">🥪 Lanches CSL</option>
+                <option value="lanches_csl">🥪 Lanches Proj. Sociais</option>
               </select>
             </div>
             <div class="form-group" style="margin:0;">
@@ -1777,7 +1781,7 @@
         <button class="cat-tab" data-cat="higiene" onclick="setMpCat('higiene')">🧴 Higiene <span class="cat-count" id="mp-count-higiene"></span></button>
         <button class="cat-tab" data-cat="proteina" onclick="setMpCat('proteina')">🥩 Proteína <span class="cat-count" id="mp-count-proteina"></span></button>
         <button class="cat-tab" data-cat="missa_sf" onclick="setMpCat('missa_sf')">⛪ Missa Ser Feliz <span class="cat-count" id="mp-count-missa_sf"></span></button>
-        <button class="cat-tab" data-cat="lanches_csl" onclick="setMpCat('lanches_csl')">🥪 Lanches CSL <span class="cat-count" id="mp-count-lanches_csl"></span></button>
+        <button class="cat-tab" data-cat="lanches_csl" onclick="setMpCat('lanches_csl')">🥪 Lanches Proj. Sociais <span class="cat-count" id="mp-count-lanches_csl"></span></button>
       </div>
 
       <div class="card">
@@ -1827,7 +1831,7 @@
                 <option value="higiene">🧴 Higiene</option>
                 <option value="proteina">🥩 Proteína</option>
                 <option value="missa_sf">⛪ Missa Ser Feliz</option>
-                <option value="lanches_csl">🥪 Lanches CSL</option>
+                <option value="lanches_csl">🥪 Lanches Proj. Sociais</option>
               </select>
             </div>
             <button class="btn btn-primary" onclick="loadIndicadores()" id="btn-load-ind">Analisar</button>
@@ -1938,7 +1942,7 @@
               <button class="cat-tab" data-cat="higiene" onclick="setTransfCat('higiene')">🧴 Higiene <span class="cat-count" id="tc-higiene"></span></button>
               <button class="cat-tab" data-cat="proteina" onclick="setTransfCat('proteina')">🥩 Proteína <span class="cat-count" id="tc-proteina"></span></button>
               <button class="cat-tab" data-cat="missa_sf" onclick="setTransfCat('missa_sf')">⛪ Missa Ser Feliz <span class="cat-count" id="tc-missa_sf"></span></button>
-              <button class="cat-tab" data-cat="lanches_csl" onclick="setTransfCat('lanches_csl')">🥪 Lanches CSL <span class="cat-count" id="tc-lanches_csl"></span></button>
+              <button class="cat-tab" data-cat="lanches_csl" onclick="setTransfCat('lanches_csl')">🥪 Lanches Proj. Sociais <span class="cat-count" id="tc-lanches_csl"></span></button>
             </div>
 
             <div class="card" style="margin-bottom:14px;">
@@ -2329,6 +2333,13 @@
       <div style="display:grid;grid-template-columns:1fr;gap:12px;">
         <div><label class="form-label">Motivo</label><input class="form-input" id="frt-rota-motivo" placeholder="Ex: Rota das casas"></div>
         <div><label class="form-label">Observações</label><textarea class="form-input" id="frt-rota-obs" rows="2" style="resize:vertical;"></textarea></div>
+      </div>
+      <!-- Transferências vinculadas -->
+      <div>
+        <label class="form-label">Transferências nesta rota</label>
+        <div id="frt-rota-transf-lista" style="border:1px solid var(--border);border-radius:6px;padding:10px;max-height:200px;overflow-y:auto;display:flex;flex-direction:column;gap:8px;">
+          <span style="color:var(--text-muted);font-size:13px;" id="frt-rota-transf-empty">Carregando transferências pendentes…</span>
+        </div>
       </div>
       <div style="display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap;">
         <button class="btn btn-secondary" onclick="frtVerNoMapaForm()">🗺️ Ver no Google Maps</button>
@@ -2809,6 +2820,25 @@
     </div>
   </div>
 
+  <!-- MODAL: conferência de carga -->
+  <div class="modal-overlay hidden" id="modal-conferencia-carga">
+    <div class="modal modal-wide" style="max-width:680px;">
+      <div class="modal-header">
+        <div class="modal-title">📋 Conferência de Carga</div>
+        <button class="modal-close" onclick="closeModal('modal-conferencia-carga')">×</button>
+      </div>
+      <div class="modal-body" style="padding:20px;display:flex;flex-direction:column;gap:16px;">
+        <div style="font-size:13px;color:var(--text-muted);">Compare o que foi planejado com o que foi efetivamente carregado. Itens não carregados ficam com 0.</div>
+        <div id="conf-carga-items" style="display:flex;flex-direction:column;gap:6px;max-height:380px;overflow-y:auto;"></div>
+        <div id="conf-carga-resumo" style="border-top:1px solid var(--border);padding-top:12px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;text-align:center;"></div>
+        <div style="display:flex;gap:10px;justify-content:flex-end;">
+          <button class="btn btn-secondary" onclick="closeModal('modal-conferencia-carga')">Cancelar</button>
+          <button class="btn btn-primary" id="btn-salvar-conferencia" onclick="salvarConferenciaCarga()">✅ Confirmar e liberar transporte</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- MODAL: avaliação do frete -->
   <div class="modal-overlay hidden" id="modal-avaliar-frete">
     <div class="modal" style="max-width:440px;width:100%;">
@@ -2878,7 +2908,7 @@
 </div>
 
 <!-- FORNECEDORES / COMPARATIVO / pages are in the main content area -->
-<script src="js/paginas-html.js?v=3"></script>
+<script src="js/paginas-html.js?v=4"></script>
 
 <!-- ════════ MODAL: REGISTRAR TRANSFERÊNCIA FINANCEIRA ════════ -->
 <div class="modal-overlay hidden" id="modal-transf-financeira">
@@ -3417,13 +3447,13 @@
 <script src="js/01-core.js?v=5"></script>
 <script src="js/02-auth.js?v=6"></script>
 <script src="js/03-navegacao.js?v=2"></script>
-<script src="js/04-percapita.js?v=12"></script>
+<script src="js/04-percapita.js?v=13"></script>
 <script src="js/05-cadastros.js?v=2"></script>
-<script src="js/06-pedidos.js?v=11"></script>
+<script src="js/06-pedidos.js?v=12"></script>
 <script src="js/07-estoque-ia-form.js?v=4"></script>
 <script src="js/08-orcamento-casas.js?v=2"></script>
 <script src="js/09-indicadores-transf.js?v=3"></script>
-<script src="js/10-produtos-orcamento.js?v=4"></script>
+<script src="js/10-produtos-orcamento.js?v=5"></script>
 <script src="js/11-fornecedores-pendentes.js?v=6"></script>
 <script src="js/12-financeiro-compras.js?v=5"></script>
 <script src="js/13-ia-avancada.js?v=2"></script>
@@ -3432,7 +3462,7 @@
 <script src="js/16-chat-ia.js?v=2"></script>
 <script src="js/17-metas-wrappers.js?v=2"></script>
 <script src="js/cidades-brasil.js?v=1"></script>
-<script src="js/18-erp.js?v=37"></script>
+<script src="js/18-erp.js?v=38"></script>
 <script src="js/19-dashboard-diretoria.js?v=9"></script>
 <script src="js/20-percapita-diretoria.js?v=2"></script>
 <!-- CHAT IA FLUTUANTE -->
@@ -3520,7 +3550,7 @@
 
 <script src="js/variedades.js?v=3"></script>
 <script src="js/21-inventario.js?v=1"></script>
-<script src="js/22-coord-dashboard.js?v=1"></script>
+<script src="js/22-coord-dashboard.js?v=4"></script>
 <script src="js/23-importar-precos-nf.js?v=1"></script>
 
 <!-- MODAL: NOVA SOLICITAÇÃO DE VARIEDADES -->

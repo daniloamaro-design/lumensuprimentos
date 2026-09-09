@@ -254,7 +254,7 @@ var CATEGORIAS = {
     produtos: []
   },
   lanches_csl: {
-    nome: 'Lanches - CSL', icon: '🥪',
+    nome: 'Lanches Proj. Sociais', icon: '🥪',
     produtos: []
   }
 };

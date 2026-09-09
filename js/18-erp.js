@@ -119,10 +119,11 @@ function frtBadgePag(sp) {
   const [txt, cor] = map[sp] || ['—', 'var(--text-muted)'];
   return `<span style="font-weight:600;color:${cor};">${txt}</span>`;
 }
-// Situação do frete (fluxo: solicitado → transporte → entregue; ou cancelado)
+// Situação do frete (fluxo: solicitado → [aguardando_conferencia] → transporte → entregue; ou cancelado)
 function frtStatusBadge(s) {
   const map = {
     solicitado: ['📋 Solicitado', '#0284C7'],
+    aguardando_conferencia: ['📋 Aguard. conferência', '#7C3AED'],
     transporte: ['🚛 Em transporte', '#D97706'],
     entregue: ['✅ Entregue', '#059669'],
     cancelado: ['❌ Cancelado', '#DC2626'],
@@ -225,6 +226,8 @@ function abrirFreteDetalhe(id) {
 
   // Botões do fluxo conforme a situação
   const acoes = [];
+  if (f.status === 'aguardando_conferencia')
+    acoes.push(`<button class="btn btn-primary btn-sm" onclick="abrirConferenciaCarga('${f.id}')">📋 Conferir Carga</button>`);
   if (f.status === 'transporte') acoes.push(`<button class="btn btn-primary btn-sm" onclick="frtMarcarEntregue('${f.id}')">📦 Marcar entregue</button>`);
   if (f.status === 'entregue' && f.etapaStatus !== 'avaliado') acoes.push(`<button class="btn btn-secondary btn-sm" onclick="abrirAvaliacaoFrete('${f.id}')">⭐ Avaliar</button>`);
   if (f.statusPag !== 'pago' && f.status !== 'cancelado' && !semFreteiro) acoes.push(`<button class="btn btn-secondary btn-sm" onclick="frtMarcarPago('${f.id}', true)">💰 Marcar pago</button>`);
@@ -266,6 +269,14 @@ function abrirFreteDetalhe(id) {
 
   // Uma vez entregue, mostra se cumpriu a previsão (comparando com a data
   // real registrada no histórico quando "Marcar entregue" foi clicado).
+  // Taxa de cumprimento de carga
+  let linhaCumprimento = '';
+  if (f.taxaCumprimento != null) {
+    const taxa = f.taxaCumprimento;
+    const cor = taxa >= 95 ? 'var(--ok,#059669)' : taxa >= 70 ? 'var(--warn,#d97706)' : 'var(--danger,#dc2626)';
+    linhaCumprimento = linha('Cumprimento de Carga', `<span style="font-weight:700;color:${cor};">${taxa}%</span> <span style="color:var(--text-muted);font-size:12px;">(${f.totalCarregado||0} de ${f.totalPlanejado||0} unidades carregadas)</span>`);
+  }
+
   let linhaPrazo = '';
   if (f.status === 'entregue' && f.previsaoEntrega) {
     const histEntrega = hist.slice().reverse().find(h => h.status === 'entregue');
@@ -285,6 +296,7 @@ function abrirFreteDetalhe(id) {
       ${linha('Pagamento', frtBadgePag(f.statusPag) + (Number(f.valorPago) ? ` (${frtBRL(f.valorPago)})` : ''))}
       ${linha('Previsão de entrega', f.previsaoEntrega ? frtDataBR(f.previsaoEntrega) + (f.previsaoEstimada ? ' <span style="color:var(--text-muted);font-size:11px;">(estimada)</span>' : '') : '— (não informada)')}
     </div>
+    ${linhaCumprimento}
     ${linhaPrazo}
     ${linha('Origem', frtEsc(f.origem || '—'))}
     ${paradas.length ? linha('Paradas', paradas.map(p => frtEsc(p)).join('<br>')) : ''}
@@ -362,16 +374,23 @@ async function frtAtribuirFreteiro(id) {
   if (!(valor > 0)) return showToast('⚠️ Informe o valor.');
   const f = _fretesCache.find(x => x.id === id);
   const nome = (typeof currentUserData !== 'undefined' && currentUserData?.name) || null;
+  // Se há transferências vinculadas, a carga precisa ser conferida antes de
+  // liberar para transporte; caso contrário, segue direto como antes.
+  const precisaConferencia = Array.isArray(f?.transferenciasIds) && f.transferenciasIds.length > 0;
+  const novoStatus = precisaConferencia ? 'aguardando_conferencia' : 'transporte';
   try {
-    const hist = { acao: `Freteiro atribuído: ${fnome} (${frtBRL(valor)}) — liberado para transporte`, status: 'transporte', por: nome, data: new Date().toISOString() };
+    const acao = precisaConferencia
+      ? `Freteiro atribuído: ${fnome} (${frtBRL(valor)}) — aguardando conferência de carga`
+      : `Freteiro atribuído: ${fnome} (${frtBRL(valor)}) — liberado para transporte`;
+    const hist = { acao, status: novoStatus, por: nome, data: new Date().toISOString() };
     await db.collection('fretes').doc(id).update({
       freteiroId: fid, freteiroNome: fnome, valor, previsaoEntrega,
-      status: 'transporte', etapaStatus: 'transporte', statusPag: 'pendente',
+      status: novoStatus, etapaStatus: novoStatus, statusPag: 'pendente',
       historico: firebase.firestore.FieldValue.arrayUnion(hist),
       updatedBy: nome, updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
     });
-    if (f) { f.freteiroId = fid; f.freteiroNome = fnome; f.valor = valor; f.previsaoEntrega = previsaoEntrega; f.status = 'transporte'; f.etapaStatus = 'transporte'; f.statusPag = 'pendente'; f.historico = [...(Array.isArray(f.historico) ? f.historico : []), hist]; }
-    showToast('✅ Freteiro atribuído — frete em transporte.');
+    if (f) { f.freteiroId = fid; f.freteiroNome = fnome; f.valor = valor; f.previsaoEntrega = previsaoEntrega; f.status = novoStatus; f.etapaStatus = novoStatus; f.statusPag = 'pendente'; f.historico = [...(Array.isArray(f.historico) ? f.historico : []), hist]; }
+    showToast(precisaConferencia ? '✅ Freteiro atribuído — confira a carga para liberar o transporte.' : '✅ Freteiro atribuído — frete em transporte.');
     abrirFreteDetalhe(id);
     renderFrtLista();
   } catch (e) { console.error(e); showToast('❌ Erro: ' + e.message); }
@@ -398,6 +417,11 @@ async function frtSalvarRota() {
   const ymd = data.replace(/-/g, '');
   const nome = (typeof currentUserData !== 'undefined' && currentUserData?.name) || null;
   const btn = document.getElementById('frt-rota-salvar');
+
+  // Transferências selecionadas
+  const transfChecks = document.querySelectorAll('#frt-rota-transf-lista input[type=checkbox]:checked');
+  const transferenciasIds = Array.from(transfChecks).map(c => c.value);
+
   if (btn) { btn.disabled = true; btn.textContent = 'Salvando…'; }
   try {
     if (!_fretesCache.length) { const snap = await db.collection('fretes').get(); _fretesCache = snap.docs.map(x => ({ id: x.id, ...x.data() })); }
@@ -408,13 +432,19 @@ async function frtSalvarRota() {
       motivo: motivo || null, freteiroId: '', freteiroNome: '',
       valor: 0, valorPago: 0, status: 'solicitado', statusPag: 'pendente',
       etapaStatus: 'rota_criada', formaPag: 'pix', importado: false,
+      transferenciasIds: transferenciasIds.length ? transferenciasIds : [],
       obs: document.getElementById('frt-rota-obs').value.trim() || null,
       createdBy: nome,
       createdAt: firebase.firestore.FieldValue.serverTimestamp(),
       updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
       historico: [{ acao: 'Rota criada e solicitada', etapa: 'rota_criada', por: nome, data: new Date().toISOString() }],
     });
-    showToast(`✅ Rota ${code} salva! Atribua um freteiro na lista de Fretes para liberar o transporte.`);
+    // Vincula as transferências à rota (não mexe em "status": ele já reflete
+    // que o estoque foi movimentado na confirmação; freteCode rastreia a rota)
+    for (const tid of transferenciasIds) {
+      await db.collection('transferencias').doc(tid).update({ freteCode: code });
+    }
+    showToast(`✅ Rota ${code} salva! Atribua um freteiro e faça a conferência de carga antes de liberar o transporte.`);
     ['frt-rota-origem', 'frt-rota-destino', 'frt-rota-paradas', 'frt-rota-motivo', 'frt-rota-obs'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
     _fretesCache = [];
     goPage('frt-lista');
@@ -426,6 +456,161 @@ async function frtSalvarRota() {
 }
 window.frtSalvarRota = frtSalvarRota;
 window.abrirFreteDetalhe = abrirFreteDetalhe;
+
+// ── Carrega transferências pendentes no form de rota ──
+let _transfPendentesCache = [];
+async function frtCarregarTransfPendentes() {
+  const wrap = document.getElementById('frt-rota-transf-lista');
+  const empty = document.getElementById('frt-rota-transf-empty');
+  if (!wrap) return;
+  try {
+    const snap = await db.collection('transferencias')
+      .where('status', '==', 'confirmada').get();
+    // Só entram as que ainda não foram vinculadas a nenhuma rota de frete
+    _transfPendentesCache = snap.docs.map(d => ({ id: d.id, ...d.data() })).filter(t => !t.freteCode);
+    if (!_transfPendentesCache.length) {
+      if (empty) empty.textContent = 'Nenhuma transferência confirmada pendente de rota.';
+      return;
+    }
+    if (empty) empty.remove();
+    wrap.innerHTML = _transfPendentesCache.map(t => {
+      const qtd = Array.isArray(t.items) ? t.items.length : 0;
+      const totalUnid = Array.isArray(t.items) ? t.items.reduce((s, i) => s + (Number(i.qtd) || 0), 0) : 0;
+      return `<label style="display:flex;align-items:flex-start;gap:10px;padding:8px;border:1px solid var(--border);border-radius:6px;cursor:pointer;">
+        <input type="checkbox" value="${t.id}" style="margin-top:2px;accent-color:var(--lumen);">
+        <div>
+          <div style="font-weight:600;font-size:13px;">${frtEsc(t.code || t.id)}</div>
+          <div style="font-size:12px;color:var(--text-muted);">${frtEsc(t.origem||'?')} → ${frtEsc(t.destino||'?')} · ${qtd} produto(s) · ${totalUnid} unidade(s)</div>
+        </div>
+      </label>`;
+    }).join('');
+  } catch(e) {
+    console.error('frtCarregarTransfPendentes', e);
+    if (empty) empty.textContent = 'Erro ao carregar transferências.';
+  }
+}
+window.frtCarregarTransfPendentes = frtCarregarTransfPendentes;
+
+// ── Conferência de Carga ──
+let _confFreteId = null;
+let _confTransfItems = []; // { prodId, nome, cat, planejado }
+
+async function abrirConferenciaCarga(freteId) {
+  const f = _fretesCache.find(x => x.id === freteId);
+  if (!f) return;
+  _confFreteId = freteId;
+  _confTransfItems = [];
+
+  const wrap = document.getElementById('conf-carga-items');
+  const resumo = document.getElementById('conf-carga-resumo');
+  wrap.innerHTML = '<div style="color:var(--text-muted);font-size:13px;">Carregando itens…</div>';
+  openModal('modal-conferencia-carga');
+
+  try {
+    const ids = Array.isArray(f.transferenciasIds) ? f.transferenciasIds : [];
+    const snaps = await Promise.all(ids.map(tid => db.collection('transferencias').doc(tid).get()));
+    const allItems = [];
+    snaps.forEach(s => {
+      if (!s.exists) return;
+      (s.data().items || []).forEach(item => {
+        const existing = allItems.find(x => x.prodId === item.prodId && x.cat === item.cat);
+        if (existing) { existing.planejado += Number(item.qtd) || 0; }
+        else allItems.push({ prodId: item.prodId, nome: item.nome || item.prodId, cat: item.cat || '', planejado: Number(item.qtd) || 0 });
+      });
+    });
+
+    if (!allItems.length) {
+      wrap.innerHTML = '<div style="color:var(--text-muted);font-size:13px;">Este frete não tem transferências vinculadas com itens. A conferência não é necessária.</div>';
+      resumo.innerHTML = '';
+      return;
+    }
+    _confTransfItems = allItems;
+
+    wrap.innerHTML = `
+      <div style="display:grid;grid-template-columns:1fr 100px 100px;gap:4px;padding:6px 8px;background:var(--surface2);border-radius:4px;font-size:11px;font-weight:600;color:var(--text-muted);letter-spacing:.05em;">
+        <span>PRODUTO</span><span style="text-align:center;">PLANEJADO</span><span style="text-align:center;">CARREGADO</span>
+      </div>
+      ${allItems.map((item, i) => `
+        <div style="display:grid;grid-template-columns:1fr 100px 100px;gap:4px;align-items:center;padding:6px 8px;border:1px solid var(--border);border-radius:6px;">
+          <div>
+            <div style="font-size:13px;font-weight:600;">${frtEsc(item.nome)}</div>
+            <div style="font-size:11px;color:var(--text-muted);">${frtEsc(item.cat)}</div>
+          </div>
+          <div style="text-align:center;font-weight:700;color:var(--text-muted);">${item.planejado}</div>
+          <div><input type="number" min="0" max="${item.planejado * 2}" value="${item.planejado}"
+            id="conf-item-${i}" onchange="frtAtualizarResumoConf()"
+            style="width:100%;padding:4px 8px;border:1px solid var(--border);border-radius:4px;text-align:center;background:var(--surface);color:var(--text);"></div>
+        </div>`).join('')}`;
+
+    frtAtualizarResumoConf();
+  } catch(e) {
+    console.error('abrirConferenciaCarga', e);
+    wrap.innerHTML = `<div style="color:var(--danger);">Erro ao carregar itens: ${frtEsc(e.message)}</div>`;
+  }
+}
+window.abrirConferenciaCarga = abrirConferenciaCarga;
+
+function frtAtualizarResumoConf() {
+  const resumo = document.getElementById('conf-carga-resumo');
+  if (!resumo || !_confTransfItems.length) return;
+  let totalPlan = 0, totalCarr = 0;
+  _confTransfItems.forEach((item, i) => {
+    totalPlan += item.planejado;
+    totalCarr += Number(document.getElementById(`conf-item-${i}`)?.value || 0);
+  });
+  const taxa = totalPlan > 0 ? Math.round((totalCarr / totalPlan) * 100) : 100;
+  const cor = taxa >= 95 ? 'var(--ok,#059669)' : taxa >= 70 ? 'var(--warn,#d97706)' : 'var(--danger,#dc2626)';
+  resumo.innerHTML = `
+    <div style="padding:10px;border:1px solid var(--border);border-radius:6px;">
+      <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;">PLANEJADO</div>
+      <div style="font-size:22px;font-weight:700;">${totalPlan}</div>
+    </div>
+    <div style="padding:10px;border:1px solid var(--border);border-radius:6px;">
+      <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;">CARREGADO</div>
+      <div style="font-size:22px;font-weight:700;">${totalCarr}</div>
+    </div>
+    <div style="padding:10px;border:1px solid ${cor};border-radius:6px;background:${cor}18;">
+      <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;">CUMPRIMENTO</div>
+      <div style="font-size:22px;font-weight:700;color:${cor};">${taxa}%</div>
+    </div>`;
+}
+window.frtAtualizarResumoConf = frtAtualizarResumoConf;
+
+async function salvarConferenciaCarga() {
+  if (!_confFreteId || !_confTransfItems.length) return;
+  const btn = document.getElementById('btn-salvar-conferencia');
+  if (btn) { btn.disabled = true; btn.textContent = 'Salvando…'; }
+  try {
+    let totalPlan = 0, totalCarr = 0;
+    const itensCarregados = _confTransfItems.map((item, i) => {
+      const carregado = Number(document.getElementById(`conf-item-${i}`)?.value || 0);
+      totalPlan += item.planejado;
+      totalCarr += carregado;
+      return { prodId: item.prodId, nome: item.nome, cat: item.cat, planejado: item.planejado, carregado };
+    });
+    const taxaCumprimento = totalPlan > 0 ? Math.round((totalCarr / totalPlan) * 100) : 100;
+    const nome = (typeof currentUserData !== 'undefined' && currentUserData?.name) || null;
+    const hist = { acao: `Carga conferida — ${taxaCumprimento}% de cumprimento (${totalCarr}/${totalPlan} unidades)`, etapa: 'conferencia', por: nome, data: new Date().toISOString() };
+    await db.collection('fretes').doc(_confFreteId).update({
+      itensCarregados, taxaCumprimento, totalPlanejado: totalPlan, totalCarregado: totalCarr,
+      status: 'transporte', etapaStatus: 'transporte',
+      historico: firebase.firestore.FieldValue.arrayUnion(hist),
+      updatedBy: nome, updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+    });
+    const f = _fretesCache.find(x => x.id === _confFreteId);
+    if (f) { f.itensCarregados = itensCarregados; f.taxaCumprimento = taxaCumprimento; f.totalPlanejado = totalPlan; f.totalCarregado = totalCarr; f.status = 'transporte'; f.etapaStatus = 'transporte'; }
+    showToast(`✅ Carga confirmada! Taxa de cumprimento: ${taxaCumprimento}%`);
+    closeModal('modal-conferencia-carga');
+    abrirFreteDetalhe(_confFreteId);
+    renderFrtLista();
+  } catch(e) {
+    console.error('salvarConferenciaCarga', e);
+    showToast('❌ Erro ao salvar: ' + e.message);
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '✅ Confirmar e liberar transporte'; }
+  }
+}
+window.salvarConferenciaCarga = salvarConferenciaCarga;
 
 // Muda a situação do frete e registra no histórico
 async function frtMudarStatus(id, novoStatus, rotulo, extra) {

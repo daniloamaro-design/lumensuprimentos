@@ -27,25 +27,58 @@ async function initCoordDashboard() {
 
   try {
     const { mes, ano } = _cd.mesAtual();
-    const [fretesSnap, pasSnap, ordersSnap, finSnap, frtMetasSnap, supMetasSnap, pasMetasSnap] = await Promise.all([
+    const mesStr  = String(mes).padStart(2,'0');
+    const mesStr2 = `${ano}-${mesStr}`;
+    const prefixMes = mesStr2;
+    // Início e fim do mês para query por timestamp
+    const inicioMes = new Date(ano, mes - 1, 1);
+    const fimMes    = new Date(ano, mes, 1);
+
+    const [fretesSnap, pasSnap, ordersSnap, finSnap, quotSnap, frtMetasSnap, supMetasSnap, pasMetasSnap] = await Promise.all([
       db.collection('fretes').get(),
       db.collection('passagens_solicitacoes').get(),
       db.collection('orders').get(),
       db.collection('compras_financeiro').get(),
+      // Busca todas as cotações aprovadas e filtra por data no client (evita problema com campos ausentes)
+      db.collection('quotations').where('status','==','aprovado').get().catch(()=>({docs:[]})),
       db.collection('fretes_metas').orderBy('mes','desc').limit(12).get().catch(()=>({docs:[]})),
       db.collection('metas').doc('categorias_' + ano).get().catch(()=>null),
       db.collection('passagens_metas').orderBy('mes','desc').limit(12).get().catch(()=>({docs:[]})),
     ]);
 
-    const fretes   = fretesSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+    const fretes    = fretesSnap.docs.map(d => ({ id: d.id, ...d.data() }));
     const passagens = pasSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-    const orders   = ordersSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-    const fin      = finSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-    const hoje = _cd.hoje();
-    const mesStr = String(mes).padStart(2,'0');
-    const prefixMes = `${ano}-${mesStr}`;
+    const orders    = ordersSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+    const fin       = finSnap.docs.map(d => ({ id: d.id, ...d.data() }));
 
-    const mesStr2 = `${ano}-${String(mes).padStart(2,'0')}`;
+    // Filtra cotações aprovadas do mês atual por qualquer campo de data disponível
+    const _tsToDate = ts => {
+      if (!ts) return null;
+      if (typeof ts.toDate === 'function') return ts.toDate();
+      if (ts.seconds) return new Date(ts.seconds * 1000);
+      if (typeof ts === 'string') return new Date(ts);
+      return null;
+    };
+    const allQuot = quotSnap.docs ? quotSnap.docs.map(d => ({ id: d.id, ...d.data() })) : [];
+    const quotations = allQuot.filter(q => {
+      const dataCandidates = [q.approvedAt, q.updatedAt, q.createdAt];
+      for (const ts of dataCandidates) {
+        const d = _tsToDate(ts);
+        if (d && d >= inicioMes && d < fimMes) return true;
+      }
+      // Fallback: campo data em string YYYY-MM-DD ou DD/MM/YYYY
+      if (q.data) {
+        const s = String(q.data);
+        if (s.startsWith(prefixMes)) return true;
+        const p = s.split('/');
+        if (p.length === 3) {
+          const iso = `${p[2]}-${p[1].padStart(2,'0')}-${p[0].padStart(2,'0')}`;
+          if (iso.startsWith(prefixMes)) return true;
+        }
+      }
+      return false;
+    });
+    const hoje = _cd.hoje();
 
     // Metas: suprimentos = soma de metaMes de todas as categorias
     const supMetasData = supMetasSnap?.data?.() || {};
@@ -62,7 +95,7 @@ async function initCoordDashboard() {
     el.innerHTML = [
       _cdAlertas(fretes, passagens, orders, hoje),
       _cdBlocos(fretes, passagens, orders),
-      _cdCustoMes(fretes, fin, passagens, prefixMes, mes, ano, metaSup, metaPas, metaFrete),
+      _cdCustoMes(fretes, fin, passagens, quotations, prefixMes, mes, ano, metaSup, metaPas, metaFrete),
       _cdCalendario(fretes, passagens, hoje),
     ].join('');
 
@@ -197,15 +230,46 @@ function _cdBlocos(fretes, passagens, orders) {
 }
 
 // ── 3. CUSTO DO MÊS ──────────────────────────────────────────────────────
-function _cdCustoMes(fretes, fin, passagens, prefixMes, mes, ano, metaSup, metaPas, metaFrete) {
-  // Suprimentos e Passagens vêm de compras_financeiro
-  let custoSup = 0, custoPas = 0;
+// Verifica se um registro de compras_financeiro pertence ao mês/ano atual
+// Os registros Excel não têm campo 'data' — usam dataCompraStr (DD/MM/YYYY), mes+ano, ou createdAt
+const _MESES_PT = {
+  JAN:1,FEV:2,MAR:3,ABR:4,MAI:5,JUN:6,JUL:7,AGO:8,SET:9,OUT:10,NOV:11,DEZ:12,
+  JANEIRO:1,FEVEREIRO:2,'MARÇO':3,'MARCO':3,ABRIL:4,MAIO:5,JUNHO:6,JULHO:7,AGOSTO:8,SETEMBRO:9,OUTUBRO:10,NOVEMBRO:11,DEZEMBRO:12,
+};
+function _cdPertenceMes(f, prefixMes, mes, ano) {
+  // 1. Campo data em ISO (registros criados pelo sistema)
+  const d = f.data || '';
+  if (d && d.startsWith(prefixMes)) return true;
+  // 2. dataCompraStr no formato DD/MM/YYYY (importação Excel)
+  if (f.dataCompraStr) {
+    const p = String(f.dataCompraStr).split('/');
+    if (p.length === 3) {
+      const iso = `${p[2]}-${p[1].padStart(2,'0')}-${p[0].padStart(2,'0')}`;
+      if (iso.startsWith(prefixMes)) return true;
+    }
+  }
+  // 3. Campos mes (nome) + ano (número) — ex: mes:"SETEMBRO" ano:2026
+  if (f.ano && f.mes) {
+    const chave = String(f.mes).toUpperCase().trim();
+    const numMes = _MESES_PT[chave] || _MESES_PT[chave.slice(0,3)];
+    if (Number(f.ano) === ano && numMes === mes) return true;
+  }
+  return false;
+}
+
+function _cdCustoMes(fretes, fin, passagens, quotations, prefixMes, mes, ano, metaSup, metaPas, metaFrete) {
+  // Suprimentos: soma das cotações aprovadas no mês (fonte real do gasto de suprimentos)
+  // + fallback para compras_financeiro caso haja registros manuais do módulo financeiro
+  let custoSup = 0;
+  quotations.forEach(q => { custoSup += Number(q.valor) || 0; });
+  // Complementa com compras_financeiro (registros sem correspondência em quotations, ex: lançamentos manuais)
+  let custoPas = 0;
   fin.forEach(f => {
-    const data = f.data || f.createdAt?.toDate?.().toISOString?.().slice(0,10) || '';
-    if (!data.startsWith(prefixMes)) return;
+    if (!_cdPertenceMes(f, prefixMes, mes, ano)) return;
     const val = Number(f.valor) || 0;
-    if ((f.modulo || 'suprimentos') === 'suprimentos') custoSup += val;
-    else if (f.modulo === 'passagens') custoPas += val;
+    if (f.modulo === 'passagens') custoPas += val;
+    // Suprimentos via compras_financeiro só entra se não houver cotações (evita dupla contagem)
+    else if ((f.modulo || 'suprimentos') === 'suprimentos' && quotations.length === 0) custoSup += val;
   });
 
   // Fretes vêm da coleção fretes (apenas entregues/em transporte, não cancelados)

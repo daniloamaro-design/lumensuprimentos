@@ -811,9 +811,49 @@ function orcRestaurarTudo() {
   _renderOrcDetalhadoUI();
 }
 
-function finalizarOrcDetalhado() {
-  showToast('✅ Orçamento finalizado! Exporte o PDF ou registre a transferência.');
+async function finalizarOrcDetalhado() {
+  if (!orcDetalheData) return;
+  const btn = document.querySelector('[onclick="finalizarOrcDetalhado()"]');
+  if (btn) { btn.disabled = true; btn.textContent = 'Salvando…'; }
+  try {
+    const de  = document.getElementById('orc-de').value;
+    const ate = document.getElementById('orc-ate').value;
+    const linhasAtivas = orcDetalheData.linhas.filter(l => !l.removed);
+    const total = linhasAtivas.reduce((s, l) => s + (l.qtd * l.unitPrice), 0);
+    const nome = (typeof currentUserData !== 'undefined' && currentUserData?.name) || null;
+    const code = 'ORC-' + new Date().toISOString().slice(0,10).replace(/-/g,'') + '-' + Math.random().toString(36).slice(2,5).toUpperCase();
+    await db.collection('orcamentos_financeiros').add({
+      code,
+      casa:    orcDetalheData.casa,
+      city:    orcDetalheData.city    || null,
+      bloco:   orcDetalheData.bloco   || null,
+      tipo:    orcDetalheData.tipo    || 'compra',
+      pessoas: orcDetalheData.pessoas || 0,
+      dias:    orcDetalheData.dias    || 0,
+      de, ate,
+      total,
+      itens: linhasAtivas.map(l => ({
+        prodId:    l.prodId,
+        nome:      l.nome,
+        cat:       l.cat,
+        unidade:   l.unidade   || '',
+        qtd:       l.qtd,
+        unitPrice: l.unitPrice,
+        subtotal:  l.qtd * l.unitPrice,
+      })),
+      geradoPor:  nome,
+      geradoEm:   firebase.firestore.FieldValue.serverTimestamp(),
+      status:     'finalizado',
+    });
+    showToast(`✅ Orçamento ${code} salvo! Consulte o histórico em Orç. Financeiro → Histórico.`);
+  } catch(e) {
+    console.error('finalizarOrcDetalhado', e);
+    showToast('❌ Erro ao salvar orçamento: ' + e.message);
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '✅ Finalizar Orçamento'; }
+  }
 }
+window.finalizarOrcDetalhado = finalizarOrcDetalhado;
 
 function exportOrcDetalhadoPDF() {
   if (!orcDetalheData) return;
@@ -1350,6 +1390,129 @@ function exportOrcamentoCSV() {
   a.click();
   showToast('✅ CSV exportado!');
 }
+
+// ─────────────────────────────────────────────
+// 📂  HISTÓRICO DE ORÇAMENTOS FINANCEIROS
+// ─────────────────────────────────────────────
+let _orcHistCache = [];
+
+async function loadOrcHistorico() {
+  const wrap = document.getElementById('orc-hist-lista');
+  if (!wrap) return;
+  wrap.innerHTML = '<div style="color:var(--text-muted);font-size:13px;padding:20px;text-align:center;">Carregando…</div>';
+
+  const filtroCasa  = document.getElementById('orc-hist-casa')?.value  || '';
+  const filtroMes   = document.getElementById('orc-hist-mes')?.value   || '';
+  const filtroBloco = document.getElementById('orc-hist-bloco')?.value || '';
+
+  try {
+    const snap = await db.collection('orcamentos_financeiros').orderBy('geradoEm', 'desc').get();
+    _orcHistCache = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+    // Popula filtro de casas na primeira carga
+    const selCasa = document.getElementById('orc-hist-casa');
+    if (selCasa && selCasa.options.length <= 1) {
+      const casas = [...new Set(_orcHistCache.map(o => o.casa).filter(Boolean))].sort((a,b) => a.localeCompare(b,'pt-BR'));
+      selCasa.innerHTML = '<option value="">Todas as casas</option>' + casas.map(c => `<option value="${c}">${c}</option>`).join('');
+      if (filtroCasa) selCasa.value = filtroCasa;
+    }
+
+    let lista = _orcHistCache;
+    if (filtroCasa)  lista = lista.filter(o => o.casa  === filtroCasa);
+    if (filtroBloco) lista = lista.filter(o => (o.bloco||'') === filtroBloco);
+    if (filtroMes)   lista = lista.filter(o => (o.de||'').slice(0,7) === filtroMes || (o.ate||'').slice(0,7) === filtroMes);
+
+    if (!lista.length) {
+      wrap.innerHTML = '<div style="color:var(--text-muted);font-size:13px;padding:32px;text-align:center;">Nenhum orçamento encontrado.</div>';
+      return;
+    }
+
+    const fmt = v => 'R$ ' + Number(v||0).toLocaleString('pt-BR', { minimumFractionDigits:2, maximumFractionDigits:2 });
+    const fmtData = s => s ? new Date(s+'T00:00:00').toLocaleDateString('pt-BR') : '—';
+    const tipoBadge = t => t === 'transferencia'
+      ? '<span style="font-size:11px;padding:2px 7px;border-radius:3px;background:#EDE9FE;color:#6D28D9;font-weight:600;">Transferência</span>'
+      : '<span style="font-size:11px;padding:2px 7px;border-radius:3px;background:#ECFDF5;color:#059669;font-weight:600;">Compra Direta</span>';
+
+    wrap.innerHTML = lista.map(o => {
+      const geradoEm = o.geradoEm?.toDate ? o.geradoEm.toDate().toLocaleDateString('pt-BR') : '—';
+      return `
+      <div style="border:1px solid var(--border);border-radius:8px;padding:16px 18px;display:flex;flex-direction:column;gap:10px;">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px;">
+          <div>
+            <div style="font-weight:700;font-size:14px;">${o.casa||'—'} ${o.bloco ? `· Bloco ${o.bloco}` : ''}</div>
+            <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">${fmtData(o.de)} → ${fmtData(o.ate)} &nbsp;|&nbsp; ${o.pessoas||0} pessoas · ${o.dias||0} dias &nbsp;|&nbsp; ${o.city||'—'}</div>
+          </div>
+          <div style="text-align:right;">
+            <div style="font-size:20px;font-weight:700;color:var(--lumen);">${fmt(o.total)}</div>
+            <div style="font-size:11px;color:var(--text-muted);">${tipoBadge(o.tipo)}</div>
+          </div>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+          <div style="font-size:12px;color:var(--text-muted);">
+            📋 ${o.code||'—'} &nbsp;|&nbsp; Gerado por <strong>${o.geradoPor||'—'}</strong> em ${geradoEm}
+            &nbsp;|&nbsp; ${(o.itens||[]).length} produto(s)
+          </div>
+          <button class="btn btn-outline btn-sm" onclick="orcHistVerDetalhe('${o.id}')">Ver detalhes</button>
+        </div>
+      </div>`;
+    }).join('');
+  } catch(e) {
+    console.error('loadOrcHistorico', e);
+    wrap.innerHTML = `<div style="color:var(--danger);padding:20px;text-align:center;">Erro: ${e.message}</div>`;
+  }
+}
+window.loadOrcHistorico = loadOrcHistorico;
+
+function orcHistVerDetalhe(id) {
+  const o = _orcHistCache.find(x => x.id === id);
+  if (!o) return;
+  const fmt = v => 'R$ ' + Number(v||0).toLocaleString('pt-BR', { minimumFractionDigits:2, maximumFractionDigits:2 });
+  const fmtData = s => s ? new Date(s+'T00:00:00').toLocaleDateString('pt-BR') : '—';
+  const itens = (o.itens||[]);
+  const wrap = document.getElementById('orc-hist-detalhe');
+  if (!wrap) return;
+  wrap.innerHTML = `
+    <div style="border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-top:16px;">
+      <div style="padding:14px 18px;background:var(--surface2);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+        <div>
+          <div style="font-weight:700;font-size:15px;">${o.casa||'—'} ${o.bloco ? `· Bloco ${o.bloco}`:''} — ${fmtData(o.de)} a ${fmtData(o.ate)}</div>
+          <div style="font-size:12px;color:var(--text-muted);">${o.code} · ${o.pessoas||0} pessoas · ${o.dias||0} dias · ${o.city||'—'}</div>
+        </div>
+        <div style="font-size:22px;font-weight:700;color:var(--lumen);">${fmt(o.total)}</div>
+      </div>
+      <div style="overflow-x:auto;">
+        <table style="width:100%;border-collapse:collapse;font-size:13px;">
+          <thead>
+            <tr style="background:var(--surface2);">
+              <th style="padding:8px 12px;text-align:left;font-weight:600;color:var(--text-muted);font-size:11px;letter-spacing:.05em;">PRODUTO</th>
+              <th style="padding:8px 12px;text-align:left;font-weight:600;color:var(--text-muted);font-size:11px;letter-spacing:.05em;">CATEGORIA</th>
+              <th style="padding:8px 12px;text-align:right;font-weight:600;color:var(--text-muted);font-size:11px;letter-spacing:.05em;">QTD</th>
+              <th style="padding:8px 12px;text-align:right;font-weight:600;color:var(--text-muted);font-size:11px;letter-spacing:.05em;">PREÇO UNIT.</th>
+              <th style="padding:8px 12px;text-align:right;font-weight:600;color:var(--text-muted);font-size:11px;letter-spacing:.05em;">SUBTOTAL</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${itens.map((it,i) => `
+              <tr style="${i%2===0?'background:var(--surface)':'background:var(--surface2)'}">
+                <td style="padding:8px 12px;font-weight:500;">${it.nome||it.prodId}</td>
+                <td style="padding:8px 12px;color:var(--text-muted);">${it.cat||'—'}</td>
+                <td style="padding:8px 12px;text-align:right;font-variant-numeric:tabular-nums;">${it.qtd} ${it.unidade||''}</td>
+                <td style="padding:8px 12px;text-align:right;font-variant-numeric:tabular-nums;">${fmt(it.unitPrice)}</td>
+                <td style="padding:8px 12px;text-align:right;font-weight:600;font-variant-numeric:tabular-nums;">${fmt(it.subtotal)}</td>
+              </tr>`).join('')}
+          </tbody>
+          <tfoot>
+            <tr style="border-top:2px solid var(--border);">
+              <td colspan="4" style="padding:10px 12px;font-weight:700;text-align:right;">Total</td>
+              <td style="padding:10px 12px;font-weight:700;text-align:right;color:var(--lumen);font-variant-numeric:tabular-nums;">${fmt(o.total)}</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </div>`;
+  wrap.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+window.orcHistVerDetalhe = orcHistVerDetalhe;
 
 // ─────────────────────────────────────────────
 // 🎁  DONATION TOGGLE

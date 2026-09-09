@@ -1713,6 +1713,16 @@ function openAttachModal() {
   document.getElementById('attach-boleto-venc').value   = detailOrderData?.boletoVencimento || '';
   document.getElementById('attach-obs').value           = detailOrderData?.attachObs || '';
 
+  // Limpa inputs de arquivo para não persistir NF/boleto de outro pedido
+  const _nfInput  = document.getElementById('attach-nf-file');
+  const _bolInput = document.getElementById('attach-boleto-file');
+  if (_nfInput)  _nfInput.value  = '';
+  if (_bolInput) _bolInput.value = '';
+  const _nfLbl  = document.getElementById('attach-nf-label');
+  const _bolLbl = document.getElementById('attach-boleto-label');
+  if (_nfLbl && !detailOrderData?.nfFileURL)   _nfLbl.textContent  = 'Clique para selecionar';
+  if (_bolLbl && !detailOrderData?.boletoFileURL) _bolLbl.textContent = 'Clique para selecionar';
+
   // Mostra arquivos já anexados
   const nfExisting     = document.getElementById('attach-nf-existing');
   const boletoExisting = document.getElementById('attach-boleto-existing');
@@ -1796,16 +1806,22 @@ async function saveAttachment() {
   const nfFile     = document.getElementById('attach-nf-file').files[0];
   const boletoFile = document.getElementById('attach-boleto-file').files[0];
 
+  // Remove caracteres inválidos para chave de Storage (apenas letras, números, -, _, .)
+  const _safeName = name => name
+    .normalize('NFD').replace(/[̀-ͯ]/g, '') // remove acentos
+    .replace(/[^a-zA-Z0-9._-]/g, '_')                  // substitui inválidos por _
+    .replace(/_+/g, '_');                               // colapsa múltiplos _
+
   try {
     const storage = firebase.storage();
     if (nfFile) {
-      const nfRef = storage.ref(`pedidos/${orderId}/nf_${Date.now()}_${nfFile.name}`);
+      const nfRef = storage.ref(`pedidos/${orderId}/nf_${Date.now()}_${_safeName(nfFile.name)}`);
       const snap = await nfRef.put(nfFile);
       update.nfFileName = nfFile.name;
       update.nfFileURL  = await snap.ref.getDownloadURL();
     }
     if (boletoFile) {
-      const bolRef = storage.ref(`pedidos/${orderId}/boleto_${Date.now()}_${boletoFile.name}`);
+      const bolRef = storage.ref(`pedidos/${orderId}/boleto_${Date.now()}_${_safeName(boletoFile.name)}`);
       const snap = await bolRef.put(boletoFile);
       update.boletoFileName = boletoFile.name;
       update.boletoFileURL  = await snap.ref.getDownloadURL();

@@ -195,7 +195,7 @@ document.querySelector('.main-content').insertAdjacentHTML('beforeend', `
             </label>
             <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;font-weight:500;padding:8px 14px;border:1.5px solid var(--border);border-radius:8px;background:var(--surface);transition:all 0.15s;" id="cat-check-lanches_csl">
               <input type="checkbox" id="sup-cat-lanches_csl" value="lanches_csl" onchange="updateCatStyle('lanches_csl')" style="accent-color:var(--lumen);width:16px;height:16px;">
-              🥪 Lanches CSL
+              🥪 Lanches Proj. Sociais
             </label>
           </div>
         </div>
@@ -1185,7 +1185,7 @@ document.querySelector('.main-content').insertAdjacentHTML('beforeend', `
             <option value="higiene">🧴 Higiene</option>
             <option value="proteina">🥩 Proteína</option>
             <option value="missa_sf">⛪ Missa Ser Feliz</option>
-            <option value="lanches_csl">🥪 Lanches CSL</option>
+            <option value="lanches_csl">🥪 Lanches Proj. Sociais</option>
           </select>
         </div>
         <div>
@@ -1470,6 +1470,56 @@ document.querySelector('.main-content').insertAdjacentHTML('beforeend', `
   </div>
 </div>
 
+<!-- PAGE: HISTÓRICO DE ORÇAMENTOS FINANCEIROS -->
+<div class="page" id="page-orc-historico-fin">
+  <div class="page-header">
+    <div class="page-title">📂 Histórico de Orçamentos Financeiros</div>
+    <div class="page-sub">Consulte todos os orçamentos finalizados por casa e período</div>
+  </div>
+
+  <!-- Filtros -->
+  <div class="card" style="margin-bottom:16px;">
+    <div class="card-body">
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:12px;align-items:flex-end;">
+        <div>
+          <label class="form-label">Casa</label>
+          <select class="form-select" id="orc-hist-casa" onchange="loadOrcHistorico()">
+            <option value="">Todas as casas</option>
+          </select>
+        </div>
+        <div>
+          <label class="form-label">Bloco</label>
+          <select class="form-select" id="orc-hist-bloco" onchange="loadOrcHistorico()">
+            <option value="">Todos os blocos</option>
+            <option value="A">Bloco A</option>
+            <option value="B">Bloco B</option>
+            <option value="C">Bloco C</option>
+            <option value="D">Bloco D</option>
+          </select>
+        </div>
+        <div>
+          <label class="form-label">Mês de referência</label>
+          <input type="month" class="form-input" id="orc-hist-mes" onchange="loadOrcHistorico()">
+        </div>
+        <div>
+          <button class="btn btn-secondary" onclick="loadOrcHistorico()">🔄 Atualizar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Lista -->
+  <div id="orc-hist-lista" style="display:flex;flex-direction:column;gap:12px;">
+    <div class="empty-state">
+      <div class="empty-state-icon">📂</div>
+      <div class="empty-state-title">Carregando orçamentos…</div>
+    </div>
+  </div>
+
+  <!-- Detalhe expandido -->
+  <div id="orc-hist-detalhe"></div>
+</div>
+
 <!-- PAGE: ORÇAMENTOS PENDENTES -->
 <div class="page" id="page-orc-pendentes">
   <div class="page-header">
@@ -1592,7 +1642,7 @@ document.querySelector('.main-content').insertAdjacentHTML('beforeend', `
               <option value="higiene">🧴 Higiene</option>
               <option value="proteina">🥩 Proteína</option>
               <option value="missa_sf">⛪ Missa Ser Feliz</option>
-              <option value="lanches_csl">🥪 Lanches CSL</option>
+              <option value="lanches_csl">🥪 Lanches Proj. Sociais</option>
             </select>
           </div>
           <div>
@@ -2189,7 +2239,7 @@ document.querySelector('.main-content').insertAdjacentHTML('beforeend', `
 <!-- ════════ PAGE: CALCULADO × REAL ════════ -->
 <div class="page" id="page-calc-real">
   <div class="page-header">
-    <div class="page-title">Calculado × Real — Consumo por Casa</div>
+    <div class="page-title">Previsão de Suprimentos por Casa</div>
     <div class="page-sub">Compare o consumo diário calculado pelo per capita com o consumo real do estoque</div>
   </div>
 
@@ -2238,7 +2288,7 @@ document.querySelector('.main-content').insertAdjacentHTML('beforeend', `
     <div class="card-header">
       <div class="card-header-title">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><path d="M3 3v18h18"/><path d="M7 16l4-4 4 4 4-8"/></svg>
-        Consumo Diário: Calculado × Real por Produto
+        Consumo Diário: Previsto × Real por Produto
       </div>
       <div style="display:flex;gap:8px;">
         <span style="font-size:11px;padding:3px 9px;border-radius:20px;background:var(--ok-bg);color:var(--ok);font-weight:700;">🟢 Real ≤ Calculado</span>

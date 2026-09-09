@@ -526,6 +526,8 @@ function goPage(page) {
   // Módulo Fretes (U3)
   if (page === 'frt-lista') setTimeout(loadFrtLista, 50);
   if (page === 'frt-novo') setTimeout(loadFrtNovoForm, 50);
+  if (page === 'frt-rotas') setTimeout(frtCarregarTransfPendentes, 50);
+  if (page === 'orc-historico-fin') setTimeout(loadOrcHistorico, 50);
   if (page === 'frt-freteiros') setTimeout(loadFrtFreteiros, 50);
   if (page === 'frt-metas') setTimeout(loadFrtMetas, 50);
   if (page === 'frt-indicadores') setTimeout(loadFrtIndicadores, 50);
@@ -599,7 +601,7 @@ function goPage(page) {
     'percapita':'Per Capita por Casa','manage-houses':'Gerenciar Casas',
     'manage-cities':'Gerenciar Cidades','manage-products':'Gerenciar Produtos',
     'indicadores':'Indicadores','transferencias':'Transferências',
-    'fornecedores':'Fornecedores','calc-real':'Calculado × Real','orcamento-financeiro':'Orçamento Financeiro','ind-fornecedores':'Indicadores de Fornecedores','orc-pendentes':'Orçamentos Pendentes','financeiro-compras':'Financeiro — Compras','metas':'Metas e Análise Econômica','var-solicitacoes':'Solicitações de Variedades','var-orcamento':'Orçamentos de Variedades','var-proposta':'Proposta Semanal','var-historico':'Histórico de Compras','var-setores':'Gerenciar Setores','rotina-estoque':'Rotina de Estoque','manage-cc':'Gerenciar Centro de Custo','cardapio-diario':'Cardápio Diário','percapita-financeiro':'Per Capita Financeiro','inventario':'Contagem de Inventário','coord-dashboard':'Painel do Coordenador'
+    'fornecedores':'Fornecedores','calc-real':'Previsão de Suprimentos','orcamento-financeiro':'Orçamento Financeiro','orc-historico-fin':'Histórico de Orçamentos','ind-fornecedores':'Indicadores de Fornecedores','orc-pendentes':'Orçamentos Pendentes','financeiro-compras':'Financeiro — Compras','metas':'Metas e Análise Econômica','var-solicitacoes':'Solicitações de Variedades','var-orcamento':'Orçamentos de Variedades','var-proposta':'Proposta Semanal','var-historico':'Histórico de Compras','var-setores':'Gerenciar Setores','rotina-estoque':'Rotina de Estoque','manage-cc':'Gerenciar Centro de Custo','cardapio-diario':'Cardápio Diário','percapita-financeiro':'Per Capita Financeiro','inventario':'Contagem de Inventário','coord-dashboard':'Painel do Coordenador'
   };
   document.getElementById('topbar-page-title').textContent = titles[page] || '';
 
