@@ -592,14 +592,30 @@ async function loadStockView() {
 
       if (allProds.length === 0 && Object.keys(prods).length === 0) return null;
 
-      // Calcula pct de cada produto com movimentação
+      // Proteína: produtos não têm ppp individual (comprados em caixa/kg
+      // avulso), usa a mesma fórmula por pessoa da tela de detalhe
+      // (svRefreshDetail) — 0,13kg × 2 refeições/dia, sobre o total da
+      // categoria. Sem isso, dailyUse=0 (ppp ausente) fazia todo produto
+      // contar como "100% saudável" mesmo com estoque zerado.
+      if (catKey === 'proteina') {
+        const PROTEIN_KG_PESSOA_REFEICAO = 0.13, PROTEIN_REFEICOES_DIA = 2;
+        const dailyKg = people * PROTEIN_KG_PESSOA_REFEICAO * PROTEIN_REFEICOES_DIA;
+        const totalKg = Object.values(prods).reduce((s, d) => s + Math.max(d.e - d.s, 0), 0);
+        const days = dailyKg > 0 ? totalKg / dailyKg : 999;
+        const pct = days >= 999 ? 100 : Math.min(Math.round((days / 20) * 100), 100);
+        return { catKey, catDef, pct };
+      }
+
+      // Demais categorias: pct por produto com ppp cadastrado (ppp ausente
+      // não entra na média — não dá pra saber quantos dias de estoque
+      // representa; antes contava como 100% mesmo com estoque zerado).
       const pcts = Object.entries(prods).map(([, d]) => {
+        if (!(d.ppp > 0)) return null;
         const stock = Math.max(d.e - d.s, 0);
         const dailyUse = d.ppp * people;
-        if (dailyUse <= 0) return 100;
         const days = stock / dailyUse;
         return Math.min(Math.round((days / 20) * 100), 100);
-      });
+      }).filter(p => p !== null);
 
       if (pcts.length === 0) return { catKey, catDef, pct: 0 };
       const avg = Math.round(pcts.reduce((a, b) => a + b, 0) / pcts.length);
