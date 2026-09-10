@@ -541,8 +541,12 @@ async function loadAllOrders() {
         if (p) estimatedTotal += parseFloat(qty) * p;
       });
     });
-    const nfStr = o.nfNumero
-      ? `<span style="font-size:11px;font-weight:700;color:var(--ok);">📎 NF ${o.nfNumero}</span><br><span style="font-size:11px;color:var(--text-muted);">R$ ${parseFloat(o.nfValor||0).toLocaleString('pt-BR',{minimumFractionDigits:2})}</span>`
+    // Antes só considerava nfNumero — um pedido com NF/valor anexados mas
+    // sem o número digitado aparecia como "sem NF" na lista, mesmo tendo
+    // tudo anexado. Agora considera arquivo e valor também.
+    const temNF = o.nfNumero || o.nfFileURL || (parseFloat(o.nfValor) > 0);
+    const nfStr = temNF
+      ? `<span style="font-size:11px;font-weight:700;color:var(--ok);">📎 ${o.nfNumero ? 'NF ' + o.nfNumero : 'NF anexada'}</span><br><span style="font-size:11px;color:var(--text-muted);">${parseFloat(o.nfValor) > 0 ? 'R$ ' + parseFloat(o.nfValor).toLocaleString('pt-BR',{minimumFractionDigits:2}) : 'sem valor'}</span>`
       : '<span style="font-size:11px;color:var(--text-muted);">—</span>';
     const hasAttach = ''; // incorporado na coluna NF
     const entregue = o.entregue === true;
