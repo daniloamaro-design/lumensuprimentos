@@ -2286,37 +2286,14 @@ Retorne APENAS este JSON, sem texto adicional:
 
     if (!parsed.itens?.length) throw new Error('IA não encontrou preços na nota. Verifique se o arquivo está legível.');
 
-    // Salva em prices_historico
-    const city = detailOrderData?.city || CASAS_CIDADES?.[detailOrderData?.house] || '';
-    const dataCompra = new Date();
-    const batch = db.batch();
-    let salvos = 0;
-
-    parsed.itens.forEach(({ prodId, precoUnitario }) => {
-      if (!prodId || !precoUnitario || precoUnitario <= 0) return;
-      const item = itens.find(i => i.prodId === prodId);
-      if (!item) return;
-      const ref = db.collection('prices_historico').doc();
-      batch.set(ref, {
-        prodId, cat: item.catKey, city, price: Number(precoUnitario),
-        savedAt: firebase.firestore.Timestamp.fromDate(dataCompra),
-        savedBy: currentUserData?.name || '',
-        pedidoCode: detailOrderData?.code || '',
-        fornecedorNome: document.getElementById('attach-supplier')?.options[document.getElementById('attach-supplier')?.selectedIndex]?.text || '',
-        nfNumero: document.getElementById('attach-nf-num')?.value || '',
-      });
-      salvos++;
-    });
-
-    await batch.commit();
-
-    // Preenche número e valor total da NF no formulário — a IA tenta ler,
-    // mas os campos continuam editáveis: se ela errar (nota borrada, layout
-    // atípico), quem está anexando corrige antes de salvar.
+    // Preenche número e valor total da NF no formulário PRIMEIRO — é o mais
+    // importante pra quem está anexando, e não pode depender do histórico de
+    // preços (abaixo) dar certo. Os campos continuam editáveis: se a IA
+    // errar (nota borrada, layout atípico), dá pra corrigir antes de salvar.
     const campoNum = document.getElementById('attach-nf-num');
     const campoValor = document.getElementById('attach-nf-valor');
     let avisoValor = '';
-    if (parsed.numeroNota && campoNum && !campoNum.value.trim()) campoNum.value = parsed.numeroNota;
+    if (parsed.numeroNota && campoNum) campoNum.value = parsed.numeroNota;
     if (parsed.valorTotal > 0 && campoValor) {
       campoValor.value = Number(parsed.valorTotal).toFixed(2);
     } else if (campoValor) {
@@ -2329,10 +2306,42 @@ Retorne APENAS este JSON, sem texto adicional:
       if (somaItens > 0) { campoValor.value = somaItens.toFixed(2); avisoValor = ' Valor total é uma estimativa (soma dos itens lidos) — confira antes de salvar.'; }
     }
 
+    // Salva em prices_historico — best effort: se isso falhar (ex.: preço
+    // fora do esperado, erro de rede), o número/valor já preenchidos acima
+    // continuam valendo. Não deixa um problema aqui derrubar a leitura.
+    let salvos = 0;
+    try {
+      const city = detailOrderData?.city || CASAS_CIDADES?.[detailOrderData?.house] || '';
+      const dataCompra = new Date();
+      const batch = db.batch();
+      parsed.itens.forEach(({ prodId, precoUnitario }) => {
+        if (!prodId || !precoUnitario || precoUnitario <= 0) return;
+        const item = itens.find(i => i.prodId === prodId);
+        if (!item) return;
+        const ref = db.collection('prices_historico').doc();
+        batch.set(ref, {
+          prodId, cat: item.catKey, city, price: Number(precoUnitario),
+          savedAt: firebase.firestore.Timestamp.fromDate(dataCompra),
+          savedBy: currentUserData?.name || '',
+          pedidoCode: detailOrderData?.code || '',
+          fornecedorNome: document.getElementById('attach-supplier')?.options[document.getElementById('attach-supplier')?.selectedIndex]?.text || '',
+          nfNumero: document.getElementById('attach-nf-num')?.value || '',
+        });
+        salvos++;
+      });
+      await batch.commit();
+    } catch (histErr) {
+      console.error('attachExtrairPrecosIA — erro ao salvar prices_historico (não bloqueia a leitura):', histErr);
+      salvos = 0;
+      avisoValor += ' (histórico de preços não foi salvo — número e valor da NF continuam preenchidos.)';
+    }
+
     st.style.display = 'block';
     st.style.background = 'rgba(22,163,74,.12)';
     st.style.borderLeft = '3px solid #16a34a';
-    st.innerHTML = `✅ <b>${salvos} preço(s)</b> extraído(s) e salvos no histórico automaticamente.${avisoValor}`;
+    st.innerHTML = salvos > 0
+      ? `✅ <b>${salvos} preço(s)</b> extraído(s) e salvos no histórico automaticamente.${avisoValor}`
+      : `✅ Número e valor da NF preenchidos.${avisoValor}`;
 
   } catch(e) {
     st.style.display = 'block';
