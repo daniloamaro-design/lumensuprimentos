@@ -449,16 +449,23 @@ async function showApp() {
 }
 
 function populateHouseSelects() {
+  // showApp() (e portanto esta função) roda de novo a cada evento de auth do
+  // Supabase — inclusive renovação automática de token em segundo plano —
+  // não só no login (ver comentário em showApp()). Sem preservar o valor
+  // atual, um filtro de casa que o usuário tinha escolhido (ex.: "Todos os
+  // Pedidos") voltava sozinho pra "Todas as casas" no meio do uso.
   const selects = ['order-house','filter-house','mov-house','cr-house','card-house','ajuste-casa'];
   selects.forEach(id => {
     const el = document.getElementById(id);
     if (!el) return;
+    const current = el.value;
     el.innerHTML = '<option value="">Selecione...</option>';
     CASAS.forEach(c => {
       const o = document.createElement('option');
       o.value = c; o.textContent = c;
       el.appendChild(o);
     });
+    if (current) el.value = current;
   });
   const fh = document.getElementById('filter-house');
   if (fh) fh.querySelector('option').textContent = 'Todas as casas';
