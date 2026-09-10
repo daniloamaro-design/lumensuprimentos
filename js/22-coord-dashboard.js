@@ -454,14 +454,29 @@ async function initCoordSaldo() {
 }
 window.initCoordSaldo = initCoordSaldo;
 
+function coordSaldoSetTab(modulo) {
+  ['suprimentos', 'passagens', 'fretes'].forEach(m => {
+    document.getElementById(`coord-saldo-tab-${m}`)?.classList.toggle('active', m === modulo);
+    document.getElementById(`coord-saldo-card-${m}`)?.classList.toggle('hidden', m !== modulo);
+  });
+}
+window.coordSaldoSetTab = coordSaldoSetTab;
+
 // pago === 'Sim' é o único valor que representa "quitado" em compras_financeiro
 // (os demais — vazio, 'Não', ausente — contam como em aberto).
+// Chave de agrupamento tolerante a maiúscula/espaço (ex.: "Ragner" e "RAGNER"
+// são o mesmo fornecedor) — o nome exibido fica com a grafia da 1ª ocorrência.
+function _cdChaveFornecedor(nome) {
+  return (nome || '').trim().toUpperCase().replace(/\s+/g, ' ');
+}
+
 function _cdAgregarFinanceiro(fin, modulo) {
   const porFornecedor = {};
   fin.forEach(f => {
     if ((f.modulo || 'suprimentos') !== modulo) return;
-    const nome = (f.fornecedor || '').trim() || '(sem fornecedor)';
-    const alvo = porFornecedor[nome] || (porFornecedor[nome] = { pedido: 0, pago: 0 });
+    const nomeExibicao = (f.fornecedor || '').trim() || '(sem fornecedor)';
+    const chave = _cdChaveFornecedor(nomeExibicao);
+    const alvo = porFornecedor[chave] || (porFornecedor[chave] = { nome: nomeExibicao, pedido: 0, pago: 0 });
     const valor = Number(f.valor) || 0;
     alvo.pedido += valor;
     if (f.pago === 'Sim') alvo.pago += valor;
@@ -475,8 +490,9 @@ function _cdAgregarFretes(fretes) {
   const porFreteiro = {};
   fretes.forEach(f => {
     if (f.status === 'cancelado') return;
-    const nome = (f.freteiroNome || '').trim() || '(sem freteiro)';
-    const alvo = porFreteiro[nome] || (porFreteiro[nome] = { pedido: 0, pago: 0 });
+    const nomeExibicao = (f.freteiroNome || '').trim() || '(sem freteiro)';
+    const chave = _cdChaveFornecedor(nomeExibicao);
+    const alvo = porFreteiro[chave] || (porFreteiro[chave] = { nome: nomeExibicao, pedido: 0, pago: 0 });
     alvo.pedido += Number(f.valor) || 0;
     alvo.pago += Number(f.valorPago) || 0;
   });
@@ -484,8 +500,8 @@ function _cdAgregarFretes(fretes) {
 }
 
 function _cdOrdenarSaldo(porFornecedor) {
-  return Object.entries(porFornecedor)
-    .map(([fornecedor, v]) => ({ fornecedor, pedido: v.pedido, pago: v.pago, saldo: v.pedido - v.pago }))
+  return Object.values(porFornecedor)
+    .map(v => ({ fornecedor: v.nome, pedido: v.pedido, pago: v.pago, saldo: v.pedido - v.pago }))
     .sort((a, b) => b.saldo - a.saldo);
 }
 

@@ -2761,12 +2761,17 @@
     </div>
 
     <div class="card" style="margin-bottom:16px;">
-      <div class="card-body" style="display:flex;justify-content:flex-end;">
+      <div class="card-body" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="cat-tab active" id="coord-saldo-tab-suprimentos" onclick="coordSaldoSetTab('suprimentos')">📦 Suprimentos</button>
+          <button class="cat-tab" id="coord-saldo-tab-passagens" onclick="coordSaldoSetTab('passagens')">✈️ Passagens</button>
+          <button class="cat-tab" id="coord-saldo-tab-fretes" onclick="coordSaldoSetTab('fretes')">🚛 Fretes</button>
+        </div>
         <button class="btn btn-secondary" onclick="initCoordSaldo()">🔄 Atualizar</button>
       </div>
     </div>
 
-    <div class="card" style="margin-bottom:16px;">
+    <div class="card" id="coord-saldo-card-suprimentos">
       <div class="card-header"><div class="card-header-title">📦 Suprimentos</div></div>
       <div class="table-wrap">
         <table class="fin-table">
@@ -2776,7 +2781,7 @@
       </div>
     </div>
 
-    <div class="card" style="margin-bottom:16px;">
+    <div class="card hidden" id="coord-saldo-card-passagens">
       <div class="card-header"><div class="card-header-title">✈️ Passagens</div></div>
       <div class="table-wrap">
         <table class="fin-table">
@@ -2786,7 +2791,7 @@
       </div>
     </div>
 
-    <div class="card">
+    <div class="card hidden" id="coord-saldo-card-fretes">
       <div class="card-header"><div class="card-header-title">🚛 Fretes</div></div>
       <div class="table-wrap">
         <table class="fin-table">
@@ -3598,7 +3603,7 @@
 
 <script src="js/variedades.js?v=3"></script>
 <script src="js/21-inventario.js?v=1"></script>
-<script src="js/22-coord-dashboard.js?v=5"></script>
+<script src="js/22-coord-dashboard.js?v=6"></script>
 <script src="js/23-importar-precos-nf.js?v=1"></script>
 
 <!-- MODAL: NOVA SOLICITAÇÃO DE VARIEDADES -->
