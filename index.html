@@ -372,6 +372,10 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
         Saldo Devedor
       </button>
+      <button class="sidebar-item" data-page="coord-conciliacao" onclick="goPageMobile('coord-conciliacao')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+        Conciliação Financeira
+      </button>
     </div>
 
     <div class="sidebar-section" data-modulo="suprimentos" id="sidebar-admin" style="display:none;">
@@ -522,10 +526,7 @@
       <!-- Itens visíveis apenas para Compras -->
       <div class="compras-only" style="display:none;">
         <div style="margin:10px 10px 4px;font-size:9px;font-weight:800;color:#14b8a6;text-transform:uppercase;letter-spacing:1px;opacity:0.8;">Gestão</div>
-        <button class="sidebar-item" data-page="financeiro-compras" onclick="goPageMobile('financeiro-compras')">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
-          Financeiro
-        </button>
+        <!-- "Financeiro" removido daqui: já existe atalho dedicado na seção Financeiro (sidebar-financeiro) -->
         <button class="sidebar-item" data-page="houses" onclick="goPageMobile('houses')">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
           Casas e Pessoas
@@ -682,10 +683,7 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
         Metas
       </button>
-      <button class="sidebar-item" data-page="financeiro-compras" onclick="goPageMobile('financeiro-compras')">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
-        Financeiro
-      </button>
+      <!-- "Financeiro" removido daqui: já existe atalho dedicado na seção Financeiro (sidebar-financeiro) -->
     </div>
 
     <!-- ════════ MÓDULO FRETES ════════ -->
@@ -2802,6 +2800,70 @@
     </div>
   </div>
 
+  <!-- PAGE: CONCILIAÇÃO FINANCEIRA (Coordenador) -->
+  <div class="page" id="page-coord-conciliacao">
+    <div class="page-header">
+      <div class="page-title">🔗 Conciliação Financeira</div>
+      <div class="page-sub">Importe a planilha semanal "Visão Contas a Pagar" do financeiro — o sistema compara com o que está em aberto e propõe marcar como pago o que já não está mais na planilha</div>
+    </div>
+
+    <div class="card" style="max-width:640px;margin-bottom:16px;">
+      <div class="card-body">
+        <div class="fin-upload-area" id="coord-conc-drop"
+          onclick="document.getElementById('coord-conc-file').click()"
+          ondragover="event.preventDefault();this.classList.add('dragover')"
+          ondragleave="this.classList.remove('dragover')"
+          ondrop="coordConcHandleDrop(event)">
+          <div class="fin-upload-icon">📄</div>
+          <div class="fin-upload-title">Clique ou arraste o arquivo aqui</div>
+          <div class="fin-upload-sub">Relatório "Visão Contas a Pagar" do financeiro (.xls/.xlsx) — pode subir mais de um de uma vez, um por um</div>
+        </div>
+        <input type="file" id="coord-conc-file" style="display:none;" accept=".xlsx,.xls" onchange="coordConcLerArquivo(this.files[0])">
+      </div>
+    </div>
+
+    <div id="coord-conc-resumo"></div>
+
+    <div class="card" id="coord-conc-card-naoident" style="display:none;margin-bottom:16px;">
+      <div class="card-header"><div class="card-header-title">⚠️ Fornecedores não identificados</div></div>
+      <div class="card-body">
+        <div style="font-size:12px;color:var(--text-muted);margin-bottom:10px;">Esses nomes da planilha não bateram com nenhum fornecedor do sistema (por CNPJ nem por nome). Identifique ou cadastre pra incluir nas comparações abaixo.</div>
+        <div id="coord-conc-naoident-lista" style="display:flex;flex-direction:column;gap:10px;"></div>
+        <button class="btn btn-secondary" style="margin-top:12px;" onclick="coordConcRecalcular()">🔄 Recalcular com essas identificações</button>
+      </div>
+    </div>
+
+    <div class="card" id="coord-conc-card-pagar" style="display:none;margin-bottom:16px;">
+      <div class="card-header">
+        <div class="card-header-title">✅ Propostos para marcar como pago</div>
+        <div class="card-header-sub">Estavam em aberto no sistema, mas não aparecem mais em aberto na planilha do financeiro</div>
+      </div>
+      <div class="table-wrap">
+        <table class="fin-table">
+          <thead><tr><th style="width:24px;"><input type="checkbox" id="coord-conc-check-all" checked onchange="coordConcToggleAll(this.checked)"></th><th>Fornecedor</th><th>Descrição</th><th style="text-align:right;">Valor</th><th>Vencimento</th></tr></thead>
+          <tbody id="coord-conc-pagar-tbody"></tbody>
+        </table>
+      </div>
+      <div class="card-body" style="display:flex;justify-content:space-between;align-items:center;">
+        <div id="coord-conc-pagar-total" style="font-weight:700;"></div>
+        <button class="btn btn-primary" id="coord-conc-btn-aplicar" onclick="coordConcAplicar()">Confirmar e marcar como pago</button>
+      </div>
+    </div>
+
+    <div class="card" id="coord-conc-card-naosistema" style="display:none;">
+      <div class="card-header">
+        <div class="card-header-title">ℹ️ Na planilha, não encontrado no sistema</div>
+        <div class="card-header-sub">Só informativo — não cria lançamento automaticamente</div>
+      </div>
+      <div class="table-wrap">
+        <table class="fin-table">
+          <thead><tr><th>Fornecedor</th><th>Descrição</th><th style="text-align:right;">Valor</th><th>Vencimento</th></tr></thead>
+          <tbody id="coord-conc-naosistema-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
   <!-- ════════ PAGE: CONTAGEM DE INVENTÁRIO ════════ -->
   <div class="page" id="page-inventario">
     <div class="page-header">
@@ -2961,7 +3023,7 @@
 </div>
 
 <!-- FORNECEDORES / COMPARATIVO / pages are in the main content area -->
-<script src="js/paginas-html.js?v=4"></script>
+<script src="js/paginas-html.js?v=5"></script>
 
 <!-- ════════ MODAL: REGISTRAR TRANSFERÊNCIA FINANCEIRA ════════ -->
 <div class="modal-overlay hidden" id="modal-transf-financeira">
@@ -3237,7 +3299,7 @@
             <div class="attach-name" id="attach-nf-filename"></div>
           </div>
           <input type="file" id="attach-nf-file" style="display:none;" accept=".pdf,.jpg,.jpeg,.png" onchange="onAttachFileChange('nf')">
-          <button id="btn-attach-ia" onclick="attachExtrairPrecosIA()" disabled style="display:none;margin-top:8px;width:100%;" class="btn btn-secondary btn-sm">🤖 Extrair preços com IA</button>
+          <button id="btn-attach-ia" onclick="attachExtrairPrecosIA()" disabled style="display:none;margin-top:8px;width:100%;" class="btn btn-secondary btn-sm">🤖 Ler NF com IA (preços, número e valor total)</button>
           <div id="attach-ia-status" style="display:none;font-size:12px;margin-top:6px;padding:6px 10px;border-radius:6px;"></div>
         </div>
         <div>
@@ -3500,15 +3562,15 @@
 <script src="js/01-core.js?v=5"></script>
 <script src="js/02-auth.js?v=6"></script>
 <script src="js/03-navegacao.js?v=2"></script>
-<script src="js/04-percapita.js?v=14"></script>
+<script src="js/04-percapita.js?v=15"></script>
 <script src="js/05-cadastros.js?v=2"></script>
-<script src="js/06-pedidos.js?v=12"></script>
+<script src="js/06-pedidos.js?v=13"></script>
 <script src="js/07-estoque-ia-form.js?v=4"></script>
 <script src="js/08-orcamento-casas.js?v=2"></script>
 <script src="js/09-indicadores-transf.js?v=3"></script>
 <script src="js/10-produtos-orcamento.js?v=5"></script>
 <script src="js/11-fornecedores-pendentes.js?v=6"></script>
-<script src="js/12-financeiro-compras.js?v=5"></script>
+<script src="js/12-financeiro-compras.js?v=6"></script>
 <script src="js/13-ia-avancada.js?v=2"></script>
 <script src="js/14-gestao.js?v=3"></script>
 <script src="js/15-fornecedores-metas.js?v=2"></script>
@@ -3603,7 +3665,7 @@
 
 <script src="js/variedades.js?v=3"></script>
 <script src="js/21-inventario.js?v=1"></script>
-<script src="js/22-coord-dashboard.js?v=6"></script>
+<script src="js/22-coord-dashboard.js?v=7"></script>
 <script src="js/23-importar-precos-nf.js?v=1"></script>
 
 <!-- MODAL: NOVA SOLICITAÇÃO DE VARIEDADES -->

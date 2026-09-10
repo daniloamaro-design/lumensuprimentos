@@ -522,3 +522,291 @@ function _cdRenderSaldoTabela(tbodyId, linhas) {
     </tr>`;
   tbody.innerHTML = linhas.map(l => linha(l, false)).join('') + linha({ fornecedor: 'Total', ...totais }, true);
 }
+
+// ── 6. CONCILIAÇÃO FINANCEIRA (planilha "Visão Contas a Pagar" do financeiro) ─
+// Toda semana o financeiro manda um export do que ainda está em aberto.
+// Comparamos, POR FORNECEDOR RESOLVIDO (nunca no geral), contra
+// compras_financeiro com pago != 'Sim': o que sumiu da planilha o
+// financeiro já pagou → proposto pra marcar como pago (com confirmação).
+// Fornecedor que a planilha não cita fica totalmente intocado.
+
+// Aliases conhecidos: o mesmo fornecedor aparece com grafias diferentes na
+// planilha do financeiro, no cadastro (suppliers) e no texto livre gravado
+// em compras_financeiro.fornecedor ao longo do tempo. Chave = nome
+// normalizado (_cdChaveFornecedor) → nome canônico do supplier.
+const _CD_FORN_ALIASES = {
+  'RAGNER': 'Carnes Express', 'CARNES EXPRESS': 'Carnes Express', 'CASA DAS CARNES E CIA LTDA': 'Carnes Express',
+  'PAJUCARA': 'Pajuçara Distribuidora de Alimentos LTDA', 'PAJUCARA DISTRIBUIDORA DE ALIMENTOS LTDA': 'Pajuçara Distribuidora de Alimentos LTDA',
+  'SKYLINE': 'Skyline', 'SKYLINE TOUR VIAGENS': 'Skyline', 'SKYLINE TOUR VIAGENS LTDA': 'Skyline',
+  'GRANDES VIAGENS': 'Grandes Viagens', 'GRANDES VIAGENS TURISMO LTDA': 'Grandes Viagens',
+  'CHIP VIAGENS': 'Chip Viagens',
+  'GAMA E CRUZ COMERCIO': 'Gama e Cruz Comercio', 'GAMA E CRUZ COMERCIO VAREJISTA DE CARNES LTDA': 'Gama e Cruz Comercio',
+  'QUADROS CRIATIVOS': 'Quadros Criativos', 'FRANCISCA LINDALVA LIMA DE OLIVEIRA': 'Quadros Criativos',
+};
+
+const _cdNormCNPJ = s => String(s || '').replace(/\D/g, '');
+
+// Resolve um texto de fornecedor (da planilha OU de compras_financeiro) pro
+// supplier canônico: CNPJ exato → nome normalizado exato → alias conhecido
+// → mapeamento manual feito pelo usuário nesta sessão (resolvidosManual).
+function _cdResolverFornecedor(nomeTexto, cnpjTexto, suppliers, resolvidosManual) {
+  const cnpjNorm = _cdNormCNPJ(cnpjTexto);
+  if (cnpjNorm) {
+    const porCnpj = suppliers.find(s => _cdNormCNPJ(s.cnpj) === cnpjNorm);
+    if (porCnpj) return porCnpj;
+  }
+  const chave = _cdChaveFornecedor(nomeTexto);
+  if (resolvidosManual && resolvidosManual[chave]) {
+    const m = suppliers.find(s => s.id === resolvidosManual[chave]);
+    if (m) return m;
+  }
+  let m = suppliers.find(s => _cdChaveFornecedor(s.nome) === chave);
+  if (m) return m;
+  const aliasNome = _CD_FORN_ALIASES[chave];
+  if (aliasNome) {
+    m = suppliers.find(s => _cdChaveFornecedor(s.nome) === _cdChaveFornecedor(aliasNome));
+    if (m) return m;
+  }
+  return null;
+}
+
+let _coordConc = { linhasPlanilha: [], suppliers: [], naoIdentificados: [], resolvidosManual: {}, propostosPagar: [], soNaPlanilha: [] };
+
+async function initCoordConciliacao() {
+  _coordConc = { linhasPlanilha: [], suppliers: [], naoIdentificados: [], resolvidosManual: {}, propostosPagar: [], soNaPlanilha: [] };
+  document.getElementById('coord-conc-resumo').innerHTML = '';
+  ['coord-conc-card-naoident', 'coord-conc-card-pagar', 'coord-conc-card-naosistema'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.style.display = 'none';
+  });
+  const fileInput = document.getElementById('coord-conc-file');
+  if (fileInput) fileInput.value = '';
+}
+window.initCoordConciliacao = initCoordConciliacao;
+
+function coordConcHandleDrop(ev) {
+  ev.preventDefault();
+  ev.currentTarget.classList.remove('dragover');
+  const f = ev.dataTransfer.files[0];
+  if (f) coordConcLerArquivo(f);
+}
+window.coordConcHandleDrop = coordConcHandleDrop;
+
+function coordConcLerArquivo(file) {
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = async (e) => {
+    try {
+      const wb = XLSX.read(e.target.result, { type: 'array' });
+      const nomeAba = wb.SheetNames.find(n => n.toLowerCase().includes('contas a pagar')) || wb.SheetNames[0];
+      const sh = wb.Sheets[nomeAba];
+      const rows = XLSX.utils.sheet_to_json(sh, { header: 1, raw: false, defval: '' });
+      const header = (rows[0] || []).map(h => String(h).trim().toLowerCase());
+      const idx = nome => header.indexOf(nome.toLowerCase());
+      const iCnpj = idx('Identificador do fornecedor'), iNome = idx('Nome do fornecedor'),
+            iVenc = idx('Data de vencimento'), iDescricao = idx('Descrição'),
+            iValorAberto = idx('Valor total da parcela em aberto (R$)') > -1 ? idx('Valor total da parcela em aberto (R$)') : idx('Valor da parcela em aberto (R$)');
+      if (iNome === -1 || iValorAberto === -1) { showToast('❌ Não reconheci as colunas — confira se é a planilha "Visão Contas a Pagar".'); return; }
+
+      const linhas = rows.slice(1)
+        .filter(r => r.some(c => String(c).trim() !== ''))
+        .map(r => ({
+          cnpj: r[iCnpj] || '', nomePlanilha: r[iNome] || '',
+          vencimento: r[iVenc] || '', descricao: r[iDescricao] || '',
+          valor: parseFloat(String(r[iValorAberto]).replace(',', '.')) || 0,
+        }))
+        .filter(l => l.valor > 0.005 && l.nomePlanilha);
+
+      if (!linhas.length) { showToast('⚠️ Nenhuma linha com valor em aberto encontrada no arquivo.'); return; }
+
+      const suppSnap = await db.collection('suppliers').get();
+      _coordConc.suppliers = suppSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+      // Acumula com o que já foi lido antes (permite subir mais de um arquivo em sequência)
+      _coordConc.linhasPlanilha = _coordConc.linhasPlanilha.concat(linhas);
+      showToast(`📄 ${linhas.length} linhas lidas de "${file.name}".`);
+      await coordConcProcessar();
+    } catch (err) {
+      console.error('coordConcLerArquivo', err);
+      showToast('❌ Erro ao ler o arquivo: ' + err.message);
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+window.coordConcLerArquivo = coordConcLerArquivo;
+
+async function coordConcProcessar() {
+  const { suppliers, resolvidosManual } = _coordConc;
+  const porFornecedor = {}; // supplierId -> { supplier, linhas: [] }
+  const naoIdent = {};      // chave normalizada -> { nome, cnpj, linhas: [] }
+
+  _coordConc.linhasPlanilha.forEach(l => {
+    const s = _cdResolverFornecedor(l.nomePlanilha, l.cnpj, suppliers, resolvidosManual);
+    if (s) {
+      (porFornecedor[s.id] = porFornecedor[s.id] || { supplier: s, linhas: [] }).linhas.push(l);
+    } else {
+      const chave = _cdChaveFornecedor(l.nomePlanilha);
+      (naoIdent[chave] = naoIdent[chave] || { nome: l.nomePlanilha, cnpj: l.cnpj, linhas: [] }).linhas.push(l);
+    }
+  });
+  _coordConc.naoIdentificados = Object.values(naoIdent);
+  _coordConcRenderNaoIdentificados();
+
+  const finSnap = await db.collection('compras_financeiro').get();
+  const fin = finSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+  const propostosPagar = [];
+  const soNaPlanilha = [];
+
+  Object.values(porFornecedor).forEach(grupo => {
+    // Abertos do sistema que resolvem pro MESMO fornecedor (usa o mesmo
+    // resolvedor nos dois lados — cobre o texto livre histórico de
+    // compras_financeiro.fornecedor, que nem sempre bate com o nome do
+    // cadastro, ex.: "SKYLINE TOUR VIAGENS LTDA" → resolve pra "Skyline").
+    const abertosSistema = fin.filter(f => {
+      if (f.pago === 'Sim') return false;
+      if (f.fornecedorId) return f.fornecedorId === grupo.supplier.id;
+      const r = _cdResolverFornecedor(f.fornecedor, null, suppliers, resolvidosManual);
+      return r && r.id === grupo.supplier.id;
+    });
+    // Casamento por valor (dentro do mesmo fornecedor) — data não é chave
+    // rígida (formatos diferentes entre planilha e sistema); o que importa
+    // pro saldo é o valor total baixado, não qual linha específica "é" qual.
+    const restante = abertosSistema.slice();
+    grupo.linhas.forEach(l => {
+      const i = restante.findIndex(f => Math.abs((Number(f.valor) || 0) - l.valor) < 0.01);
+      if (i > -1) restante.splice(i, 1);
+      else soNaPlanilha.push({ fornecedor: grupo.supplier.nome, descricao: l.descricao, valor: l.valor, vencimento: l.vencimento });
+    });
+    restante.forEach(f => propostosPagar.push({ id: f.id, fornecedor: grupo.supplier.nome, descricao: f.destinatario || f.pedidoRef || '—', valor: Number(f.valor) || 0, vencimento: f.vencimentoStr || '—' }));
+  });
+
+  _coordConc.propostosPagar = propostosPagar;
+  _coordConc.soNaPlanilha = soNaPlanilha;
+  _cdRenderPropostosPagar(propostosPagar);
+  _cdRenderSoNaPlanilha(soNaPlanilha);
+  _cdRenderResumoConciliacao();
+}
+
+function _cdRenderResumoConciliacao() {
+  const { linhasPlanilha, naoIdentificados, propostosPagar } = _coordConc;
+  const totalPagar = propostosPagar.reduce((s, p) => s + p.valor, 0);
+  document.getElementById('coord-conc-resumo').innerHTML = `
+    <div class="card" style="margin-bottom:16px;">
+      <div class="card-body" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px;">
+        <div><div style="font-size:11px;color:var(--text-muted);">LINHAS NA PLANILHA</div><div style="font-size:20px;font-weight:700;">${linhasPlanilha.length}</div></div>
+        <div><div style="font-size:11px;color:var(--text-muted);">FORNECEDORES NÃO IDENTIFICADOS</div><div style="font-size:20px;font-weight:700;${naoIdentificados.length ? 'color:var(--warn,#d97706);' : ''}">${naoIdentificados.length}</div></div>
+        <div><div style="font-size:11px;color:var(--text-muted);">PROPOSTOS PRA MARCAR PAGO</div><div style="font-size:20px;font-weight:700;color:var(--ok,#16a34a);">${propostosPagar.length} (${_cd.BRL(totalPagar)})</div></div>
+      </div>
+    </div>`;
+}
+
+function _coordConcRenderNaoIdentificados() {
+  const card = document.getElementById('coord-conc-card-naoident');
+  const lista = document.getElementById('coord-conc-naoident-lista');
+  const itens = _coordConc.naoIdentificados;
+  if (!itens.length) { card.style.display = 'none'; return; }
+  card.style.display = '';
+  const opcoesSuppliers = _coordConc.suppliers.slice().sort((a,b) => (a.nome||'').localeCompare(b.nome||'','pt-BR'))
+    .map(s => `<option value="${s.id}">${frtEsc(s.nome)}</option>`).join('');
+  lista.innerHTML = itens.map((it, i) => {
+    const totalItem = it.linhas.reduce((s,l)=>s+l.valor,0);
+    return `
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:8px 10px;border:1px solid var(--border);border-radius:6px;">
+      <div style="flex:1;min-width:200px;">
+        <div style="font-weight:600;">${frtEsc(it.nome)}</div>
+        <div style="font-size:11px;color:var(--text-muted);">CNPJ ${frtEsc(it.cnpj || '—')} · ${it.linhas.length} linha(s) · ${_cd.BRL(totalItem)}</div>
+      </div>
+      <select class="form-select" style="max-width:260px;" id="coord-conc-sel-${i}">
+        <option value="">— selecionar fornecedor —</option>
+        ${opcoesSuppliers}
+      </select>
+      <button class="btn btn-outline btn-sm" onclick="coordConcIdentificar(${i})">Usar este</button>
+      <button class="btn btn-outline btn-sm" onclick="coordConcNovoFornecedor(${i})">+ Cadastrar novo</button>
+    </div>`;
+  }).join('');
+}
+
+function coordConcIdentificar(i) {
+  const it = _coordConc.naoIdentificados[i];
+  const sel = document.getElementById(`coord-conc-sel-${i}`);
+  if (!sel || !sel.value) return showToast('⚠️ Selecione um fornecedor.');
+  _coordConc.resolvidosManual[_cdChaveFornecedor(it.nome)] = sel.value;
+  showToast(`✅ "${it.nome}" associado. Clique em "Recalcular" quando terminar.`);
+}
+window.coordConcIdentificar = coordConcIdentificar;
+
+async function coordConcNovoFornecedor(i) {
+  const it = _coordConc.naoIdentificados[i];
+  const nome = (prompt('Nome do novo fornecedor:', it.nome) || '').trim();
+  if (!nome) return;
+  try {
+    const { id } = await db.collection('suppliers').add({
+      nome, cnpj: it.cnpj || null, tipos: ['produtos'], createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+    });
+    _coordConc.suppliers.push({ id, nome, cnpj: it.cnpj || null });
+    _coordConc.resolvidosManual[_cdChaveFornecedor(it.nome)] = id;
+    showToast(`✅ Fornecedor "${nome}" cadastrado e associado. Clique em "Recalcular" quando terminar.`);
+    _coordConcRenderNaoIdentificados();
+  } catch (e) {
+    console.error('coordConcNovoFornecedor', e);
+    showToast('❌ Erro ao cadastrar: ' + e.message);
+  }
+}
+window.coordConcNovoFornecedor = coordConcNovoFornecedor;
+
+async function coordConcRecalcular() { await coordConcProcessar(); }
+window.coordConcRecalcular = coordConcRecalcular;
+
+function _cdRenderPropostosPagar(linhas) {
+  const card = document.getElementById('coord-conc-card-pagar');
+  const tbody = document.getElementById('coord-conc-pagar-tbody');
+  if (!linhas.length) { card.style.display = 'none'; return; }
+  card.style.display = '';
+  tbody.innerHTML = linhas.map((l, i) => `
+    <tr>
+      <td><input type="checkbox" class="coord-conc-check" data-i="${i}" checked></td>
+      <td>${frtEsc(l.fornecedor)}</td>
+      <td style="max-width:320px;">${frtEsc(l.descricao)}</td>
+      <td style="text-align:right;">${_cd.BRL(l.valor)}</td>
+      <td>${frtEsc(l.vencimento)}</td>
+    </tr>`).join('');
+  document.getElementById('coord-conc-pagar-total').textContent = `Total: ${_cd.BRL(linhas.reduce((s,l)=>s+l.valor,0))}`;
+}
+
+function coordConcToggleAll(checked) {
+  document.querySelectorAll('.coord-conc-check').forEach(c => { c.checked = checked; });
+}
+window.coordConcToggleAll = coordConcToggleAll;
+
+function _cdRenderSoNaPlanilha(linhas) {
+  const card = document.getElementById('coord-conc-card-naosistema');
+  const tbody = document.getElementById('coord-conc-naosistema-tbody');
+  if (!linhas.length) { card.style.display = 'none'; return; }
+  card.style.display = '';
+  tbody.innerHTML = linhas.map(l => `
+    <tr>
+      <td>${frtEsc(l.fornecedor)}</td>
+      <td style="max-width:320px;">${frtEsc(l.descricao)}</td>
+      <td style="text-align:right;">${_cd.BRL(l.valor)}</td>
+      <td>${frtEsc(l.vencimento)}</td>
+    </tr>`).join('');
+}
+
+async function coordConcAplicar() {
+  const marcados = Array.from(document.querySelectorAll('.coord-conc-check:checked')).map(c => _coordConc.propostosPagar[Number(c.dataset.i)]);
+  if (!marcados.length) return showToast('⚠️ Nenhum item marcado.');
+  if (!confirm(`Marcar ${marcados.length} lançamento(s) como pago, totalizando ${_cd.BRL(marcados.reduce((s,l)=>s+l.valor,0))}?`)) return;
+
+  const btn = document.getElementById('coord-conc-btn-aplicar');
+  if (btn) { btn.disabled = true; btn.textContent = 'Aplicando…'; }
+  let ok = 0, erro = 0;
+  for (const l of marcados) {
+    try {
+      await db.collection('compras_financeiro').doc(l.id).update({ pago: 'Sim' });
+      ok++;
+    } catch (e) { console.error('coordConcAplicar', l, e); erro++; }
+  }
+  if (btn) { btn.disabled = false; btn.textContent = 'Confirmar e marcar como pago'; }
+  showToast(`✅ ${ok} marcado(s) como pago${erro ? `, ${erro} com erro` : ''}.`);
+  await coordConcProcessar();
+}
+window.coordConcAplicar = coordConcAplicar;

@@ -1813,6 +1813,10 @@ document.querySelector('.main-content').insertAdjacentHTML('beforeend', `
       💳 Pagamentos
       <span id="fin-badge-pendentes" style="background:var(--warn);color:#000;font-size:10px;font-weight:800;padding:1px 7px;border-radius:10px;margin-left:6px;display:none;">0</span>
     </button>
+    <button class="fin-tab-btn" id="fin-tab-saldo" onclick="finSetTab('saldo',this)"
+      style="padding:10px 18px;border:none;background:none;font-size:13px;font-weight:600;color:var(--text-muted);cursor:pointer;margin-bottom:-2px;">
+      💰 Saldo Devedor
+    </button>
   </div>
 
   <!-- ABA PAINEL -->
@@ -2173,6 +2177,47 @@ document.querySelector('.main-content').insertAdjacentHTML('beforeend', `
             </tbody>
           </table>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ABA SALDO DEVEDOR -->
+  <div id="fin-tab-content-saldo" style="display:none;">
+    <div class="card" style="margin-bottom:16px;">
+      <div class="card-body" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="cat-tab active" id="fin-saldo-tab-suprimentos" onclick="finSaldoSetTab('suprimentos')">📦 Suprimentos</button>
+          <button class="cat-tab" id="fin-saldo-tab-passagens" onclick="finSaldoSetTab('passagens')">✈️ Passagens</button>
+          <button class="cat-tab" id="fin-saldo-tab-fretes" onclick="finSaldoSetTab('fretes')">🚛 Fretes</button>
+        </div>
+        <button class="btn btn-secondary" onclick="finCarregarSaldoDevedor()">🔄 Atualizar</button>
+      </div>
+    </div>
+    <div class="card" id="fin-saldo-card-suprimentos">
+      <div class="card-header"><div class="card-header-title">📦 Suprimentos</div></div>
+      <div class="table-wrap">
+        <table class="fin-table">
+          <thead><tr><th>Fornecedor</th><th style="text-align:right;">Total Pedido</th><th style="text-align:right;">Total Pago</th><th style="text-align:right;">Saldo em Aberto</th></tr></thead>
+          <tbody id="fin-saldo-suprimentos"><tr><td colspan="4" style="text-align:center;padding:20px;color:var(--text-muted);">Carregando…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="card hidden" id="fin-saldo-card-passagens">
+      <div class="card-header"><div class="card-header-title">✈️ Passagens</div></div>
+      <div class="table-wrap">
+        <table class="fin-table">
+          <thead><tr><th>Fornecedor</th><th style="text-align:right;">Total Pedido</th><th style="text-align:right;">Total Pago</th><th style="text-align:right;">Saldo em Aberto</th></tr></thead>
+          <tbody id="fin-saldo-passagens"><tr><td colspan="4" style="text-align:center;padding:20px;color:var(--text-muted);">Carregando…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="card hidden" id="fin-saldo-card-fretes">
+      <div class="card-header"><div class="card-header-title">🚛 Fretes</div></div>
+      <div class="table-wrap">
+        <table class="fin-table">
+          <thead><tr><th>Freteiro</th><th style="text-align:right;">Total Pedido</th><th style="text-align:right;">Total Pago</th><th style="text-align:right;">Saldo em Aberto</th></tr></thead>
+          <tbody id="fin-saldo-fretes"><tr><td colspan="4" style="text-align:center;padding:20px;color:var(--text-muted);">Carregando…</td></tr></tbody>
+        </table>
       </div>
     </div>
   </div>

@@ -131,10 +131,11 @@ function finAtualizarCreditoFornecedor() {
 }
 
 function finSetTab(tab, btn) {
-  ['painel','upload','nfs','pagamentos'].forEach(t => {
+  ['painel','upload','nfs','pagamentos','saldo'].forEach(t => {
     const content = document.getElementById('fin-tab-content-' + t);
     if (content) content.style.display = t === tab ? '' : 'none';
   });
+  if (tab === 'saldo' && typeof finCarregarSaldoDevedor === 'function') finCarregarSaldoDevedor();
   document.querySelectorAll('.fin-tab-btn').forEach(b => {
     b.style.color = 'var(--text-muted)';
     b.style.fontWeight = '600';
@@ -1622,6 +1623,45 @@ function pagExportarContaAzul(){
 function pagExportarPdfDetalhado(){
   gerarPdfDetalhadoFin(pagDadosFiltrados, 'Lumen — Pagamentos', 'LM-Pagamentos-Detalhado-' + new Date().toISOString().slice(0,10) + '.pdf');
 }
+
+// ─────────────────────────────────────────────
+// 💰 SALDO DEVEDOR (aba dentro do Financeiro) — mesma lógica de agregação
+// do Painel do Coordenador (_cdAgregarFinanceiro/_cdAgregarFretes/
+// _cdRenderSaldoTabela, definidas em js/22-coord-dashboard.js), só que
+// escrevendo nos ids fin-saldo-* desta página em vez de coord-saldo-*.
+// ─────────────────────────────────────────────
+async function finCarregarSaldoDevedor() {
+  ['fin-saldo-suprimentos', 'fin-saldo-passagens', 'fin-saldo-fretes'].forEach(id => {
+    const tb = document.getElementById(id);
+    if (tb) tb.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:20px;color:var(--text-muted);">Carregando…</td></tr>';
+  });
+  try {
+    const [finSnap, fretesSnap] = await Promise.all([
+      db.collection('compras_financeiro').get(),
+      db.collection('fretes').get(),
+    ]);
+    const fin = finSnap.docs.map(d => d.data());
+    const fretes = fretesSnap.docs.map(d => d.data());
+    _cdRenderSaldoTabela('fin-saldo-suprimentos', _cdAgregarFinanceiro(fin, 'suprimentos'));
+    _cdRenderSaldoTabela('fin-saldo-passagens', _cdAgregarFinanceiro(fin, 'passagens'));
+    _cdRenderSaldoTabela('fin-saldo-fretes', _cdAgregarFretes(fretes));
+  } catch (e) {
+    console.error('finCarregarSaldoDevedor', e);
+    ['fin-saldo-suprimentos', 'fin-saldo-passagens', 'fin-saldo-fretes'].forEach(id => {
+      const tb = document.getElementById(id);
+      if (tb) tb.innerHTML = `<tr><td colspan="4" style="text-align:center;padding:20px;color:var(--danger,#dc2626);">Erro ao carregar: ${frtEsc(e.message)}</td></tr>`;
+    });
+  }
+}
+window.finCarregarSaldoDevedor = finCarregarSaldoDevedor;
+
+function finSaldoSetTab(modulo) {
+  ['suprimentos', 'passagens', 'fretes'].forEach(m => {
+    document.getElementById(`fin-saldo-tab-${m}`)?.classList.toggle('active', m === modulo);
+    document.getElementById(`fin-saldo-card-${m}`)?.classList.toggle('hidden', m !== modulo);
+  });
+}
+window.finSaldoSetTab = finSaldoSetTab;
 
 // ─────────────────────────────────────────────
 // 🌙  THEME TOGGLE (Light / Dark)
