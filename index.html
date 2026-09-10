@@ -368,6 +368,10 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
         Compras por Produto
       </button>
+      <button class="sidebar-item" data-page="coord-saldo" onclick="goPageMobile('coord-saldo')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+        Saldo Devedor
+      </button>
     </div>
 
     <div class="sidebar-section" data-modulo="suprimentos" id="sidebar-admin" style="display:none;">
@@ -2749,6 +2753,50 @@
     </div>
   </div>
 
+  <!-- PAGE: SALDO DEVEDOR (Coordenador) -->
+  <div class="page" id="page-coord-saldo">
+    <div class="page-header">
+      <div class="page-title">💳 Saldo Devedor</div>
+      <div class="page-sub">Quanto já foi pedido, quanto já foi pago e quanto ainda está em aberto, por fornecedor — acumulado geral, um bloco por módulo</div>
+    </div>
+
+    <div class="card" style="margin-bottom:16px;">
+      <div class="card-body" style="display:flex;justify-content:flex-end;">
+        <button class="btn btn-secondary" onclick="initCoordSaldo()">🔄 Atualizar</button>
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom:16px;">
+      <div class="card-header"><div class="card-header-title">📦 Suprimentos</div></div>
+      <div class="table-wrap">
+        <table class="fin-table">
+          <thead><tr><th>Fornecedor</th><th style="text-align:right;">Total Pedido</th><th style="text-align:right;">Total Pago</th><th style="text-align:right;">Saldo em Aberto</th></tr></thead>
+          <tbody id="coord-saldo-suprimentos"><tr><td colspan="4" style="text-align:center;padding:20px;color:var(--text-muted);">Carregando…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom:16px;">
+      <div class="card-header"><div class="card-header-title">✈️ Passagens</div></div>
+      <div class="table-wrap">
+        <table class="fin-table">
+          <thead><tr><th>Fornecedor</th><th style="text-align:right;">Total Pedido</th><th style="text-align:right;">Total Pago</th><th style="text-align:right;">Saldo em Aberto</th></tr></thead>
+          <tbody id="coord-saldo-passagens"><tr><td colspan="4" style="text-align:center;padding:20px;color:var(--text-muted);">Carregando…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header"><div class="card-header-title">🚛 Fretes</div></div>
+      <div class="table-wrap">
+        <table class="fin-table">
+          <thead><tr><th>Freteiro</th><th style="text-align:right;">Total Pedido</th><th style="text-align:right;">Total Pago</th><th style="text-align:right;">Saldo em Aberto</th></tr></thead>
+          <tbody id="coord-saldo-fretes"><tr><td colspan="4" style="text-align:center;padding:20px;color:var(--text-muted);">Carregando…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
   <!-- ════════ PAGE: CONTAGEM DE INVENTÁRIO ════════ -->
   <div class="page" id="page-inventario">
     <div class="page-header">
@@ -3447,7 +3495,7 @@
 <script src="js/01-core.js?v=5"></script>
 <script src="js/02-auth.js?v=6"></script>
 <script src="js/03-navegacao.js?v=2"></script>
-<script src="js/04-percapita.js?v=13"></script>
+<script src="js/04-percapita.js?v=14"></script>
 <script src="js/05-cadastros.js?v=2"></script>
 <script src="js/06-pedidos.js?v=12"></script>
 <script src="js/07-estoque-ia-form.js?v=4"></script>
@@ -3550,7 +3598,7 @@
 
 <script src="js/variedades.js?v=3"></script>
 <script src="js/21-inventario.js?v=1"></script>
-<script src="js/22-coord-dashboard.js?v=4"></script>
+<script src="js/22-coord-dashboard.js?v=5"></script>
 <script src="js/23-importar-precos-nf.js?v=1"></script>
 
 <!-- MODAL: NOVA SOLICITAÇÃO DE VARIEDADES -->

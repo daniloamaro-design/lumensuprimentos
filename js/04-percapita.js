@@ -601,7 +601,7 @@ function goPage(page) {
     'percapita':'Per Capita por Casa','manage-houses':'Gerenciar Casas',
     'manage-cities':'Gerenciar Cidades','manage-products':'Gerenciar Produtos',
     'indicadores':'Indicadores','transferencias':'Transferências',
-    'fornecedores':'Fornecedores','calc-real':'Previsão de Suprimentos','orcamento-financeiro':'Orçamento Financeiro','orc-historico-fin':'Histórico de Orçamentos','ind-fornecedores':'Indicadores de Fornecedores','orc-pendentes':'Orçamentos Pendentes','financeiro-compras':'Financeiro — Compras','metas':'Metas e Análise Econômica','var-solicitacoes':'Solicitações de Variedades','var-orcamento':'Orçamentos de Variedades','var-proposta':'Proposta Semanal','var-historico':'Histórico de Compras','var-setores':'Gerenciar Setores','rotina-estoque':'Rotina de Estoque','manage-cc':'Gerenciar Centro de Custo','cardapio-diario':'Cardápio Diário','percapita-financeiro':'Per Capita Financeiro','inventario':'Contagem de Inventário','coord-dashboard':'Painel do Coordenador'
+    'fornecedores':'Fornecedores','calc-real':'Previsão de Suprimentos','orcamento-financeiro':'Orçamento Financeiro','orc-historico-fin':'Histórico de Orçamentos','ind-fornecedores':'Indicadores de Fornecedores','orc-pendentes':'Orçamentos Pendentes','financeiro-compras':'Financeiro — Compras','metas':'Metas e Análise Econômica','var-solicitacoes':'Solicitações de Variedades','var-orcamento':'Orçamentos de Variedades','var-proposta':'Proposta Semanal','var-historico':'Histórico de Compras','var-setores':'Gerenciar Setores','rotina-estoque':'Rotina de Estoque','manage-cc':'Gerenciar Centro de Custo','cardapio-diario':'Cardápio Diário','percapita-financeiro':'Per Capita Financeiro','inventario':'Contagem de Inventário','coord-dashboard':'Painel do Coordenador','coord-saldo':'Saldo Devedor'
   };
   document.getElementById('topbar-page-title').textContent = titles[page] || '';
 
@@ -638,6 +638,7 @@ function goPage(page) {
   if (page === 'inventario')           { if (typeof initPageInventario === 'function') initPageInventario(); }
   if (page === 'coord-dashboard')      { if (typeof initCoordDashboard === 'function') initCoordDashboard(); }
   if (page === 'coord-compras')        { if (typeof initCoordCompras === 'function') initCoordCompras(); }
+  if (page === 'coord-saldo')          { if (typeof initCoordSaldo === 'function') initCoordSaldo(); }
   if (page === 'importar-precos')      { if (typeof initPageImportarPrecos === 'function') initPageImportarPrecos(); }
 }
 

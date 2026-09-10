@@ -422,3 +422,87 @@ function _cdCalendario(fretes, passagens, hoje) {
       </div>
     </div>`;
 }
+
+// ── 5. SALDO DEVEDOR (Suprimentos / Passagens / Fretes) ─────────────────
+// Acumulado geral por fornecedor: total pedido (todo lançamento financeiro
+// já registrado) × total pago × saldo em aberto. Não olha período — é um
+// extrato de "quanto devemos e pra quem" desde sempre.
+async function initCoordSaldo() {
+  ['coord-saldo-suprimentos', 'coord-saldo-passagens', 'coord-saldo-fretes'].forEach(id => {
+    const tb = document.getElementById(id);
+    if (tb) tb.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:20px;color:var(--text-muted);">Carregando…</td></tr>';
+  });
+
+  try {
+    const [finSnap, fretesSnap] = await Promise.all([
+      db.collection('compras_financeiro').get(),
+      db.collection('fretes').get(),
+    ]);
+    const fin = finSnap.docs.map(d => d.data());
+    const fretes = fretesSnap.docs.map(d => d.data());
+
+    _cdRenderSaldoTabela('coord-saldo-suprimentos', _cdAgregarFinanceiro(fin, 'suprimentos'));
+    _cdRenderSaldoTabela('coord-saldo-passagens', _cdAgregarFinanceiro(fin, 'passagens'));
+    _cdRenderSaldoTabela('coord-saldo-fretes', _cdAgregarFretes(fretes));
+  } catch (e) {
+    console.error('initCoordSaldo', e);
+    ['coord-saldo-suprimentos', 'coord-saldo-passagens', 'coord-saldo-fretes'].forEach(id => {
+      const tb = document.getElementById(id);
+      if (tb) tb.innerHTML = `<tr><td colspan="4" style="text-align:center;padding:20px;color:var(--danger,#dc2626);">Erro ao carregar: ${frtEsc(e.message)}</td></tr>`;
+    });
+  }
+}
+window.initCoordSaldo = initCoordSaldo;
+
+// pago === 'Sim' é o único valor que representa "quitado" em compras_financeiro
+// (os demais — vazio, 'Não', ausente — contam como em aberto).
+function _cdAgregarFinanceiro(fin, modulo) {
+  const porFornecedor = {};
+  fin.forEach(f => {
+    if ((f.modulo || 'suprimentos') !== modulo) return;
+    const nome = (f.fornecedor || '').trim() || '(sem fornecedor)';
+    const alvo = porFornecedor[nome] || (porFornecedor[nome] = { pedido: 0, pago: 0 });
+    const valor = Number(f.valor) || 0;
+    alvo.pedido += valor;
+    if (f.pago === 'Sim') alvo.pago += valor;
+  });
+  return _cdOrdenarSaldo(porFornecedor);
+}
+
+// Fretes cancelados não entram (não houve serviço, não gera dívida).
+// valorPago já é parcial-aware (o mesmo campo usado no restante do módulo).
+function _cdAgregarFretes(fretes) {
+  const porFreteiro = {};
+  fretes.forEach(f => {
+    if (f.status === 'cancelado') return;
+    const nome = (f.freteiroNome || '').trim() || '(sem freteiro)';
+    const alvo = porFreteiro[nome] || (porFreteiro[nome] = { pedido: 0, pago: 0 });
+    alvo.pedido += Number(f.valor) || 0;
+    alvo.pago += Number(f.valorPago) || 0;
+  });
+  return _cdOrdenarSaldo(porFreteiro);
+}
+
+function _cdOrdenarSaldo(porFornecedor) {
+  return Object.entries(porFornecedor)
+    .map(([fornecedor, v]) => ({ fornecedor, pedido: v.pedido, pago: v.pago, saldo: v.pedido - v.pago }))
+    .sort((a, b) => b.saldo - a.saldo);
+}
+
+function _cdRenderSaldoTabela(tbodyId, linhas) {
+  const tbody = document.getElementById(tbodyId);
+  if (!tbody) return;
+  if (!linhas.length) {
+    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:20px;color:var(--text-muted);">Nenhum lançamento encontrado.</td></tr>';
+    return;
+  }
+  const totais = linhas.reduce((s, l) => ({ pedido: s.pedido + l.pedido, pago: s.pago + l.pago, saldo: s.saldo + l.saldo }), { pedido: 0, pago: 0, saldo: 0 });
+  const linha = (l, destaque) => `
+    <tr${destaque ? ' style="border-top:2px solid var(--border);font-weight:700;"' : ''}>
+      <td>${frtEsc(l.fornecedor)}</td>
+      <td style="text-align:right;">${_cd.BRL(l.pedido)}</td>
+      <td style="text-align:right;color:var(--ok,#16a34a);">${_cd.BRL(l.pago)}</td>
+      <td style="text-align:right;font-weight:${destaque ? 700 : 600};${l.saldo > 0.005 ? 'color:var(--danger,#dc2626);' : ''}">${_cd.BRL(l.saldo)}</td>
+    </tr>`;
+  tbody.innerHTML = linhas.map(l => linha(l, false)).join('') + linha({ fornecedor: 'Total', ...totais }, true);
+}
