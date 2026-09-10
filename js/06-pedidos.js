@@ -541,13 +541,19 @@ async function loadAllOrders() {
         if (p) estimatedTotal += parseFloat(qty) * p;
       });
     });
-    // Antes só considerava nfNumero — um pedido com NF/valor anexados mas
-    // sem o número digitado aparecia como "sem NF" na lista, mesmo tendo
-    // tudo anexado. Agora considera arquivo e valor também.
-    const temNF = o.nfNumero || o.nfFileURL || (parseFloat(o.nfValor) > 0);
-    const nfStr = temNF
-      ? `<span style="font-size:11px;font-weight:700;color:var(--ok);">📎 ${o.nfNumero ? 'NF ' + o.nfNumero : 'NF anexada'}</span><br><span style="font-size:11px;color:var(--text-muted);">${parseFloat(o.nfValor) > 0 ? 'R$ ' + parseFloat(o.nfValor).toLocaleString('pt-BR',{minimumFractionDigits:2}) : 'sem valor'}</span>`
-      : '<span style="font-size:11px;color:var(--text-muted);">—</span>';
+    // "NF anexada" (verde) exige arquivo de verdade (nfFileURL) — um valor
+    // preenchido sem arquivo não é uma nota fiscal, é só um número (às vezes
+    // o valor orçado da cotação) e não pode ser confundido com "tem NF" na
+    // hora de conciliar com o financeiro. Antes considerava nfValor sozinho
+    // como prova de NF, o que também estava errado (mesmo motivo).
+    const temArquivo = !!o.nfFileURL;
+    const temValorSemArquivo = !temArquivo && parseFloat(o.nfValor) > 0;
+    const valorFmt = v => 'R$ ' + parseFloat(v).toLocaleString('pt-BR',{minimumFractionDigits:2});
+    const nfStr = temArquivo
+      ? `<span style="font-size:11px;font-weight:700;color:var(--ok);">📎 ${o.nfNumero ? 'NF ' + o.nfNumero : 'NF anexada'}</span><br><span style="font-size:11px;color:var(--text-muted);">${parseFloat(o.nfValor) > 0 ? valorFmt(o.nfValor) : 'sem valor'}</span>`
+      : temValorSemArquivo
+        ? `<span style="font-size:11px;font-weight:700;color:var(--warn);">⚠️ Sem NF</span><br><span style="font-size:11px;color:var(--text-muted);">${valorFmt(o.nfValor)} (orçado)</span>`
+        : '<span style="font-size:11px;color:var(--text-muted);">—</span>';
     const hasAttach = ''; // incorporado na coluna NF
     const entregue = o.entregue === true;
     const entregaBtn = entregue

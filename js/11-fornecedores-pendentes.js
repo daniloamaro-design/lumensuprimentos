@@ -751,7 +751,11 @@ async function opcGerenteDecisao(cotId, valor) {
             cotacaoValor: cotData.valor || 0,
             fornecedorId: cotData.fornecedorId || '',
             fornecedorNome: cotData.fornecedorNome || '',
-            nfValor: parseFloat(cotData.valor) || 0,
+            // nfValor NÃO é preenchido aqui — é o valor orçado/cotado (já
+            // salvo acima em cotacaoValor), não o valor da nota fiscal real,
+            // que só existe depois da compra. Preencher nfValor aqui fazia
+            // pedidos aparecerem como "NF anexada" com valor de NF antes de
+            // qualquer nota existir, atrapalhando a conciliação financeira.
             boletoVencimento: boletoVencimento || null,
           };
           await db.collection('orders').doc(orderId).update(orderUpdateData);
