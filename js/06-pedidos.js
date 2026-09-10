@@ -1722,7 +1722,12 @@ function openAttachModal() {
   document.getElementById('attach-boleto-venc').value   = detailOrderData?.boletoVencimento || '';
   document.getElementById('attach-obs').value           = detailOrderData?.attachObs || '';
 
-  // Limpa inputs de arquivo para não persistir NF/boleto de outro pedido
+  // Limpa inputs de arquivo para não persistir NF/boleto de outro pedido.
+  // Zerar input.value NÃO dispara o evento 'change' sozinho — sem isso,
+  // o nome do arquivo mostrado (attach-*-filename), a classe 'has-file' e
+  // o botão "Ler NF com IA" ficavam presos no arquivo do pedido anterior,
+  // mesmo com o input já vazio de verdade (risco de confundir e ler/anexar
+  // a NF errada). Reseta tudo isso manualmente aqui.
   const _nfInput  = document.getElementById('attach-nf-file');
   const _bolInput = document.getElementById('attach-boleto-file');
   if (_nfInput)  _nfInput.value  = '';
@@ -1731,6 +1736,16 @@ function openAttachModal() {
   const _bolLbl = document.getElementById('attach-boleto-label');
   if (_nfLbl && !detailOrderData?.nfFileURL)   _nfLbl.textContent  = 'Clique para selecionar';
   if (_bolLbl && !detailOrderData?.boletoFileURL) _bolLbl.textContent = 'Clique para selecionar';
+  ['nf', 'boleto'].forEach(type => {
+    const nameEl = document.getElementById(`attach-${type}-filename`);
+    const area   = document.getElementById(`attach-${type}-area`);
+    if (nameEl) nameEl.textContent = '';
+    if (area)   area.classList.remove('has-file');
+  });
+  const _btnIA = document.getElementById('btn-attach-ia');
+  const _stIA  = document.getElementById('attach-ia-status');
+  if (_btnIA) { _btnIA.style.display = 'none'; _btnIA.disabled = true; }
+  if (_stIA)  _stIA.style.display = 'none';
 
   // Mostra arquivos já anexados
   const nfExisting     = document.getElementById('attach-nf-existing');
