@@ -19,12 +19,53 @@ const GEMINI_URL = "/api/gemini"; // chave segura no servidor Vercel
 // repetindo o erro a cada carregamento do painel. As chamadas seguintes falham
 // na hora e os catches existentes mostram "IA indisponível". Recarregar reativa.
 window._geminiIndisponivel = false;
+
+// Limite diário gratuito da API Gemini: quando o Google responde 429
+// (RESOURCE_EXHAUSTED), guardamos a data de hoje e bloqueamos QUALQUER nova
+// chamada de IA até o dia seguinte — evita ficar tentando de novo (o que, se
+// a conta do Google Cloud tiver faturamento ativado, poderia gerar cobrança).
+// O aviso na tela é fixo (não some sozinho) para o usuário não continuar
+// tentando anexar/ler NF achando que é um bug.
+const _IA_LIMITE_KEY = 'ia_limite_diario_data';
+function _iaHojeStr() { return new Date().toISOString().slice(0, 10); }
+function _iaLimiteAtingidoHoje() {
+  try { return localStorage.getItem(_IA_LIMITE_KEY) === _iaHojeStr(); }
+  catch { return false; }
+}
+function _iaMostrarAvisoLimite() {
+  if (document.getElementById('ia-limite-banner')) return; // já visível
+  const b = document.createElement('div');
+  b.id = 'ia-limite-banner';
+  b.innerHTML = `
+    <span>⚠️ <strong>Limite diário gratuito de IA atingido.</strong> As funções de IA (leitura de NF, chat, etc.) ficam indisponíveis até amanhã — isso evita qualquer cobrança.</span>
+    <button type="button" style="background:none;border:none;color:inherit;font-size:18px;font-weight:700;cursor:pointer;line-height:1;margin-left:12px;" onclick="document.getElementById('ia-limite-banner').remove()">×</button>`;
+  Object.assign(b.style, {
+    position: 'fixed', top: '0', left: '0', right: '0', zIndex: '99999',
+    background: '#fff3cd', color: '#7a5c00', borderBottom: '2px solid #f0c419',
+    padding: '10px 20px', fontSize: '13px', fontWeight: '600',
+    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+    textAlign: 'center', boxShadow: '0 2px 8px rgba(0,0,0,0.15)'
+  });
+  document.body.appendChild(b);
+}
+function _iaMarcarLimiteAtingido() {
+  try { localStorage.setItem(_IA_LIMITE_KEY, _iaHojeStr()); } catch {}
+  _iaMostrarAvisoLimite();
+}
+// Se a página foi recarregada no mesmo dia em que o limite já bateu, mostra
+// o aviso de novo assim que o DOM estiver pronto (não só na hora do erro).
+document.addEventListener('DOMContentLoaded', () => { if (_iaLimiteAtingidoHoje()) _iaMostrarAvisoLimite(); });
+
 async function geminiFetch(init) {
   if (window._geminiIndisponivel) throw new Error('IA indisponível (verifique a GEMINI_API_KEY na Vercel).');
+  if (_iaLimiteAtingidoHoje()) { _iaMostrarAvisoLimite(); throw new Error('Limite diário gratuito de IA atingido. Tente novamente amanhã.'); }
   const resp = await fetch(GEMINI_URL, init);
   if (!resp.ok && (resp.status === 401 || resp.status === 403)) {
     window._geminiIndisponivel = true;
     console.warn('IA (Gemini) desativada nesta sessão — verifique a GEMINI_API_KEY na Vercel.');
+  }
+  if (!resp.ok && resp.status === 429) {
+    _iaMarcarLimiteAtingido();
   }
   return resp;
 }
