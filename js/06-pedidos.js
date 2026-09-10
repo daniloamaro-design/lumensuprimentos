@@ -2248,7 +2248,7 @@ async function attachExtrairPrecosIA() {
     const mimeType = file.type || 'application/pdf';
 
     const listaComId = itens.map(i => `prodId="${i.prodId}" | ${i.nome} (${i.unidade})`).join('\n');
-    const prompt = `Analise esta nota fiscal brasileira (NF-e ou cupom fiscal) e extraia o preço unitário de cada produto listado abaixo.
+    const prompt = `Analise esta nota fiscal brasileira (NF-e ou cupom fiscal) e extraia o preço unitário de cada produto listado abaixo, o número da nota e o valor total da nota.
 
 PRODUTOS PARA ENCONTRAR:
 ${listaComId}
@@ -2259,9 +2259,11 @@ INSTRUÇÕES:
 - Se o produto não estiver na nota, omita-o
 - Valores em reais, use ponto como decimal (ex: 3.89)
 - Se a nota tiver apenas valor total por item, divida pela quantidade para obter o unitário
+- "numeroNota": o número da NF-e/cupom (campo "Número", "Nº" ou similar); se não achar, omita
+- "valorTotal": o valor TOTAL da nota (campo "Valor Total da Nota", "Total a Pagar" ou similar — não é a soma dos itens que você está calculando, é o valor impresso na nota); se não achar, omita
 
 Retorne APENAS este JSON, sem texto adicional:
-{"itens":[{"prodId":"id_exato","precoUnitario":valor_numerico}]}`;
+{"itens":[{"prodId":"id_exato","precoUnitario":valor_numerico}],"numeroNota":"texto_ou_omitido","valorTotal":valor_numerico_ou_omitido}`;
 
     const payload = {
       contents: [{ parts: [
@@ -2304,10 +2306,29 @@ Retorne APENAS este JSON, sem texto adicional:
 
     await batch.commit();
 
+    // Preenche número e valor total da NF no formulário — a IA tenta ler,
+    // mas os campos continuam editáveis: se ela errar (nota borrada, layout
+    // atípico), quem está anexando corrige antes de salvar.
+    const campoNum = document.getElementById('attach-nf-num');
+    const campoValor = document.getElementById('attach-nf-valor');
+    let avisoValor = '';
+    if (parsed.numeroNota && campoNum && !campoNum.value.trim()) campoNum.value = parsed.numeroNota;
+    if (parsed.valorTotal > 0 && campoValor) {
+      campoValor.value = Number(parsed.valorTotal).toFixed(2);
+    } else if (campoValor) {
+      // IA não achou o total impresso — soma os itens que ela conseguiu ler,
+      // como estimativa (avisa que é estimativa, não o valor real da nota).
+      const somaItens = parsed.itens.reduce((s, it) => {
+        const item = itens.find(i => i.prodId === it.prodId);
+        return s + (Number(it.precoUnitario) || 0) * (Number(item?.qty) || 0);
+      }, 0);
+      if (somaItens > 0) { campoValor.value = somaItens.toFixed(2); avisoValor = ' Valor total é uma estimativa (soma dos itens lidos) — confira antes de salvar.'; }
+    }
+
     st.style.display = 'block';
     st.style.background = 'rgba(22,163,74,.12)';
     st.style.borderLeft = '3px solid #16a34a';
-    st.innerHTML = `✅ <b>${salvos} preço(s)</b> extraído(s) e salvos no histórico automaticamente.`;
+    st.innerHTML = `✅ <b>${salvos} preço(s)</b> extraído(s) e salvos no histórico automaticamente.${avisoValor}`;
 
   } catch(e) {
     st.style.display = 'block';
