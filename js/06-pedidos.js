@@ -549,8 +549,9 @@ async function loadAllOrders() {
     const temArquivo = !!o.nfFileURL;
     const temValorSemArquivo = !temArquivo && parseFloat(o.nfValor) > 0;
     const valorFmt = v => 'R$ ' + parseFloat(v).toLocaleString('pt-BR',{minimumFractionDigits:2});
+    const extraSuffix = (o.nfExtras && o.nfExtras.length) ? ` +${o.nfExtras.length}` : '';
     const nfStr = temArquivo
-      ? `<span style="font-size:11px;font-weight:700;color:var(--ok);">📎 ${o.nfNumero ? 'NF ' + o.nfNumero : 'NF anexada'}</span><br><span style="font-size:11px;color:var(--text-muted);">${parseFloat(o.nfValor) > 0 ? valorFmt(o.nfValor) : 'sem valor'}</span>`
+      ? `<span style="font-size:11px;font-weight:700;color:var(--ok);">📎 ${o.nfNumero ? 'NF ' + o.nfNumero : 'NF anexada'}${extraSuffix}</span><br><span style="font-size:11px;color:var(--text-muted);">${parseFloat(o.nfValor) > 0 ? valorFmt(o.nfValor) : 'sem valor'}</span>`
       : temValorSemArquivo
         ? `<span style="font-size:11px;font-weight:700;color:var(--warn);">⚠️ Sem NF</span><br><span style="font-size:11px;color:var(--text-muted);">${valorFmt(o.nfValor)} (orçado)</span>`
         : '<span style="font-size:11px;color:var(--text-muted);">—</span>';
@@ -1015,6 +1016,33 @@ async function showOrderDetail(docId) {
             ${btnBoletoVer}${btnBoletoBaixar}
           </div>
         </div>` : ''}
+        ${(o.nfExtras || []).map((ex, i) => `
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--border);flex-wrap:wrap;gap:8px;">
+          <div>
+            <div style="font-size:13px;font-weight:700;color:var(--text);">📄 Nota Fiscal adicional ${i+1}</div>
+            <div style="font-size:12px;color:var(--text-muted);">
+              ${ex.numero ? `NF ${ex.numero}` : ''}
+              ${ex.valor ? ` — R$ ${parseFloat(ex.valor).toLocaleString('pt-BR',{minimumFractionDigits:2})}` : ''}
+              ${ex.fileName ? ` <span style="color:var(--lumen);">(${ex.fileName})</span>` : ''}
+            </div>
+          </div>
+          <div style="display:flex;gap:6px;">
+            ${ex.fileUrl ? `<button type="button" onclick="verArquivoPedido('${_esc(ex.fileUrl)}')" class="btn btn-secondary btn-sm">👁 Ver</button><button type="button" onclick="verArquivoPedido('${_esc(ex.fileUrl)}','${_esc(ex.fileName||'nota-fiscal')}',true)" class="btn btn-outline btn-sm">⬇ Baixar</button>` : ''}
+          </div>
+        </div>`).join('')}
+        ${(o.boletoExtras || []).map((ex, i) => `
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--border);flex-wrap:wrap;gap:8px;">
+          <div>
+            <div style="font-size:13px;font-weight:700;color:var(--text);">🗓 Boleto adicional ${i+1}</div>
+            <div style="font-size:12px;color:var(--text-muted);">
+              ${ex.vencimento ? `Vencimento: <strong>${new Date(ex.vencimento+'T00:00:00').toLocaleDateString('pt-BR')}</strong>` : ''}
+              ${ex.fileName ? ` <span style="color:var(--lumen);">(${ex.fileName})</span>` : ''}
+            </div>
+          </div>
+          <div style="display:flex;gap:6px;">
+            ${ex.fileUrl ? `<button type="button" onclick="verArquivoPedido('${_esc(ex.fileUrl)}')" class="btn btn-secondary btn-sm">👁 Ver</button><button type="button" onclick="verArquivoPedido('${_esc(ex.fileUrl)}','${_esc(ex.fileName||'boleto')}',true)" class="btn btn-outline btn-sm">⬇ Baixar</button>` : ''}
+          </div>
+        </div>`).join('')}
         ${o.fornecedorNome || o.attachObs ? `
         <div style="padding:8px 16px;background:var(--bg);font-size:12px;color:var(--text-muted);">
           ${o.fornecedorNome ? `🏪 ${o.fornecedorNome}` : ''}
@@ -1720,7 +1748,68 @@ async function deleteQuotation(qId) {
   loadQuotations(currentQuotationOrderId);
 }
 
-// Attach NF/Boleto
+// Attach NF/Boleto — NFs e boletos complementares (além do principal)
+const _attachEscAttr = s => String(s || '').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+let _attachNfExtras = [];     // {id, numero, valor, fileUrl, fileName, file}
+let _attachBoletoExtras = []; // {id, vencimento, fileUrl, fileName, file}
+let _attachExtraSeq = 0;
+
+function _renderAttachExtras() {
+  const nfEl = document.getElementById('attach-nf-extras-list');
+  if (nfEl) nfEl.innerHTML = _attachNfExtras.map(r => `
+    <div style="display:grid;grid-template-columns:1fr 1fr 1.4fr auto;gap:8px;align-items:end;margin-bottom:8px;padding:8px;border:1px solid var(--border);border-radius:8px;">
+      <div class="form-group" style="margin:0;">
+        <label class="form-label" style="font-size:11px;">Número da NF</label>
+        <input type="text" class="form-input" value="${_attachEscAttr(r.numero)}" oninput="_updAttachExtra('nf',${r.id},'numero',this.value)">
+      </div>
+      <div class="form-group" style="margin:0;">
+        <label class="form-label" style="font-size:11px;">Valor (R$)</label>
+        <input type="number" step="0.01" class="form-input" value="${_attachEscAttr(r.valor)}" oninput="_updAttachExtra('nf',${r.id},'valor',this.value)">
+      </div>
+      <div class="form-group" style="margin:0;">
+        <label class="form-label" style="font-size:11px;">Arquivo</label>
+        ${r.fileUrl && !r.file ? `<div style="font-size:11px;margin-bottom:4px;"><a href="#" onclick="event.preventDefault();verArquivoPedido('${_attachEscAttr(r.fileUrl)}')">👁 ${_attachEscAttr(r.fileName||'ver atual')}</a></div>` : ''}
+        <input type="file" accept=".pdf,.jpg,.jpeg,.png" onchange="_updAttachExtraFile('nf',${r.id},this.files[0])" style="font-size:11px;">
+        ${r.file ? `<div style="font-size:11px;color:var(--lumen);">${_attachEscAttr(r.file.name)}</div>` : ''}
+      </div>
+      <button type="button" class="btn btn-outline btn-sm" onclick="_removeAttachExtra('nf',${r.id})">✕</button>
+    </div>`).join('');
+
+  const bolEl = document.getElementById('attach-boleto-extras-list');
+  if (bolEl) bolEl.innerHTML = _attachBoletoExtras.map(r => `
+    <div style="display:grid;grid-template-columns:1fr 1.4fr auto;gap:8px;align-items:end;margin-bottom:8px;padding:8px;border:1px solid var(--border);border-radius:8px;">
+      <div class="form-group" style="margin:0;">
+        <label class="form-label" style="font-size:11px;">Vencimento</label>
+        <input type="date" class="form-input" value="${_attachEscAttr(r.vencimento)}" oninput="_updAttachExtra('boleto',${r.id},'vencimento',this.value)">
+      </div>
+      <div class="form-group" style="margin:0;">
+        <label class="form-label" style="font-size:11px;">Arquivo</label>
+        ${r.fileUrl && !r.file ? `<div style="font-size:11px;margin-bottom:4px;"><a href="#" onclick="event.preventDefault();verArquivoPedido('${_attachEscAttr(r.fileUrl)}')">👁 ${_attachEscAttr(r.fileName||'ver atual')}</a></div>` : ''}
+        <input type="file" accept=".pdf,.jpg,.jpeg,.png" onchange="_updAttachExtraFile('boleto',${r.id},this.files[0])" style="font-size:11px;">
+        ${r.file ? `<div style="font-size:11px;color:var(--lumen);">${_attachEscAttr(r.file.name)}</div>` : ''}
+      </div>
+      <button type="button" class="btn btn-outline btn-sm" onclick="_removeAttachExtra('boleto',${r.id})">✕</button>
+    </div>`).join('');
+}
+
+function _extraList(type) { return type === 'nf' ? _attachNfExtras : _attachBoletoExtras; }
+function addNfExtraRow() { _attachNfExtras.push({ id: ++_attachExtraSeq, numero: '', valor: '' }); _renderAttachExtras(); }
+function addBoletoExtraRow() { _attachBoletoExtras.push({ id: ++_attachExtraSeq, vencimento: '' }); _renderAttachExtras(); }
+function _updAttachExtra(type, id, field, value) {
+  const row = _extraList(type).find(r => r.id === id);
+  if (row) row[field] = value;
+}
+function _updAttachExtraFile(type, id, file) {
+  const row = _extraList(type).find(r => r.id === id);
+  if (row) row.file = file || null;
+  _renderAttachExtras();
+}
+function _removeAttachExtra(type, id) {
+  if (type === 'nf') _attachNfExtras = _attachNfExtras.filter(r => r.id !== id);
+  else _attachBoletoExtras = _attachBoletoExtras.filter(r => r.id !== id);
+  _renderAttachExtras();
+}
+
 function openAttachModal() {
   populateSupplierSelect('attach-supplier');
   document.getElementById('attach-nf-num').value        = detailOrderData?.nfNumero || '';
@@ -1787,6 +1876,13 @@ function openAttachModal() {
       if (sel) sel.value = fornId;
     }, 200);
   }
+
+  // Carrega NFs/boletos complementares já salvos neste pedido
+  _attachExtraSeq = 0;
+  _attachNfExtras = (detailOrderData?.nfExtras || []).map(ex => ({ id: ++_attachExtraSeq, numero: ex.numero || '', valor: ex.valor || '', fileUrl: ex.fileUrl || '', fileName: ex.fileName || '' }));
+  _attachBoletoExtras = (detailOrderData?.boletoExtras || []).map(ex => ({ id: ++_attachExtraSeq, vencimento: ex.vencimento || '', fileUrl: ex.fileUrl || '', fileName: ex.fileName || '' }));
+  _renderAttachExtras();
+
   openModal('modal-attach');
 }
 
@@ -1856,6 +1952,37 @@ async function saveAttachment() {
       update.boletoFileName = boletoFile.name;
       update.boletoFileURL  = await snap.ref.getDownloadURL();
     }
+
+    // NFs complementares: sobe arquivo novo (se houver) e mantém o já salvo caso contrário
+    const nfExtrasFinal = [];
+    for (const r of _attachNfExtras) {
+      let fileUrl = r.fileUrl || '', fileName = r.fileName || '';
+      if (r.file) {
+        const ref = storage.ref(`pedidos/${orderId}/nf_extra_${Date.now()}_${_safeName(r.file.name)}`);
+        const snap = await ref.put(r.file);
+        fileName = r.file.name;
+        fileUrl  = await snap.ref.getDownloadURL();
+      }
+      nfExtrasFinal.push({ numero: r.numero || '', valor: parseFloat(r.valor) || 0, fileUrl, fileName });
+    }
+    update.nfExtras = nfExtrasFinal;
+
+    const boletoExtrasFinal = [];
+    for (const r of _attachBoletoExtras) {
+      let fileUrl = r.fileUrl || '', fileName = r.fileName || '';
+      if (r.file) {
+        const ref = storage.ref(`pedidos/${orderId}/boleto_extra_${Date.now()}_${_safeName(r.file.name)}`);
+        const snap = await ref.put(r.file);
+        fileName = r.file.name;
+        fileUrl  = await snap.ref.getDownloadURL();
+      }
+      boletoExtrasFinal.push({ vencimento: r.vencimento || '', fileUrl, fileName });
+    }
+    update.boletoExtras = boletoExtrasFinal;
+
+    // nf_valor passa a refletir a NF principal + eventuais complementares
+    const somaExtras = nfExtrasFinal.reduce((s, ex) => s + (parseFloat(ex.valor) || 0), 0);
+    update.nfValor = (parseFloat(nfValor) || 0) + somaExtras;
   } catch(storageErr) {
     console.warn('Storage upload error (saving metadata only):', storageErr);
     if (nfFile)     update.nfFileName     = nfFile.name;
