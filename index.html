@@ -376,6 +376,10 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
         Conciliação Financeira
       </button>
+      <button class="sidebar-item" data-page="coord-guia" onclick="goPageMobile('coord-guia')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+        Guia e Atualizações
+      </button>
     </div>
 
     <div class="sidebar-section" data-modulo="suprimentos" id="sidebar-admin" style="display:none;">
@@ -2864,6 +2868,24 @@
     </div>
   </div>
 
+  <!-- PAGE: GUIA E HISTÓRICO DE ATUALIZAÇÕES (Coordenador) -->
+  <div class="page" id="page-coord-guia">
+    <div class="page-header">
+      <div class="page-title">📖 Guia do Sistema e Atualizações</div>
+      <div class="page-sub">Como usar cada área do sistema, e o que foi adicionado/corrigido ao longo do tempo</div>
+    </div>
+
+    <div class="card" style="margin-bottom:16px;">
+      <div class="card-body" style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="cat-tab active" id="guia-tab-como-usar" onclick="guiaSetTab('como-usar')">📘 Como Usar</button>
+        <button class="cat-tab" id="guia-tab-historico" onclick="guiaSetTab('historico')">🕘 Histórico de Atualizações</button>
+      </div>
+    </div>
+
+    <div id="guia-como-usar"></div>
+    <div id="guia-historico" class="hidden"></div>
+  </div>
+
   <!-- ════════ PAGE: CONTAGEM DE INVENTÁRIO ════════ -->
   <div class="page" id="page-inventario">
     <div class="page-header">
@@ -3675,6 +3697,7 @@
 <script src="js/21-inventario.js?v=1"></script>
 <script src="js/22-coord-dashboard.js?v=8"></script>
 <script src="js/23-importar-precos-nf.js?v=1"></script>
+<script src="js/24-guia-atualizacoes.js?v=1"></script>
 
 <!-- MODAL: NOVA SOLICITAÇÃO DE VARIEDADES -->
 <div class="modal-overlay hidden" id="modal-nova-var">
