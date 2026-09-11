@@ -1630,7 +1630,8 @@ async function abrirFornecedorModal(id) {
   const pct       = limite > 0 ? (utilizado / limite * 100) : 0;
   const barClass  = pct >= 90 ? 'danger' : pct >= 50 ? 'warn' : 'safe';
   const cats      = (s.categorias || []).map(c => CATEGORIAS[c]?.icon + ' ' + CATEGORIAS[c]?.nome).join(', ') || '—';
-  const tipos     = (s.tipos || []).join(', ') || '—';
+  const tipoLabel = { produtos: '📦 Suprimentos', passagens: '✈️ Passagens', frete: '🚚 Fretes' };
+  const tipos     = (s.tipos || []).map(t => tipoLabel[t] || t).join(', ') || '—';
   const tel       = s.contato || s.telefone || '';
 
   const hoje = new Date().toISOString().slice(0, 10);
@@ -1785,6 +1786,13 @@ function updateCatStyle(cat) {
   lbl.classList.toggle('cat-check-active', chk && chk.checked);
 }
 
+function updateTipoStyle(tipo) {
+  const chk = document.getElementById('sup-tipo-' + tipo);
+  const lbl = document.getElementById('tipo-check-' + tipo);
+  if (!lbl) return;
+  lbl.classList.toggle('cat-check-active', chk && chk.checked);
+}
+
 async function saveSupplier() {
   const nome          = document.getElementById('sup-nome').value.trim();
   const cnpj          = document.getElementById('sup-cnpj').value.trim();
@@ -1800,11 +1808,13 @@ async function saveSupplier() {
   const obs           = document.getElementById('sup-obs').value.trim();
   const categorias    = ['cereal','higiene','proteina','missa_sf','lanches_csl']
     .filter(c => document.getElementById('sup-cat-' + c)?.checked);
+  const tipos         = ['produtos','passagens','frete']
+    .filter(t => document.getElementById('sup-tipo-' + t)?.checked);
 
   if (!nome) { showToast('Informe o nome do fornecedor!'); return; }
   setBtnLoading('btn-save-supplier', true);
 
-  const data = { nome, cnpj, contato, email, contatoNome, limite, utilizado, prazo, obs, categorias,
+  const data = { nome, cnpj, contato, email, contatoNome, limite, utilizado, prazo, obs, categorias, tipos,
     updatedAt: firebase.firestore.FieldValue.serverTimestamp() };
 
   try {
@@ -1850,6 +1860,10 @@ function editSupplier(id) {
     const chk = document.getElementById('sup-cat-' + c);
     if (chk) { chk.checked = (s.categorias || []).includes(c); updateCatStyle(c); }
   });
+  ['produtos','passagens','frete'].forEach(t => {
+    const chk = document.getElementById('sup-tipo-' + t);
+    if (chk) { chk.checked = (s.tipos || []).includes(t); updateTipoStyle(t); }
+  });
   document.getElementById('supplier-form-title').textContent = 'Editar Fornecedor';
   document.getElementById('btn-cancel-supplier').classList.remove('hidden');
   document.getElementById('btn-save-supplier').textContent = 'Salvar Alterações';
@@ -1866,6 +1880,10 @@ function cancelEditSupplier() {
   ['cereal','higiene','proteina','missa_sf','lanches_csl'].forEach(c => {
     const chk = document.getElementById('sup-cat-' + c);
     if (chk) { chk.checked = false; updateCatStyle(c); }
+  });
+  ['produtos','passagens','frete'].forEach(t => {
+    const chk = document.getElementById('sup-tipo-' + t);
+    if (chk) { chk.checked = false; updateTipoStyle(t); }
   });
   document.getElementById('supplier-form-title').textContent = 'Cadastrar Novo Fornecedor';
   document.getElementById('btn-cancel-supplier').classList.add('hidden');

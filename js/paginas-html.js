@@ -172,10 +172,28 @@ document.querySelector('.main-content').insertAdjacentHTML('beforeend', `
           <input type="number" class="form-input" id="sup-prazo-outros" placeholder="Ex: 35" min="1" max="365">
         </div>
       </div>
+      <!-- Linha 3b: tipo de fornecedor (em quais módulos ele aparece) -->
+      <div class="form-group" style="margin:0 0 14px;">
+        <label class="form-label">Tipo de Fornecedor</label>
+        <div style="display:flex;gap:10px;margin-top:6px;flex-wrap:wrap;" id="sup-tipos-wrap">
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;font-weight:500;padding:8px 14px;border:1.5px solid var(--border);border-radius:8px;background:var(--surface);transition:all 0.15s;" id="tipo-check-produtos">
+            <input type="checkbox" id="sup-tipo-produtos" value="produtos" onchange="updateTipoStyle('produtos')" style="accent-color:var(--lumen);width:16px;height:16px;">
+            📦 Suprimentos
+          </label>
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;font-weight:500;padding:8px 14px;border:1.5px solid var(--border);border-radius:8px;background:var(--surface);transition:all 0.15s;" id="tipo-check-passagens">
+            <input type="checkbox" id="sup-tipo-passagens" value="passagens" onchange="updateTipoStyle('passagens')" style="accent-color:var(--lumen);width:16px;height:16px;">
+            ✈️ Passagens
+          </label>
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;font-weight:500;padding:8px 14px;border:1.5px solid var(--border);border-radius:8px;background:var(--surface);transition:all 0.15s;" id="tipo-check-frete">
+            <input type="checkbox" id="sup-tipo-frete" value="frete" onchange="updateTipoStyle('frete')" style="accent-color:var(--lumen);width:16px;height:16px;">
+            🚚 Fretes
+          </label>
+        </div>
+      </div>
       <!-- Linha 4: categorias como checkboxes + obs -->
       <div style="display:grid;grid-template-columns:auto 1fr;gap:24px;margin-bottom:14px;align-items:start;">
         <div class="form-group" style="margin:0;">
-          <label class="form-label">Categorias Atendidas</label>
+          <label class="form-label">Categorias Atendidas (só para Suprimentos)</label>
           <div style="display:flex;gap:10px;margin-top:6px;flex-wrap:wrap;" id="sup-cats-wrap">
             <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;font-weight:500;padding:8px 14px;border:1.5px solid var(--border);border-radius:8px;background:var(--surface);transition:all 0.15s;" id="cat-check-cereal">
               <input type="checkbox" id="sup-cat-cereal" value="cereal" onchange="updateCatStyle('cereal')" style="accent-color:var(--lumen);width:16px;height:16px;">
