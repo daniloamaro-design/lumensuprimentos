@@ -1813,7 +1813,14 @@ function _removeAttachExtra(type, id) {
 function openAttachModal() {
   populateSupplierSelect('attach-supplier');
   document.getElementById('attach-nf-num').value        = detailOrderData?.nfNumero || '';
-  document.getElementById('attach-nf-valor').value      = detailOrderData?.nfValor  || '';
+  // nfValor é o TOTAL (NF principal + extras somados em saveAttachment()) —
+  // não o valor só da nota principal. Pré-preencher o campo com o total e
+  // salvar de novo somaria os extras uma 2ª vez (bug já visto em produção:
+  // reabrir e salvar dobrava o valor da NF extra no total). Reconstrói aqui
+  // só a parte da principal, subtraindo os extras já contabilizados.
+  const somaExtrasAtual = (detailOrderData?.nfExtras || []).reduce((s, ex) => s + (parseFloat(ex.valor) || 0), 0);
+  const nfValorPrincipal = (parseFloat(detailOrderData?.nfValor) || 0) - somaExtrasAtual;
+  document.getElementById('attach-nf-valor').value      = nfValorPrincipal > 0 ? nfValorPrincipal : (detailOrderData?.nfValor || '');
   document.getElementById('attach-boleto-venc').value   = detailOrderData?.boletoVencimento || '';
   document.getElementById('attach-obs').value           = detailOrderData?.attachObs || '';
 
