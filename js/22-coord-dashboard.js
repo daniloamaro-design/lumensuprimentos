@@ -430,29 +430,49 @@ function _cdCalendario(fretes, passagens, hoje) {
 async function initCoordSaldo() {
   ['coord-saldo-suprimentos', 'coord-saldo-passagens', 'coord-saldo-fretes'].forEach(id => {
     const tb = document.getElementById(id);
-    if (tb) tb.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:20px;color:var(--text-muted);">Carregando…</td></tr>';
+    if (tb) tb.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:20px;color:var(--text-muted);">Carregando…</td></tr>';
   });
 
   try {
-    const [finSnap, fretesSnap] = await Promise.all([
+    const [finSnap, fretesSnap, supSnap] = await Promise.all([
       db.collection('compras_financeiro').get(),
       db.collection('fretes').get(),
+      db.collection('suppliers').get(),
     ]);
     const fin = finSnap.docs.map(d => d.data());
     const fretes = fretesSnap.docs.map(d => d.data());
+    const limitesPorFornecedor = _cdMapaLimites(supSnap.docs.map(d => d.data()));
 
-    _cdRenderSaldoTabela('coord-saldo-suprimentos', _cdAgregarFinanceiro(fin, 'suprimentos'));
-    _cdRenderSaldoTabela('coord-saldo-passagens', _cdAgregarFinanceiro(fin, 'passagens'));
-    _cdRenderSaldoTabela('coord-saldo-fretes', _cdAgregarFretes(fretes));
+    _cdRenderSaldoTabela('coord-saldo-suprimentos', _cdAgregarFinanceiro(fin, 'suprimentos'), limitesPorFornecedor);
+    _cdRenderSaldoTabela('coord-saldo-passagens', _cdAgregarFinanceiro(fin, 'passagens'), limitesPorFornecedor);
+    _cdRenderSaldoTabela('coord-saldo-fretes', _cdAgregarFretes(fretes), limitesPorFornecedor);
   } catch (e) {
     console.error('initCoordSaldo', e);
     ['coord-saldo-suprimentos', 'coord-saldo-passagens', 'coord-saldo-fretes'].forEach(id => {
       const tb = document.getElementById(id);
-      if (tb) tb.innerHTML = `<tr><td colspan="4" style="text-align:center;padding:20px;color:var(--danger,#dc2626);">Erro ao carregar: ${frtEsc(e.message)}</td></tr>`;
+      if (tb) tb.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:20px;color:var(--danger,#dc2626);">Erro ao carregar: ${frtEsc(e.message)}</td></tr>`;
     });
   }
 }
 window.initCoordSaldo = initCoordSaldo;
+
+// Nome cadastrado do fornecedor (suppliers.nome) → limite de crédito
+// (suppliers.limite, já usado no cadastro de Fornecedores). Também indexa
+// pelos aliases conhecidos (_CD_FORN_ALIASES) para pegar o mesmo fornecedor
+// mesmo quando compras_financeiro guarda um nome de pessoa/grafia diferente.
+function _cdMapaLimites(suppliers) {
+  const mapa = {};
+  suppliers.forEach(s => {
+    const limite = parseFloat(s.limite) || 0;
+    if (!limite) return;
+    mapa[_cdChaveFornecedor(s.nome)] = limite;
+  });
+  Object.entries(_CD_FORN_ALIASES).forEach(([alias, canonico]) => {
+    const limite = mapa[_cdChaveFornecedor(canonico)];
+    if (limite) mapa[_cdChaveFornecedor(alias)] = limite;
+  });
+  return mapa;
+}
 
 function coordSaldoSetTab(modulo) {
   ['suprimentos', 'passagens', 'fretes'].forEach(m => {
@@ -505,21 +525,31 @@ function _cdOrdenarSaldo(porFornecedor) {
     .sort((a, b) => b.saldo - a.saldo);
 }
 
-function _cdRenderSaldoTabela(tbodyId, linhas) {
+function _cdRenderSaldoTabela(tbodyId, linhas, limitesPorFornecedor) {
   const tbody = document.getElementById(tbodyId);
   if (!tbody) return;
   if (!linhas.length) {
-    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:20px;color:var(--text-muted);">Nenhum lançamento encontrado.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:20px;color:var(--text-muted);">Nenhum lançamento encontrado.</td></tr>';
     return;
   }
+  const mapa = limitesPorFornecedor || {};
   const totais = linhas.reduce((s, l) => ({ pedido: s.pedido + l.pedido, pago: s.pago + l.pago, saldo: s.saldo + l.saldo }), { pedido: 0, pago: 0, saldo: 0 });
-  const linha = (l, destaque) => `
+  const linha = (l, destaque) => {
+    const limite = destaque ? 0 : (mapa[_cdChaveFornecedor(l.fornecedor)] || 0);
+    // % do limite já consumido pelo que ainda está em aberto (saldo devedor).
+    // Saldo negativo (pagamos mais do que devemos) não "libera" limite negativo — trava em 0%.
+    const pct = limite > 0 ? Math.max(0, l.saldo) / limite * 100 : null;
+    const corPct = pct === null ? '' : pct >= 90 ? 'color:var(--danger,#dc2626);' : pct >= 50 ? 'color:#d97706;' : '';
+    return `
     <tr${destaque ? ' style="border-top:2px solid var(--border);font-weight:700;"' : ''}>
       <td>${frtEsc(l.fornecedor)}</td>
       <td style="text-align:right;">${_cd.BRL(l.pedido)}</td>
       <td style="text-align:right;color:var(--ok,#16a34a);">${_cd.BRL(l.pago)}</td>
       <td style="text-align:right;font-weight:${destaque ? 700 : 600};${l.saldo > 0.005 ? 'color:var(--danger,#dc2626);' : ''}">${_cd.BRL(l.saldo)}</td>
+      <td style="text-align:right;">${destaque ? '' : (limite > 0 ? _cd.BRL(limite) : '<span style="color:var(--text-muted);">—</span>')}</td>
+      <td style="text-align:right;font-weight:600;${corPct}">${destaque ? '' : (pct === null ? '<span style="color:var(--text-muted);">—</span>' : pct.toFixed(0) + '%')}</td>
     </tr>`;
+  };
   tbody.innerHTML = linhas.map(l => linha(l, false)).join('') + linha({ fornecedor: 'Total', ...totais }, true);
 }
 

@@ -1633,23 +1633,25 @@ function pagExportarPdfDetalhado(){
 async function finCarregarSaldoDevedor() {
   ['fin-saldo-suprimentos', 'fin-saldo-passagens', 'fin-saldo-fretes'].forEach(id => {
     const tb = document.getElementById(id);
-    if (tb) tb.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:20px;color:var(--text-muted);">Carregando…</td></tr>';
+    if (tb) tb.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:20px;color:var(--text-muted);">Carregando…</td></tr>';
   });
   try {
-    const [finSnap, fretesSnap] = await Promise.all([
+    const [finSnap, fretesSnap, supSnap] = await Promise.all([
       db.collection('compras_financeiro').get(),
       db.collection('fretes').get(),
+      db.collection('suppliers').get(),
     ]);
     const fin = finSnap.docs.map(d => d.data());
     const fretes = fretesSnap.docs.map(d => d.data());
-    _cdRenderSaldoTabela('fin-saldo-suprimentos', _cdAgregarFinanceiro(fin, 'suprimentos'));
-    _cdRenderSaldoTabela('fin-saldo-passagens', _cdAgregarFinanceiro(fin, 'passagens'));
-    _cdRenderSaldoTabela('fin-saldo-fretes', _cdAgregarFretes(fretes));
+    const limitesPorFornecedor = _cdMapaLimites(supSnap.docs.map(d => d.data()));
+    _cdRenderSaldoTabela('fin-saldo-suprimentos', _cdAgregarFinanceiro(fin, 'suprimentos'), limitesPorFornecedor);
+    _cdRenderSaldoTabela('fin-saldo-passagens', _cdAgregarFinanceiro(fin, 'passagens'), limitesPorFornecedor);
+    _cdRenderSaldoTabela('fin-saldo-fretes', _cdAgregarFretes(fretes), limitesPorFornecedor);
   } catch (e) {
     console.error('finCarregarSaldoDevedor', e);
     ['fin-saldo-suprimentos', 'fin-saldo-passagens', 'fin-saldo-fretes'].forEach(id => {
       const tb = document.getElementById(id);
-      if (tb) tb.innerHTML = `<tr><td colspan="4" style="text-align:center;padding:20px;color:var(--danger,#dc2626);">Erro ao carregar: ${frtEsc(e.message)}</td></tr>`;
+      if (tb) tb.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:20px;color:var(--danger,#dc2626);">Erro ao carregar: ${frtEsc(e.message)}</td></tr>`;
     });
   }
 }

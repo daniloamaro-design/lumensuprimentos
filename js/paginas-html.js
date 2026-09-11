@@ -2197,8 +2197,8 @@ document.querySelector('.main-content').insertAdjacentHTML('beforeend', `
       <div class="card-header"><div class="card-header-title">📦 Suprimentos</div></div>
       <div class="table-wrap">
         <table class="fin-table">
-          <thead><tr><th>Fornecedor</th><th style="text-align:right;">Total Pedido</th><th style="text-align:right;">Total Pago</th><th style="text-align:right;">Saldo em Aberto</th></tr></thead>
-          <tbody id="fin-saldo-suprimentos"><tr><td colspan="4" style="text-align:center;padding:20px;color:var(--text-muted);">Carregando…</td></tr></tbody>
+          <thead><tr><th>Fornecedor</th><th style="text-align:right;">Total Pedido</th><th style="text-align:right;">Total Pago</th><th style="text-align:right;">Saldo em Aberto</th><th style="text-align:right;">Limite</th><th style="text-align:right;">% do Limite Consumido</th></tr></thead>
+          <tbody id="fin-saldo-suprimentos"><tr><td colspan="6" style="text-align:center;padding:20px;color:var(--text-muted);">Carregando…</td></tr></tbody>
         </table>
       </div>
     </div>
@@ -2206,8 +2206,8 @@ document.querySelector('.main-content').insertAdjacentHTML('beforeend', `
       <div class="card-header"><div class="card-header-title">✈️ Passagens</div></div>
       <div class="table-wrap">
         <table class="fin-table">
-          <thead><tr><th>Fornecedor</th><th style="text-align:right;">Total Pedido</th><th style="text-align:right;">Total Pago</th><th style="text-align:right;">Saldo em Aberto</th></tr></thead>
-          <tbody id="fin-saldo-passagens"><tr><td colspan="4" style="text-align:center;padding:20px;color:var(--text-muted);">Carregando…</td></tr></tbody>
+          <thead><tr><th>Fornecedor</th><th style="text-align:right;">Total Pedido</th><th style="text-align:right;">Total Pago</th><th style="text-align:right;">Saldo em Aberto</th><th style="text-align:right;">Limite</th><th style="text-align:right;">% do Limite Consumido</th></tr></thead>
+          <tbody id="fin-saldo-passagens"><tr><td colspan="6" style="text-align:center;padding:20px;color:var(--text-muted);">Carregando…</td></tr></tbody>
         </table>
       </div>
     </div>
@@ -2215,8 +2215,8 @@ document.querySelector('.main-content').insertAdjacentHTML('beforeend', `
       <div class="card-header"><div class="card-header-title">🚛 Fretes</div></div>
       <div class="table-wrap">
         <table class="fin-table">
-          <thead><tr><th>Freteiro</th><th style="text-align:right;">Total Pedido</th><th style="text-align:right;">Total Pago</th><th style="text-align:right;">Saldo em Aberto</th></tr></thead>
-          <tbody id="fin-saldo-fretes"><tr><td colspan="4" style="text-align:center;padding:20px;color:var(--text-muted);">Carregando…</td></tr></tbody>
+          <thead><tr><th>Freteiro</th><th style="text-align:right;">Total Pedido</th><th style="text-align:right;">Total Pago</th><th style="text-align:right;">Saldo em Aberto</th><th style="text-align:right;">Limite</th><th style="text-align:right;">% do Limite Consumido</th></tr></thead>
+          <tbody id="fin-saldo-fretes"><tr><td colspan="6" style="text-align:center;padding:20px;color:var(--text-muted);">Carregando…</td></tr></tbody>
         </table>
       </div>
     </div>
