@@ -291,17 +291,28 @@ function mapearComprada(row) {
 // ── Upsert ───────────────────────────────────────────────────────────
 async function upsertSolicitacao(db, fornecedores, dados, contadores) {
   const { rows: existentes } = await db.query(
-    'select id, codigo from passagens_solicitacoes where planilha_chave = $1', [dados.chave]
+    'select id, codigo, status from passagens_solicitacoes where planilha_chave = $1', [dados.chave]
   );
 
   // Resolve fornecedorId nos orçamentos e no fornecedor final.
   dados.orcamentos.forEach(o => { const f = acharFornecedor(fornecedores, o.fornecedorNome); if (f) o.fornecedorId = f.id; });
   if (dados.fornecedor) { const f = acharFornecedor(fornecedores, dados.fornecedor.nome); if (f) dados.fornecedor.id = f.id; }
 
+  // A aba "Passagens pendentes" às vezes fica com uma linha desatualizada
+  // (status "Liberado para cotação"/"Compra Liberada") depois que a compra já
+  // aconteceu e foi registrada via aba "Passagens compradas" — sem isso, cada
+  // rodada do sync rebaixava a solicitação de volta pra 'pendente' pra sempre
+  // (achado e corrigido manualmente em 2026-09-11, ver
+  // tools/passagens/corrige-status-pendente.mjs). 'comprada' é terminal: uma
+  // vez comprada, nunca volta a 'pendente'/'aprovada' por este sync.
+  const statusFinal = (existentes[0]?.status === 'comprada' && dados.status !== 'comprada')
+    ? 'comprada'
+    : dados.status;
+
   const patch = {
     tipo: dados.tipo, solicitante: dados.solicitante, passageiro: dados.passageiro,
     origem: dados.origem, destino: dados.destino, saida: dados.saida, retorno: dados.retorno,
-    motivo: dados.motivo, obs: dados.obs, status: dados.status,
+    motivo: dados.motivo, obs: dados.obs, status: statusFinal,
     orcamentos: JSON.stringify(dados.orcamentos),
     valor_final: JSON.stringify(dados.valorFinal),
     fornecedor: JSON.stringify(dados.fornecedor),
