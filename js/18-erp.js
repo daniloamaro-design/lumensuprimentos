@@ -1373,6 +1373,82 @@ async function loadFrtIndicadores() {
       .map(([nome, v]) => [`${nome} (${v.noPrazo}/${v.total})`, Math.round((v.noPrazo / v.total) * 100)])
       .sort((a, b) => b[1] - a[1]);
 
+    // Cumprimento de Carga por casa de origem — indicador de desempenho do
+    // estoquista, alimentado pela Conferência de Carga (planejado × carregado).
+    // Só entram fretes já conferidos. A atribuição usa a(s) transferência(s)
+    // vinculada(s) ao frete: se todas vêm da mesma casa/mesmo criador, atribui
+    // a ela(e); se o frete juntou origens ou responsáveis diferentes, cai em
+    // "Múltiplas origens"/"Múltiplos responsáveis" — errar a atribuição seria
+    // pior do que deixar agrupado.
+    const conferidos = fs.filter(f => f.taxaCumprimento != null && Array.isArray(f.transferenciasIds) && f.transferenciasIds.length);
+    let cargaCumprimentoHTML = 'Nenhuma conferência de carga registrada ainda.';
+    let itensFaltantesHTML = '';
+    let taxaMediaCarga = null;
+    if (conferidos.length) {
+      const idsUnicos = [...new Set(conferidos.flatMap(f => f.transferenciasIds))];
+      const transfSnaps = await Promise.all(idsUnicos.map(tid => db.collection('transferencias').doc(tid).get()));
+      const transfMap = {};
+      transfSnaps.forEach(s => { if (s.exists) transfMap[s.id] = s.data(); });
+
+      const porCasa = {}; // casa -> { soma, count }
+      const itensFaltantes = [];
+      conferidos.forEach(f => {
+        const transfs = f.transferenciasIds.map(id => transfMap[id]).filter(Boolean);
+        const origens = [...new Set(transfs.map(t => t.origem || '—'))];
+        const criadores = [...new Set(transfs.map(t => t.criadaPor || '—'))];
+        const casa = origens.length === 1 ? origens[0] : 'Múltiplas origens';
+        const responsavel = criadores.length === 1 ? criadores[0] : 'Múltiplos responsáveis';
+
+        const alvo = porCasa[casa] || (porCasa[casa] = { soma: 0, count: 0 });
+        alvo.soma += Number(f.taxaCumprimento) || 0;
+        alvo.count++;
+
+        (f.itensCarregados || []).forEach(it => {
+          if ((Number(it.carregado) || 0) < (Number(it.planejado) || 0)) {
+            itensFaltantes.push({ data: f.data, code: f.code, casa, responsavel, nome: it.nome, planejado: it.planejado, carregado: it.carregado });
+          }
+        });
+      });
+
+      taxaMediaCarga = Math.round(conferidos.reduce((s, f) => s + (Number(f.taxaCumprimento) || 0), 0) / conferidos.length);
+
+      const paresCasa = Object.entries(porCasa)
+        .map(([casa, v]) => [`${casa} (${v.count})`, Math.round(v.soma / v.count)])
+        .sort((a, b) => a[1] - b[1]); // pior primeiro — é o que precisa de atenção
+      cargaCumprimentoHTML = paresCasa.map(([lab, val]) => {
+        const cor = val >= 95 ? 'var(--ok,#059669)' : val >= 70 ? 'var(--warn,#d97706)' : 'var(--danger,#dc2626)';
+        return `<div style="margin-bottom:8px;">
+          <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:2px;gap:8px;"><span>${frtEsc(lab)}</span><b style="color:${cor};">${val}%</b></div>
+          <div style="height:8px;background:var(--border);border-radius:4px;overflow:hidden;"><div style="height:100%;width:${Math.min(100, val)}%;background:${cor};"></div></div>
+        </div>`;
+      }).join('');
+
+      if (itensFaltantes.length) {
+        itensFaltantesHTML = `
+        <div class="card" style="margin-top:16px;">
+          <div class="card-header"><b>⚠️ Itens não carregados (histórico da Conferência de Carga)</b></div>
+          <div class="table-wrap">
+            <table class="fin-table">
+              <thead><tr><th>Data</th><th>Frete</th><th>Origem</th><th>Responsável</th><th>Produto</th><th style="text-align:right;">Planejado</th><th style="text-align:right;">Carregado</th><th style="text-align:right;">Faltou</th></tr></thead>
+              <tbody>
+                ${itensFaltantes.sort((a, b) => String(b.data || '').localeCompare(String(a.data || ''))).map(it => `
+                  <tr>
+                    <td>${frtEsc(it.data || '—')}</td>
+                    <td>${frtEsc(it.code || '—')}</td>
+                    <td>${frtEsc(it.casa)}</td>
+                    <td>${frtEsc(it.responsavel)}</td>
+                    <td>${frtEsc(it.nome)}</td>
+                    <td style="text-align:right;">${it.planejado}</td>
+                    <td style="text-align:right;">${it.carregado}</td>
+                    <td style="text-align:right;color:var(--danger,#dc2626);font-weight:700;">${it.planejado - it.carregado}</td>
+                  </tr>`).join('')}
+              </tbody>
+            </table>
+          </div>
+        </div>`;
+      }
+    }
+
     cont.innerHTML = `
       <div style="${_erpGrid}">
         ${_erpStat('🚚 Fretes', qtd)}
@@ -1386,7 +1462,9 @@ async function loadFrtIndicadores() {
         <div class="card"><div class="card-header"><b>Top freteiros (valor)</b></div><div class="card-body">${topFret.length ? _erpBarras(topFret, frtBRL) : '—'}</div></div>
         <div class="card"><div class="card-header"><b>Valor por mês</b></div><div class="card-body">${meses.length ? _erpBarras(meses, frtBRL) : '—'}</div></div>
         <div class="card"><div class="card-header"><b>% no prazo por freteiro</b></div><div class="card-body">${prazoPares.length ? _erpBarras(prazoPares, v => v + '%') : 'Sem fretes entregues com previsão cadastrada ainda.'}</div></div>
-      </div>`;
+        <div class="card"><div class="card-header"><b>📋 Cumprimento de carga por casa de origem${taxaMediaCarga != null ? ` (média geral: ${taxaMediaCarga}%)` : ''}</b></div><div class="card-body">${cargaCumprimentoHTML}</div></div>
+      </div>
+      ${itensFaltantesHTML}`;
   } catch (e) { cont.innerHTML = `<div class="card"><div class="card-body" style="color:var(--danger,#dc2626);">Erro: ${frtEsc(e.message)}</div></div>`; }
 }
 window.loadFrtIndicadores = loadFrtIndicadores;
