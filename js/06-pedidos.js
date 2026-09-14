@@ -2474,12 +2474,18 @@ Retorne APENAS este JSON, sem texto adicional:
         const item = itens.find(i => i.prodId === prodId);
         if (!item) return;
         const ref = db.collection('prices_historico').doc();
+        // Só grava fornecedorNome se um fornecedor de verdade foi escolhido
+        // (select.value não vazio) — senão pega o texto do placeholder
+        // "Selecione o fornecedor..." como se fosse um nome real (bug já
+        // visto em produção, corrigido em 2026-09-14).
+        const _supSel = document.getElementById('attach-supplier');
+        const _fornecedorNome = _supSel?.value ? (_supSel.options[_supSel.selectedIndex]?.text || '') : '';
         batch.set(ref, {
           prodId, cat: item.catKey, city, price: Number(precoUnitario),
           savedAt: firebase.firestore.Timestamp.fromDate(dataCompra),
           savedBy: currentUserData?.name || '',
           pedidoCode: detailOrderData?.code || '',
-          fornecedorNome: document.getElementById('attach-supplier')?.options[document.getElementById('attach-supplier')?.selectedIndex]?.text || '',
+          fornecedorNome: _fornecedorNome,
           nfNumero: document.getElementById('attach-nf-num')?.value || '',
         });
         salvos++;
