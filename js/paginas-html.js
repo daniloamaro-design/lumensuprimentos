@@ -252,14 +252,25 @@ document.querySelector('.main-content').insertAdjacentHTML('beforeend', `
 
   <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin:12px 0 6px;">
     <span style="font-size:13px;font-weight:600;color:var(--text-muted);">Lista de Fornecedores</span>
-    <div style="display:flex;align-items:center;gap:8px;">
-      <label style="font-size:12px;color:var(--text-muted);">Ordenar por</label>
-      <select class="form-select" id="sup-sort" onchange="renderSuppliersList()" style="font-size:12px;padding:5px 10px;width:auto;">
-        <option value="alpha">A → Z (nome)</option>
-        <option value="alpha-desc">Z → A (nome)</option>
-        <option value="limite-desc">Limite ↓ (maior)</option>
-        <option value="limite-asc">Limite ↑ (menor)</option>
-      </select>
+    <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <label style="font-size:12px;color:var(--text-muted);">Tipo</label>
+        <select class="form-select" id="sup-filter-tipo" onchange="renderSuppliersList()" style="font-size:12px;padding:5px 10px;width:auto;">
+          <option value="">Todos</option>
+          <option value="produtos">📦 Suprimentos</option>
+          <option value="passagens">✈️ Passagens</option>
+          <option value="frete">🚚 Fretes</option>
+        </select>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <label style="font-size:12px;color:var(--text-muted);">Ordenar por</label>
+        <select class="form-select" id="sup-sort" onchange="renderSuppliersList()" style="font-size:12px;padding:5px 10px;width:auto;">
+          <option value="alpha">A → Z (nome)</option>
+          <option value="alpha-desc">Z → A (nome)</option>
+          <option value="limite-desc">Limite ↓ (maior)</option>
+          <option value="limite-asc">Limite ↑ (menor)</option>
+        </select>
+      </div>
     </div>
   </div>
   <div id="supplier-list-wrap">

@@ -1577,13 +1577,19 @@ function renderSuppliersList() {
   const wrap = document.getElementById('supplier-list-wrap');
   if (!wrap || !suppliersCache.length) return;
   const sort = document.getElementById('sup-sort')?.value || 'alpha';
-  const lista = suppliersCache.slice().sort((a, b) => {
+  const tipoFiltro = document.getElementById('sup-filter-tipo')?.value || '';
+  const filtrada = tipoFiltro
+    ? suppliersCache.filter(s => Array.isArray(s.tipos) && s.tipos.includes(tipoFiltro))
+    : suppliersCache;
+  const lista = filtrada.slice().sort((a, b) => {
     if (sort === 'alpha-desc')  return String(b.nome||'').localeCompare(String(a.nome||''), 'pt-BR');
     if (sort === 'limite-desc') return (Number(b.limite)||0) - (Number(a.limite)||0);
     if (sort === 'limite-asc')  return (Number(a.limite)||0) - (Number(b.limite)||0);
     return String(a.nome||'').localeCompare(String(b.nome||''), 'pt-BR'); // alpha default
   });
-  wrap.innerHTML = lista.map(s => renderSupplierCard(s)).join('');
+  wrap.innerHTML = lista.length
+    ? lista.map(s => renderSupplierCard(s)).join('')
+    : '<div class="empty-state"><div class="empty-state-icon">🔍</div><div class="empty-state-title">Nenhum fornecedor nesse tipo</div><div>Marque o tipo no cadastro do fornecedor, ou mude o filtro acima.</div></div>';
 }
 window.renderSuppliersList = renderSuppliersList;
 
