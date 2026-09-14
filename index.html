@@ -361,9 +361,13 @@
     <!-- Fornecedores — cadastro único, compartilhado por Suprimentos/Passagens/Fretes -->
     <div class="sidebar-section" data-modulo="fornecedores" id="sidebar-fornecedores">
       <div class="sidebar-section-title">Fornecedores</div>
-      <button class="sidebar-item" data-page="fornecedores" onclick="goPageMobile('fornecedores')">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><rect x="9" y="12" width="6" height="10"/></svg>
+      <button class="sidebar-item" data-page="fornecedores-cadastro" onclick="goPageMobile('fornecedores-cadastro')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
         Cadastro
+      </button>
+      <button class="sidebar-item" data-page="fornecedores-consulta" onclick="goPageMobile('fornecedores-consulta')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><rect x="9" y="12" width="6" height="10"/></svg>
+        Consulta
       </button>
     </div>
     <!-- Painel do Coordenador — módulo visível para coordenador/gerente/diretor/admin -->
@@ -3026,7 +3030,7 @@
 </div>
 
 <!-- FORNECEDORES / COMPARATIVO / pages are in the main content area -->
-<script src="js/paginas-html.js?v=8"></script>
+<script src="js/paginas-html.js?v=9"></script>
 
 <!-- ════════ MODAL: REGISTRAR TRANSFERÊNCIA FINANCEIRA ════════ -->
 <div class="modal-overlay hidden" id="modal-transf-financeira">
@@ -3573,13 +3577,13 @@
 <script src="js/01-core.js?v=6"></script>
 <script src="js/02-auth.js?v=7"></script>
 <script src="js/03-navegacao.js?v=2"></script>
-<script src="js/04-percapita.js?v=16"></script>
+<script src="js/04-percapita.js?v=17"></script>
 <script src="js/05-cadastros.js?v=2"></script>
 <script src="js/06-pedidos.js?v=18"></script>
 <script src="js/07-estoque-ia-form.js?v=4"></script>
 <script src="js/08-orcamento-casas.js?v=2"></script>
 <script src="js/09-indicadores-transf.js?v=3"></script>
-<script src="js/10-produtos-orcamento.js?v=7"></script>
+<script src="js/10-produtos-orcamento.js?v=8"></script>
 <script src="js/11-fornecedores-pendentes.js?v=7"></script>
 <script src="js/12-financeiro-compras.js?v=7"></script>
 <script src="js/13-ia-avancada.js?v=2"></script>
@@ -3588,7 +3592,7 @@
 <script src="js/16-chat-ia.js?v=2"></script>
 <script src="js/17-metas-wrappers.js?v=2"></script>
 <script src="js/cidades-brasil.js?v=1"></script>
-<script src="js/18-erp.js?v=40"></script>
+<script src="js/18-erp.js?v=41"></script>
 <script src="js/19-dashboard-diretoria.js?v=9"></script>
 <script src="js/20-percapita-diretoria.js?v=2"></script>
 <!-- CHAT IA FLUTUANTE -->
@@ -3915,7 +3919,7 @@
   </div>
 </div>
 
-<script src="js/melhorias.js?v=2"></script>
+<script src="js/melhorias.js?v=3"></script>
 
 
 

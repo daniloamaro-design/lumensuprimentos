@@ -330,7 +330,7 @@ async function _runGlobalSearch(q) {
     const supSnap = await db.collection('suppliers').orderBy('nome').startAt(q).endAt(q+'\uf8ff').limit(5).get();
     supSnap.docs.forEach(d => {
       const s = d.data();
-      resultados.push({ icon:'🏢', label: s.nome, sub: s.cnpj||s.contato||'', page:'fornecedores', docId: d.id });
+      resultados.push({ icon:'🏢', label: s.nome, sub: s.cnpj||s.contato||'', page:'fornecedores-consulta', docId: d.id });
     });
     // Variedades
     const varSnap = await db.collection('var_solicitacoes').orderBy('codigo').startAt(q.toUpperCase()).endAt(q.toUpperCase()+'\uf8ff').limit(3).get();

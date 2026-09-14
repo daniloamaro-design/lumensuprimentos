@@ -600,7 +600,7 @@ function goPage(page) {
     'percapita':'Per Capita por Casa','manage-houses':'Gerenciar Casas',
     'manage-cities':'Gerenciar Cidades','manage-products':'Gerenciar Produtos',
     'indicadores':'Indicadores','transferencias':'Transferências',
-    'fornecedores':'Fornecedores','calc-real':'Previsão de Suprimentos','orcamento-financeiro':'Orçamento Financeiro','orc-historico-fin':'Histórico de Orçamentos','ind-fornecedores':'Indicadores de Fornecedores','orc-pendentes':'Orçamentos Pendentes','financeiro-compras':'Financeiro — Compras','metas':'Metas e Análise Econômica','var-solicitacoes':'Solicitações de Variedades','var-orcamento':'Orçamentos de Variedades','var-proposta':'Proposta Semanal','var-historico':'Histórico de Compras','var-setores':'Gerenciar Setores','rotina-estoque':'Rotina de Estoque','manage-cc':'Gerenciar Centro de Custo','cardapio-diario':'Cardápio Diário','percapita-financeiro':'Per Capita Financeiro','inventario':'Contagem de Inventário','coord-dashboard':'Painel do Coordenador','coord-saldo':'Saldo Devedor','coord-conciliacao':'Conciliação Financeira','coord-guia':'Guia e Atualizações'
+    'fornecedores-cadastro':'Cadastrar Fornecedor','fornecedores-consulta':'Fornecedores','calc-real':'Previsão de Suprimentos','orcamento-financeiro':'Orçamento Financeiro','orc-historico-fin':'Histórico de Orçamentos','ind-fornecedores':'Indicadores de Fornecedores','orc-pendentes':'Orçamentos Pendentes','financeiro-compras':'Financeiro — Compras','metas':'Metas e Análise Econômica','var-solicitacoes':'Solicitações de Variedades','var-orcamento':'Orçamentos de Variedades','var-proposta':'Proposta Semanal','var-historico':'Histórico de Compras','var-setores':'Gerenciar Setores','rotina-estoque':'Rotina de Estoque','manage-cc':'Gerenciar Centro de Custo','cardapio-diario':'Cardápio Diário','percapita-financeiro':'Per Capita Financeiro','inventario':'Contagem de Inventário','coord-dashboard':'Painel do Coordenador','coord-saldo':'Saldo Devedor','coord-conciliacao':'Conciliação Financeira','coord-guia':'Guia e Atualizações'
   };
   document.getElementById('topbar-page-title').textContent = titles[page] || '';
 
@@ -618,7 +618,7 @@ function goPage(page) {
   if (page === 'indicadores')      { initIndicadores(); }
   if (page === 'irmaos')          { loadIrmaosIndicadores(); }
   if (page === 'transferencias')   { initTransferencias(); }
-  if (page === 'fornecedores')     { loadSuppliers(); }
+  if (page === 'fornecedores-cadastro' || page === 'fornecedores-consulta') { loadSuppliers(); }
   if (page === 'ind-fornecedores')  { initIndFornecedores(); }
   if (page === 'calc-real')         { loadCalcReal(); }
   if (page === 'orcamento-financeiro') { initOrcamentoFinanceiro(); }
@@ -1434,14 +1434,14 @@ async function loadDashboard() {
           icon: '🔴',
           title: `Fornecedor "${s.nome}": limite crítico — ${pct.toFixed(0)}% utilizado`,
           sub: `Utilizado: R$ ${utilizado.toFixed(2)} de R$ ${limite.toFixed(2)} | Disponível: R$ ${Math.max(0, limite - utilizado).toFixed(2)}`,
-          action: `<button class="btn btn-secondary btn-sm" onclick="goPage('fornecedores')">Ver fornecedor</button>`
+          action: `<button class="btn btn-secondary btn-sm" onclick="goPage('fornecedores-consulta')">Ver fornecedor</button>`
         });
       } else if (pct >= 50) {
         warnings.push({
           icon: '⚠️',
           title: `Fornecedor "${s.nome}": ${pct.toFixed(0)}% do limite utilizado`,
           sub: `Utilizado: R$ ${utilizado.toFixed(2)} de R$ ${limite.toFixed(2)} | Disponível: R$ ${Math.max(0, limite - utilizado).toFixed(2)}`,
-          action: `<button class="btn btn-secondary btn-sm" onclick="goPage('fornecedores')">Ver fornecedor</button>`
+          action: `<button class="btn btn-secondary btn-sm" onclick="goPage('fornecedores-consulta')">Ver fornecedor</button>`
         });
       }
     });

@@ -69,45 +69,10 @@ document.querySelector('.main-content').insertAdjacentHTML('beforeend', `
 </div>
 
 <!-- PAGE: FORNECEDORES -->
-<div class="page" id="page-fornecedores">
+<div class="page" id="page-fornecedores-cadastro">
   <div class="page-header">
-    <div class="page-title">Fornecedores</div>
-    <div class="page-sub">Cadastre e gerencie fornecedores, limites de crédito e histórico de compras</div>
-    <div style="margin-top:8px;display:flex;gap:8px;">
-      <button class="export-btn" onclick="exportSuppliersReport()">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-        Exportar Relatório PDF
-      </button>
-      <button class="export-btn" onclick="recalcularLimitesFornecedores()" style="background:var(--warn-bg);color:var(--warn);border-color:var(--warn);">
-        🔄 Recalcular Limites
-      </button>
-      <button class="export-btn" onclick="verificarVencimentos()" style="background:var(--danger-bg);color:var(--danger);border-color:var(--danger);">
-        🔔 Alertas de Vencimento
-      </button>
-    </div>
-  </div>
-
-  <!-- 🤖 Card IA Fornecedores -->
-  <div class="card" style="margin-bottom:16px;border-left:4px solid var(--lumen);" id="ai-fornecedor-card">
-    <div class="card-header" style="cursor:pointer;" onclick="toggleAIFornCard()">
-      <div class="card-header-title">🤖 Recomendação de Fornecedor por IA</div>
-      <div class="card-header-sub">Análise automática com base no histórico de compras — clique para expandir</div>
-      <div id="ai-forn-chevron" style="transition:transform 0.2s;font-size:18px;color:var(--text-muted);">▼</div>
-    </div>
-    <div id="ai-forn-body" style="display:none;">
-      <div class="card-body" style="padding:14px 20px;">
-        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-bottom:14px;">
-          <div>
-            <label class="form-label">Categoria para analisar</label>
-            <select class="form-select" id="ai-forn-cat" style="width:200px;"></select>
-          </div>
-          <button class="btn btn-primary" onclick="runAIFornecedor()" id="btn-ai-forn">
-            🤖 Analisar Fornecedores
-          </button>
-        </div>
-        <div id="ai-forn-result" style="font-size:14px;line-height:1.7;color:var(--text);white-space:pre-wrap;min-height:40px;"></div>
-      </div>
-    </div>
+    <div class="page-title">Cadastrar Fornecedor</div>
+    <div class="page-sub">Cadastre um fornecedor novo ou edite um já existente (limites de crédito, tipo, categorias)</div>
   </div>
 
   <!-- Add/Edit supplier -->
@@ -229,8 +194,50 @@ document.querySelector('.main-content').insertAdjacentHTML('beforeend', `
       <button class="btn btn-primary" style="width:auto;" onclick="saveSupplier()" id="btn-save-supplier">+ Cadastrar Fornecedor</button>
     </div>
   </div>
+</div>
 
-  <!-- Supplier list -->
+<!-- PAGE: FORNECEDORES — CONSULTA -->
+<div class="page" id="page-fornecedores-consulta">
+  <div class="page-header">
+    <div class="page-title">Fornecedores</div>
+    <div class="page-sub">Consulte os fornecedores cadastrados, limites de crédito e histórico de compras</div>
+    <div style="margin-top:8px;display:flex;gap:8px;">
+      <button class="export-btn" onclick="exportSuppliersReport()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+        Exportar Relatório PDF
+      </button>
+      <button class="export-btn" onclick="recalcularLimitesFornecedores()" style="background:var(--warn-bg);color:var(--warn);border-color:var(--warn);">
+        🔄 Recalcular Limites
+      </button>
+      <button class="export-btn" onclick="verificarVencimentos()" style="background:var(--danger-bg);color:var(--danger);border-color:var(--danger);">
+        🔔 Alertas de Vencimento
+      </button>
+    </div>
+  </div>
+
+  <!-- 🤖 Card IA Fornecedores -->
+  <div class="card" style="margin-bottom:16px;border-left:4px solid var(--lumen);" id="ai-fornecedor-card">
+    <div class="card-header" style="cursor:pointer;" onclick="toggleAIFornCard()">
+      <div class="card-header-title">🤖 Recomendação de Fornecedor por IA</div>
+      <div class="card-header-sub">Análise automática com base no histórico de compras — clique para expandir</div>
+      <div id="ai-forn-chevron" style="transition:transform 0.2s;font-size:18px;color:var(--text-muted);">▼</div>
+    </div>
+    <div id="ai-forn-body" style="display:none;">
+      <div class="card-body" style="padding:14px 20px;">
+        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-bottom:14px;">
+          <div>
+            <label class="form-label">Categoria para analisar</label>
+            <select class="form-select" id="ai-forn-cat" style="width:200px;"></select>
+          </div>
+          <button class="btn btn-primary" onclick="runAIFornecedor()" id="btn-ai-forn">
+            🤖 Analisar Fornecedores
+          </button>
+        </div>
+        <div id="ai-forn-result" style="font-size:14px;line-height:1.7;color:var(--text);white-space:pre-wrap;min-height:40px;"></div>
+      </div>
+    </div>
+  </div>
+
   <!-- Dashboard financeiro por fornecedor -->
   <div class="card" style="margin-bottom:16px;">
     <div class="card-header">

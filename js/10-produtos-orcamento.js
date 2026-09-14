@@ -1838,6 +1838,9 @@ async function saveSupplier() {
 function editSupplier(id) {
   const s = suppliersCache.find(x => x.id === id);
   if (!s) return;
+  // Editar é uma ação de Cadastro — o formulário mora na aba "Cadastro" agora
+  // (a Consulta só lista), então troca de aba antes de preencher os campos.
+  if (typeof goPage === 'function') goPage('fornecedores-cadastro');
   supplierEditId = id;
   document.getElementById('sup-nome').value          = s.nome || '';
   document.getElementById('sup-cnpj').value          = s.cnpj || '';
