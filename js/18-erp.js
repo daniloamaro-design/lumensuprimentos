@@ -822,46 +822,10 @@ async function salvarNovoFrete() {
 }
 window.salvarNovoFrete = salvarNovoFrete;
 
-// ── Freteiros (suppliers tipo frete) ──
-async function loadFrtFreteiros() {
-  const tb = document.getElementById('frt-freteiros-tbody');
-  if (tb) tb.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:24px;color:var(--text-muted);">Carregando…</td></tr>';
-  try {
-    const snap = await db.collection('suppliers').orderBy('nome').get();
-    const fret = snap.docs.map(x => ({ id: x.id, ...x.data() })).filter(s => Array.isArray(s.tipos) && s.tipos.includes('frete'));
-    if (!tb) return;
-    tb.innerHTML = fret.length
-      ? fret.map(s => `<tr><td>${frtEsc(s.nome)}</td><td>${frtEsc(s.tel || '—')}</td><td>${frtEsc(s.pix || '—')}</td><td>${frtEsc(s.cnpj || '—')}</td></tr>`).join('')
-      : '<tr><td colspan="4" style="text-align:center;padding:24px;color:var(--text-muted);">Nenhum freteiro cadastrado.</td></tr>';
-  } catch (e) {
-    console.error('loadFrtFreteiros', e);
-    if (tb) tb.innerHTML = `<tr><td colspan="4" style="text-align:center;padding:24px;color:var(--danger,#dc2626);">Erro: ${frtEsc(e.message)}</td></tr>`;
-  }
-}
-window.loadFrtFreteiros = loadFrtFreteiros;
-
-async function salvarFreteiro() {
-  const nome = document.getElementById('frt-fr-nome').value.trim();
-  if (!nome) return showToast('⚠️ Informe o nome.');
-  try {
-    // se já existe fornecedor com esse nome, só adiciona o tipo 'frete'
-    const snap = await db.collection('suppliers').get();
-    const existente = snap.docs.map(x => ({ id: x.id, ...x.data() })).find(s => (s.nome || '').toLowerCase() === nome.toLowerCase());
-    const tel = document.getElementById('frt-fr-tel').value.trim() || null;
-    const pix = document.getElementById('frt-fr-pix').value.trim() || null;
-    const doc = document.getElementById('frt-fr-doc').value.trim() || null;
-    if (existente) {
-      const tipos = [...new Set([...(existente.tipos || []), 'frete'])];
-      await db.collection('suppliers').doc(existente.id).update({ tipos, tel: existente.tel || tel, pix: existente.pix || pix, cnpj: existente.cnpj || doc });
-    } else {
-      await db.collection('suppliers').add({ nome, tel, pix, cnpj: doc, tipos: ['frete'], createdAt: firebase.firestore.FieldValue.serverTimestamp() });
-    }
-    showToast('✅ Freteiro salvo.');
-    ['frt-fr-nome', 'frt-fr-tel', 'frt-fr-pix', 'frt-fr-doc'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
-    loadFrtFreteiros();
-  } catch (e) { console.error(e); showToast('❌ Erro ao salvar: ' + e.message); }
-}
-window.salvarFreteiro = salvarFreteiro;
+// Freteiros: a tela dedicada foi removida — freteiros agora são cadastrados
+// e editados no módulo Fornecedores (marcando o tipo "🚚 Fretes"). A lista
+// usada ao atribuir freteiro a um frete continua em popularSelectFreteiros(),
+// que lê suppliers com tipos incluindo 'frete' — sem mudança nenhuma aí.
 
 // ── Metas do frete ──
 async function loadFrtMetas() {
@@ -1959,7 +1923,7 @@ window.salvarPasOrcamento = salvarPasOrcamento;
    ══════════════════════════════════════════════════════════════════════ */
 
 // páginas dos módulos (hoje abertas a todos; o admin restringe na tela)
-const _MOD_PAGES = ['pas-solicitacoes', 'pas-nova', 'pas-detalhe', 'pas-indicadores', 'pas-calendario', 'frt-lista', 'frt-novo', 'frt-rotas', 'frt-freteiros', 'frt-metas', 'frt-indicadores', 'ind-geral', 'plano-acao', 'diretoria-dashboard', 'diretoria-percapita'];
+const _MOD_PAGES = ['pas-solicitacoes', 'pas-nova', 'pas-detalhe', 'pas-indicadores', 'pas-calendario', 'frt-lista', 'frt-novo', 'frt-rotas', 'frt-metas', 'frt-indicadores', 'ind-geral', 'plano-acao', 'diretoria-dashboard', 'diretoria-percapita'];
 // todas as páginas do Suprimentos (perfis de gestão têm tudo)
 const _SUP_PAGES = ['dashboard', 'users', 'houses', 'manage-houses', 'manage-cities', 'manage-products',
   'manage-cats', 'percapita-financeiro', 'manage-cc', 'all-orders', 'produtividade', 'kanban',

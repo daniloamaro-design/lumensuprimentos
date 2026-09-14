@@ -132,8 +132,8 @@ document.querySelector('.main-content').insertAdjacentHTML('beforeend', `
           <input type="text" class="form-input" id="sup-contato" placeholder="(85) 99999-0000">
         </div>
       </div>
-      <!-- Linha 2: e-mail, pessoa de contato -->
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;">
+      <!-- Linha 2: e-mail, pessoa de contato, pix -->
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:14px;">
         <div class="form-group" style="margin:0;">
           <label class="form-label">E-mail do Fornecedor</label>
           <input type="email" class="form-input" id="sup-email" placeholder="contato@fornecedor.com.br">
@@ -141,6 +141,10 @@ document.querySelector('.main-content').insertAdjacentHTML('beforeend', `
         <div class="form-group" style="margin:0;">
           <label class="form-label">Nome do Contato / Representante</label>
           <input type="text" class="form-input" id="sup-contato-nome" placeholder="Ex: João Silva">
+        </div>
+        <div class="form-group" style="margin:0;">
+          <label class="form-label">Chave Pix</label>
+          <input type="text" class="form-input" id="sup-pix" placeholder="CPF, CNPJ, telefone, e-mail ou chave aleatória">
         </div>
       </div>
       <!-- Linha 3: limite, utilizado, prazo, prazo-outros -->

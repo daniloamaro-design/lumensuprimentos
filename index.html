@@ -29,7 +29,7 @@
   <!-- SheetJS para leitura e exportação de Excel -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
-  <link rel="stylesheet" href="css/estilos.css?v=9">
+  <link rel="stylesheet" href="css/estilos.css?v=10">
 </head>
 <body>
 
@@ -316,6 +316,7 @@
       <button class="modulo-btn" data-mod="frete" onclick="selecionarModulo('frete')" title="Fretes">🚚 Fretes</button>
       <button class="modulo-btn" data-mod="financeiro" onclick="selecionarModulo('financeiro')" title="Financeiro">💰 Financeiro</button>
       <button class="modulo-btn" data-mod="diretoria" onclick="selecionarModulo('diretoria')" title="Diretoria">🏛️ Diretoria</button>
+      <button class="modulo-btn" data-mod="fornecedores" onclick="selecionarModulo('fornecedores')" title="Fornecedores">🏢 Fornecedores</button>
       <button class="modulo-btn" id="btn-mod-coord" data-mod="coord" onclick="selecionarModulo('coord')" title="Painel do Coordenador" style="display:none;">🎯 Coordenador</button>
     </div>
     <div class="sidebar-section" data-modulo="diretoria" id="sidebar-transversal">
@@ -355,6 +356,14 @@
       <button class="sidebar-item" data-page="permissoes" onclick="goPageMobile('permissoes')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
         Permissões
+      </button>
+    </div>
+    <!-- Fornecedores — cadastro único, compartilhado por Suprimentos/Passagens/Fretes -->
+    <div class="sidebar-section" data-modulo="fornecedores" id="sidebar-fornecedores">
+      <div class="sidebar-section-title">Fornecedores</div>
+      <button class="sidebar-item" data-page="fornecedores" onclick="goPageMobile('fornecedores')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><rect x="9" y="12" width="6" height="10"/></svg>
+        Cadastro
       </button>
     </div>
     <!-- Painel do Coordenador — módulo visível para coordenador/gerente/diretor/admin -->
@@ -482,10 +491,6 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><line x1="9" y1="12" x2="15" y2="12"/></svg>
         Orç. Pendentes
         <span class="sidebar-badge hidden" id="badge-orc-pendentes2">0</span>
-      </button>
-      <button class="sidebar-item" data-page="fornecedores" onclick="goPageMobile('fornecedores')">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><rect x="9" y="12" width="6" height="10"/></svg>
-        Fornecedores
       </button>
       <button class="sidebar-item" data-page="my-orders" onclick="goPageMobile('my-orders')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
@@ -704,10 +709,6 @@
       <button class="sidebar-item" data-page="frt-rotas" onclick="goPageMobile('frt-rotas')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="6" cy="19" r="3"/><circle cx="18" cy="5" r="3"/><path d="M9 19h6a4 4 0 0 0 4-4V9M15 5H9a4 4 0 0 0-4 4v6"/></svg>
         Rotas
-      </button>
-      <button class="sidebar-item" data-page="frt-freteiros" onclick="goPageMobile('frt-freteiros')">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
-        Freteiros
       </button>
       <button class="sidebar-item" data-page="frt-metas" onclick="goPageMobile('frt-metas')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
@@ -2387,26 +2388,6 @@
     </div></div>
   </div>
 
-  <!-- PAGE: Freteiros -->
-  <div class="page" id="page-frt-freteiros">
-    <div class="page-header"><h1 class="page-title">🚚 Freteiros</h1></div>
-    <div class="card" style="margin-bottom:16px;"><div class="card-header"><b>Novo freteiro</b></div>
-      <div class="card-body" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;align-items:end;">
-        <div><label class="form-label">Nome *</label><input type="text" class="form-input" id="frt-fr-nome"></div>
-        <div><label class="form-label">Telefone</label><input type="text" class="form-input" id="frt-fr-tel"></div>
-        <div><label class="form-label">Chave Pix</label><input type="text" class="form-input" id="frt-fr-pix"></div>
-        <div><label class="form-label">CPF/CNPJ</label><input type="text" class="form-input" id="frt-fr-doc"></div>
-        <div><button class="btn btn-primary" onclick="salvarFreteiro()">+ Adicionar</button></div>
-      </div>
-    </div>
-    <div class="card"><div class="card-body">
-      <div class="table-wrap"><table class="fin-table">
-        <thead><tr><th>Nome</th><th>Telefone</th><th>Chave Pix</th><th>CPF/CNPJ</th></tr></thead>
-        <tbody id="frt-freteiros-tbody"><tr><td colspan="4" style="text-align:center;padding:24px;color:var(--text-muted);">Carregando…</td></tr></tbody>
-      </table></div>
-    </div></div>
-  </div>
-
   <!-- PAGE: Metas do Frete -->
   <div class="page" id="page-frt-metas">
     <div class="page-header"><h1 class="page-title">🚚 Metas do Frete</h1></div>
@@ -3045,7 +3026,7 @@
 </div>
 
 <!-- FORNECEDORES / COMPARATIVO / pages are in the main content area -->
-<script src="js/paginas-html.js?v=7"></script>
+<script src="js/paginas-html.js?v=8"></script>
 
 <!-- ════════ MODAL: REGISTRAR TRANSFERÊNCIA FINANCEIRA ════════ -->
 <div class="modal-overlay hidden" id="modal-transf-financeira">
@@ -3592,13 +3573,13 @@
 <script src="js/01-core.js?v=6"></script>
 <script src="js/02-auth.js?v=7"></script>
 <script src="js/03-navegacao.js?v=2"></script>
-<script src="js/04-percapita.js?v=15"></script>
+<script src="js/04-percapita.js?v=16"></script>
 <script src="js/05-cadastros.js?v=2"></script>
 <script src="js/06-pedidos.js?v=18"></script>
 <script src="js/07-estoque-ia-form.js?v=4"></script>
 <script src="js/08-orcamento-casas.js?v=2"></script>
 <script src="js/09-indicadores-transf.js?v=3"></script>
-<script src="js/10-produtos-orcamento.js?v=6"></script>
+<script src="js/10-produtos-orcamento.js?v=7"></script>
 <script src="js/11-fornecedores-pendentes.js?v=7"></script>
 <script src="js/12-financeiro-compras.js?v=7"></script>
 <script src="js/13-ia-avancada.js?v=2"></script>
@@ -3607,7 +3588,7 @@
 <script src="js/16-chat-ia.js?v=2"></script>
 <script src="js/17-metas-wrappers.js?v=2"></script>
 <script src="js/cidades-brasil.js?v=1"></script>
-<script src="js/18-erp.js?v=39"></script>
+<script src="js/18-erp.js?v=40"></script>
 <script src="js/19-dashboard-diretoria.js?v=9"></script>
 <script src="js/20-percapita-diretoria.js?v=2"></script>
 <!-- CHAT IA FLUTUANTE -->

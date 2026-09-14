@@ -528,7 +528,6 @@ function goPage(page) {
   if (page === 'frt-novo') setTimeout(loadFrtNovoForm, 50);
   if (page === 'frt-rotas') setTimeout(frtCarregarTransfPendentes, 50);
   if (page === 'orc-historico-fin') setTimeout(loadOrcHistorico, 50);
-  if (page === 'frt-freteiros') setTimeout(loadFrtFreteiros, 50);
   if (page === 'frt-metas') setTimeout(loadFrtMetas, 50);
   if (page === 'frt-indicadores') setTimeout(loadFrtIndicadores, 50);
   // Módulo Passagens (U3)

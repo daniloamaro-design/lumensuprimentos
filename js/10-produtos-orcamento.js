@@ -1651,6 +1651,7 @@ async function abrirFornecedorModal(id) {
         <div><span style="color:var(--text-muted);">Telefone</span><div style="font-weight:600;">${tel || '—'}</div></div>
         <div><span style="color:var(--text-muted);">E-mail</span><div style="font-weight:600;">${s.email || '—'}</div></div>
         <div><span style="color:var(--text-muted);">Contato</span><div style="font-weight:600;">${s.contatoNome || '—'}</div></div>
+        <div><span style="color:var(--text-muted);">Chave Pix</span><div style="font-weight:600;">${s.pix || '—'}</div></div>
         <div><span style="color:var(--text-muted);">Prazo de pagamento</span><div style="font-weight:600;">${prazoMap[s.prazo] || s.prazo || '—'}</div></div>
         <div><span style="color:var(--text-muted);">Tipo</span><div style="font-weight:600;">${tipos}</div></div>
         <div style="grid-column:1/-1;"><span style="color:var(--text-muted);">Categorias</span><div style="font-weight:600;">${cats}</div></div>
@@ -1799,6 +1800,7 @@ async function saveSupplier() {
   const contato       = document.getElementById('sup-contato').value.trim();
   const email         = document.getElementById('sup-email').value.trim();
   const contatoNome   = document.getElementById('sup-contato-nome').value.trim();
+  const pix           = document.getElementById('sup-pix').value.trim();
   const limite        = parseFloat(document.getElementById('sup-limite').value) || 0;
   const utilizado     = parseFloat(document.getElementById('sup-utilizado').value) || 0;
   const prazoBase     = document.getElementById('sup-prazo').value;
@@ -1814,7 +1816,7 @@ async function saveSupplier() {
   if (!nome) { showToast('Informe o nome do fornecedor!'); return; }
   setBtnLoading('btn-save-supplier', true);
 
-  const data = { nome, cnpj, contato, email, contatoNome, limite, utilizado, prazo, obs, categorias, tipos,
+  const data = { nome, cnpj, contato, email, contatoNome, pix, limite, utilizado, prazo, obs, categorias, tipos,
     updatedAt: firebase.firestore.FieldValue.serverTimestamp() };
 
   try {
@@ -1842,6 +1844,7 @@ function editSupplier(id) {
   document.getElementById('sup-contato').value       = s.contato || '';
   document.getElementById('sup-email').value         = s.email || '';
   document.getElementById('sup-contato-nome').value  = s.contatoNome || '';
+  document.getElementById('sup-pix').value           = s.pix || '';
   document.getElementById('sup-limite').value        = s.limite || '';
   document.getElementById('sup-utilizado').value     = s.utilizado || '';
   document.getElementById('sup-obs').value           = s.obs || '';
@@ -1872,7 +1875,7 @@ function editSupplier(id) {
 
 function cancelEditSupplier() {
   supplierEditId = null;
-  ['sup-nome','sup-cnpj','sup-contato','sup-email','sup-contato-nome','sup-limite','sup-utilizado','sup-obs','sup-prazo-outros'].forEach(id => {
+  ['sup-nome','sup-cnpj','sup-contato','sup-email','sup-contato-nome','sup-pix','sup-limite','sup-utilizado','sup-obs','sup-prazo-outros'].forEach(id => {
     const el = document.getElementById(id); if (el) el.value = '';
   });
   document.getElementById('sup-prazo').value = 'a_vista';
