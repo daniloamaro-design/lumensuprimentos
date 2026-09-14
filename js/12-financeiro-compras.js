@@ -1643,10 +1643,11 @@ async function finCarregarSaldoDevedor() {
     ]);
     const fin = finSnap.docs.map(d => d.data());
     const fretes = fretesSnap.docs.map(d => d.data());
-    const limitesPorFornecedor = _cdMapaLimites(supSnap.docs.map(d => d.data()));
-    _cdRenderSaldoTabela('fin-saldo-suprimentos', _cdAgregarFinanceiro(fin, 'suprimentos'), limitesPorFornecedor);
-    _cdRenderSaldoTabela('fin-saldo-passagens', _cdAgregarFinanceiro(fin, 'passagens'), limitesPorFornecedor);
-    _cdRenderSaldoTabela('fin-saldo-fretes', _cdAgregarFretes(fretes), limitesPorFornecedor);
+    const suppliers = supSnap.docs.map(d => d.data());
+    const limitesPorFornecedor = _cdMapaLimites(suppliers);
+    _cdRenderSaldoTabela('fin-saldo-suprimentos', _cdAgregarFinanceiro(fin, 'suprimentos', suppliers), limitesPorFornecedor);
+    _cdRenderSaldoTabela('fin-saldo-passagens', _cdAgregarFinanceiro(fin, 'passagens', suppliers), limitesPorFornecedor);
+    _cdRenderSaldoTabela('fin-saldo-fretes', _cdAgregarFretes(fretes, suppliers), limitesPorFornecedor);
   } catch (e) {
     console.error('finCarregarSaldoDevedor', e);
     ['fin-saldo-suprimentos', 'fin-saldo-passagens', 'fin-saldo-fretes'].forEach(id => {

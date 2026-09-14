@@ -1661,6 +1661,7 @@ async function abrirFornecedorModal(id) {
         <div><span style="color:var(--text-muted);">Prazo de pagamento</span><div style="font-weight:600;">${prazoMap[s.prazo] || s.prazo || '—'}</div></div>
         <div><span style="color:var(--text-muted);">Tipo</span><div style="font-weight:600;">${tipos}</div></div>
         <div style="grid-column:1/-1;"><span style="color:var(--text-muted);">Categorias</span><div style="font-weight:600;">${cats}</div></div>
+        ${(s.apelidos && s.apelidos.length) ? `<div style="grid-column:1/-1;"><span style="color:var(--text-muted);">Apelidos / Outros Nomes</span><div style="font-weight:600;">${s.apelidos.join(', ')}</div></div>` : ''}
         ${s.obs ? `<div style="grid-column:1/-1;"><span style="color:var(--text-muted);">Observações</span><div style="font-style:italic;">${s.obs}</div></div>` : ''}
       </div>
       ${limite > 0 ? `
@@ -1814,6 +1815,7 @@ async function saveSupplier() {
     ? (document.getElementById('sup-prazo-outros').value + ' dias')
     : prazoBase;
   const obs           = document.getElementById('sup-obs').value.trim();
+  const apelidos      = document.getElementById('sup-apelidos').value.split(',').map(s => s.trim()).filter(Boolean);
   const categorias    = ['cereal','higiene','proteina','missa_sf','lanches_csl']
     .filter(c => document.getElementById('sup-cat-' + c)?.checked);
   const tipos         = ['produtos','passagens','frete']
@@ -1822,7 +1824,7 @@ async function saveSupplier() {
   if (!nome) { showToast('Informe o nome do fornecedor!'); return; }
   setBtnLoading('btn-save-supplier', true);
 
-  const data = { nome, cnpj, contato, email, contatoNome, pix, limite, utilizado, prazo, obs, categorias, tipos,
+  const data = { nome, cnpj, contato, email, contatoNome, pix, limite, utilizado, prazo, obs, apelidos, categorias, tipos,
     updatedAt: firebase.firestore.FieldValue.serverTimestamp() };
 
   try {
@@ -1857,6 +1859,7 @@ function editSupplier(id) {
   document.getElementById('sup-limite').value        = s.limite || '';
   document.getElementById('sup-utilizado').value     = s.utilizado || '';
   document.getElementById('sup-obs').value           = s.obs || '';
+  document.getElementById('sup-apelidos').value      = (s.apelidos || []).join(', ');
   // Handle prazo — if it is a custom value (e.g. "35 dias"), set "outros"
   const prazoValues = ['a_vista','7','14','21','28','30','45','60'];
   if (prazoValues.includes(s.prazo)) {
@@ -1884,7 +1887,7 @@ function editSupplier(id) {
 
 function cancelEditSupplier() {
   supplierEditId = null;
-  ['sup-nome','sup-cnpj','sup-contato','sup-email','sup-contato-nome','sup-pix','sup-limite','sup-utilizado','sup-obs','sup-prazo-outros'].forEach(id => {
+  ['sup-nome','sup-cnpj','sup-contato','sup-email','sup-contato-nome','sup-pix','sup-limite','sup-utilizado','sup-obs','sup-apelidos','sup-prazo-outros'].forEach(id => {
     const el = document.getElementById(id); if (el) el.value = '';
   });
   document.getElementById('sup-prazo').value = 'a_vista';

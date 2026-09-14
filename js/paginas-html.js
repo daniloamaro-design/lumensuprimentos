@@ -191,6 +191,11 @@ document.querySelector('.main-content').insertAdjacentHTML('beforeend', `
           <input type="text" class="form-input" id="sup-obs" placeholder="Informações adicionais sobre o fornecedor...">
         </div>
       </div>
+      <div class="form-group" style="margin:0 0 14px;">
+        <label class="form-label">Apelidos / Outros Nomes</label>
+        <input type="text" class="form-input" id="sup-apelidos" placeholder="Ex: CHEAP SERVICOS DE TURISMO LTDA, Nome do vendedor... (separe por vírgula)">
+        <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">Se esse fornecedor aparece com nome diferente no financeiro (razão social, nome de quem atende, digitação errada), liste aqui — o Saldo Devedor passa a juntar tudo nele automaticamente.</div>
+      </div>
       <button class="btn btn-primary" style="width:auto;" onclick="saveSupplier()" id="btn-save-supplier">+ Cadastrar Fornecedor</button>
     </div>
   </div>

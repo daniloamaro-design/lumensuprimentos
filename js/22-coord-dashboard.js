@@ -441,11 +441,12 @@ async function initCoordSaldo() {
     ]);
     const fin = finSnap.docs.map(d => d.data());
     const fretes = fretesSnap.docs.map(d => d.data());
-    const limitesPorFornecedor = _cdMapaLimites(supSnap.docs.map(d => d.data()));
+    const suppliers = supSnap.docs.map(d => d.data());
+    const limitesPorFornecedor = _cdMapaLimites(suppliers);
 
-    _cdRenderSaldoTabela('coord-saldo-suprimentos', _cdAgregarFinanceiro(fin, 'suprimentos'), limitesPorFornecedor);
-    _cdRenderSaldoTabela('coord-saldo-passagens', _cdAgregarFinanceiro(fin, 'passagens'), limitesPorFornecedor);
-    _cdRenderSaldoTabela('coord-saldo-fretes', _cdAgregarFretes(fretes), limitesPorFornecedor);
+    _cdRenderSaldoTabela('coord-saldo-suprimentos', _cdAgregarFinanceiro(fin, 'suprimentos', suppliers), limitesPorFornecedor);
+    _cdRenderSaldoTabela('coord-saldo-passagens', _cdAgregarFinanceiro(fin, 'passagens', suppliers), limitesPorFornecedor);
+    _cdRenderSaldoTabela('coord-saldo-fretes', _cdAgregarFretes(fretes, suppliers), limitesPorFornecedor);
   } catch (e) {
     console.error('initCoordSaldo', e);
     ['coord-saldo-suprimentos', 'coord-saldo-passagens', 'coord-saldo-fretes'].forEach(id => {
@@ -466,6 +467,7 @@ function _cdMapaLimites(suppliers) {
     const limite = parseFloat(s.limite) || 0;
     if (!limite) return;
     mapa[_cdChaveFornecedor(s.nome)] = limite;
+    (s.apelidos || []).forEach(a => { mapa[_cdChaveFornecedor(a)] = limite; });
   });
   Object.entries(_CD_FORN_ALIASES).forEach(([alias, canonico]) => {
     const limite = mapa[_cdChaveFornecedor(canonico)];
@@ -490,11 +492,25 @@ function _cdChaveFornecedor(nome) {
   return (nome || '').trim().toUpperCase().replace(/\s+/g, ' ');
 }
 
-function _cdAgregarFinanceiro(fin, modulo) {
+// Resolve o nome de exibição pro CANÔNICO do cadastro (suppliers.nome),
+// usando a mesma lógica de resolução da Conciliação Financeira (CNPJ → nome
+// exato → apelidos cadastrados → alias conhecido). Sem isso, "CHEAP SERVICOS
+// DE TURISMO LTDA" (texto gravado em compras_financeiro) e "Chip Viagens"
+// (nome no cadastro) viravam 2 linhas separadas no Saldo Devedor. Como a
+// resolução é feita contra a lista de suppliers carregada na hora, um
+// fornecedor novo/editado/excluído já reflete aqui sem precisar mexer em
+// código — só cadastrar (ou marcar apelido) em Fornecedores.
+function _cdNomeResolvido(nomeTexto, suppliers) {
+  if (!suppliers || !suppliers.length) return (nomeTexto || '').trim() || '(sem fornecedor)';
+  const resolvido = _cdResolverFornecedor(nomeTexto, null, suppliers, null);
+  return resolvido ? resolvido.nome : ((nomeTexto || '').trim() || '(sem fornecedor)');
+}
+
+function _cdAgregarFinanceiro(fin, modulo, suppliers) {
   const porFornecedor = {};
   fin.forEach(f => {
     if ((f.modulo || 'suprimentos') !== modulo) return;
-    const nomeExibicao = (f.fornecedor || '').trim() || '(sem fornecedor)';
+    const nomeExibicao = _cdNomeResolvido(f.fornecedor, suppliers);
     const chave = _cdChaveFornecedor(nomeExibicao);
     const alvo = porFornecedor[chave] || (porFornecedor[chave] = { nome: nomeExibicao, pedido: 0, pago: 0 });
     const valor = Number(f.valor) || 0;
@@ -506,11 +522,11 @@ function _cdAgregarFinanceiro(fin, modulo) {
 
 // Fretes cancelados não entram (não houve serviço, não gera dívida).
 // valorPago já é parcial-aware (o mesmo campo usado no restante do módulo).
-function _cdAgregarFretes(fretes) {
+function _cdAgregarFretes(fretes, suppliers) {
   const porFreteiro = {};
   fretes.forEach(f => {
     if (f.status === 'cancelado') return;
-    const nomeExibicao = (f.freteiroNome || '').trim() || '(sem freteiro)';
+    const nomeExibicao = _cdNomeResolvido(f.freteiroNome, suppliers);
     const chave = _cdChaveFornecedor(nomeExibicao);
     const alvo = porFreteiro[chave] || (porFreteiro[chave] = { nome: nomeExibicao, pedido: 0, pago: 0 });
     alvo.pedido += Number(f.valor) || 0;
@@ -591,6 +607,11 @@ function _cdResolverFornecedor(nomeTexto, cnpjTexto, suppliers, resolvidosManual
     if (m) return m;
   }
   let m = suppliers.find(s => _cdChaveFornecedor(s.nome) === chave);
+  if (m) return m;
+  // Apelidos cadastrados pelo próprio usuário (Fornecedores > Cadastro,
+  // campo "Apelidos / Outros Nomes") — fonte viva: atualiza sozinha quando
+  // alguém edita/adiciona/remove um fornecedor, sem precisar mexer em código.
+  m = suppliers.find(s => Array.isArray(s.apelidos) && s.apelidos.some(a => _cdChaveFornecedor(a) === chave));
   if (m) return m;
   const aliasNome = _CD_FORN_ALIASES[chave];
   if (aliasNome) {
