@@ -1433,7 +1433,8 @@ async function loadOrcHistorico() {
       ? '<span style="font-size:11px;padding:2px 7px;border-radius:3px;background:#EDE9FE;color:#6D28D9;font-weight:600;">Transferência</span>'
       : '<span style="font-size:11px;padding:2px 7px;border-radius:3px;background:#ECFDF5;color:#059669;font-weight:600;">Compra Direta</span>';
 
-    wrap.innerHTML = lista.map(o => {
+    const pagObjOrcHist = paginar(lista, orcHistPage);
+    wrap.innerHTML = pagObjOrcHist.itens.map(o => {
       const geradoEm = o.geradoEm?.toDate ? o.geradoEm.toDate().toLocaleDateString('pt-BR') : '—';
       return `
       <div style="border:1px solid var(--border);border-radius:8px;padding:16px 18px;display:flex;flex-direction:column;gap:10px;">
@@ -1455,13 +1456,16 @@ async function loadOrcHistorico() {
           <button class="btn btn-outline btn-sm" onclick="orcHistVerDetalhe('${o.id}')">Ver detalhes</button>
         </div>
       </div>`;
-    }).join('');
+    }).join('') + paginacaoHTML(pagObjOrcHist, 'orcHistGoToPage');
   } catch(e) {
     console.error('loadOrcHistorico', e);
     wrap.innerHTML = `<div style="color:var(--danger);padding:20px;text-align:center;">Erro: ${e.message}</div>`;
   }
 }
 window.loadOrcHistorico = loadOrcHistorico;
+let orcHistPage = 1;
+function orcHistGoToPage(p) { orcHistPage = p; loadOrcHistorico(); }
+window.orcHistGoToPage = orcHistGoToPage;
 
 function orcHistVerDetalhe(id) {
   const o = _orcHistCache.find(x => x.id === id);

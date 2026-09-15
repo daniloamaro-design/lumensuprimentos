@@ -1080,13 +1080,13 @@
           <div class="flex gap-12 items-center">
             <div class="flex-1">
               <label class="form-label">Filtrar por Casa</label>
-              <select class="form-select" id="filter-house" onchange="loadAllOrders()">
+              <select class="form-select" id="filter-house" onchange="allOrdersPage=1;loadAllOrders()">
                 <option value="">Todas as casas</option>
               </select>
             </div>
             <div class="flex-1">
               <label class="form-label">Filtrar por Categoria</label>
-              <select class="form-select" id="filter-cat" onchange="loadAllOrders()">
+              <select class="form-select" id="filter-cat" onchange="allOrdersPage=1;loadAllOrders()">
                 <option value="">Todas</option>
                 <option value="cereal">🌾 Cereal</option>
                 <option value="higiene">🧴 Higiene</option>
@@ -1098,7 +1098,7 @@
             </div>
             <div>
               <label class="form-label">&nbsp;</label>
-              <select class="form-select" id="filter-entrega" onchange="loadAllOrders()" style="font-size:13px;">
+              <select class="form-select" id="filter-entrega" onchange="allOrdersPage=1;loadAllOrders()" style="font-size:13px;">
                 <option value="">Todas entregas</option>
                 <option value="pendente">📦 Pendente</option>
                 <option value="entregue">✅ Entregue</option>
@@ -1106,7 +1106,7 @@
             </div>
             <div>
               <label class="form-label">Ordenar por</label>
-              <select class="form-select" id="orders-sort" onchange="loadAllOrders()" style="font-size:13px;">
+              <select class="form-select" id="orders-sort" onchange="allOrdersPage=1;loadAllOrders()" style="font-size:13px;">
                 <option value="data-desc">Data ↓ (mais recente)</option>
                 <option value="data-asc">Data ↑ (mais antigo)</option>
                 <option value="alpha">Casa A → Z</option>
@@ -1462,16 +1462,6 @@
                   <tr><td colspan="8" style="text-align:center;padding:32px;color:var(--text-muted);">Use os filtros acima para buscar movimentações</td></tr>
                 </tbody>
               </table>
-            </div>
-            <div id="hist-pagination" style="display:none;align-items:center;justify-content:space-between;gap:12px;padding:12px 16px;border-top:1px solid var(--border);flex-wrap:wrap;">
-              <span id="hist-pag-info" style="font-size:12px;color:var(--text-muted);"></span>
-              <div style="display:flex;align-items:center;gap:6px;">
-                <button class="btn btn-outline btn-sm" id="hist-pag-first" onclick="histGoToPage(1)" style="font-size:11px;padding:4px 10px;">«</button>
-                <button class="btn btn-outline btn-sm" id="hist-pag-prev" onclick="histGoToPage(histPage-1)" style="font-size:11px;padding:4px 10px;">‹ Anterior</button>
-                <span id="hist-pag-pages" style="font-size:12px;color:var(--text-muted);padding:0 6px;"></span>
-                <button class="btn btn-outline btn-sm" id="hist-pag-next" onclick="histGoToPage(histPage+1)" style="font-size:11px;padding:4px 10px;">Próxima ›</button>
-                <button class="btn btn-outline btn-sm" id="hist-pag-last" onclick="histGoToPage(histTotalPages())" style="font-size:11px;padding:4px 10px;">»</button>
-              </div>
             </div>
           </div>
         </div>
@@ -1993,16 +1983,6 @@
           <thead><tr><th style="width:32px;"><input type="checkbox" id="transf-check-all" onchange="transfToggleAll(this.checked)"></th><th>Código</th><th>Data</th><th>Origem</th><th>Destino</th><th>Itens</th><th>Registrado por</th><th>Status</th><th>Ações</th></tr></thead>
           <tbody id="transf-tbody"><tr><td colspan="9" class="text-muted" style="text-align:center;padding:24px;">Carregando...</td></tr></tbody>
         </table></div>
-        <div id="transf-pagination" style="display:none;align-items:center;justify-content:space-between;gap:12px;padding:12px 16px;border-top:1px solid var(--border);flex-wrap:wrap;">
-          <span id="transf-pag-info" style="font-size:12px;color:var(--text-muted);"></span>
-          <div style="display:flex;align-items:center;gap:6px;">
-            <button class="btn btn-outline btn-sm" id="transf-pag-first" onclick="transfGoToPage(1)" style="font-size:11px;padding:4px 10px;">«</button>
-            <button class="btn btn-outline btn-sm" id="transf-pag-prev" onclick="transfGoToPage(transfPage-1)" style="font-size:11px;padding:4px 10px;">‹ Anterior</button>
-            <span id="transf-pag-pages" style="font-size:12px;color:var(--text-muted);padding:0 6px;"></span>
-            <button class="btn btn-outline btn-sm" id="transf-pag-next" onclick="transfGoToPage(transfPage+1)" style="font-size:11px;padding:4px 10px;">Próxima ›</button>
-            <button class="btn btn-outline btn-sm" id="transf-pag-last" onclick="transfGoToPage(transfTotalPages())" style="font-size:11px;padding:4px 10px;">»</button>
-          </div>
-        </div>
       </div>
     </div>
 
@@ -2023,9 +2003,9 @@
   <div class="card" style="margin-bottom:16px;">
     <div class="card-body" style="padding:12px 18px;">
       <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;">
-        <div><label class="form-label">Setor</label><select class="form-select" id="var-filtro-setor" onchange="loadVarSolicitacoes()" style="width:160px;"><option value="">Todos</option></select></div>
+        <div><label class="form-label">Setor</label><select class="form-select" id="var-filtro-setor" onchange="varSolPage=1;loadVarSolicitacoes()" style="width:160px;"><option value="">Todos</option></select></div>
         <div><label class="form-label">Status</label>
-          <select class="form-select" id="var-filtro-status" onchange="loadVarSolicitacoes()" style="width:160px;">
+          <select class="form-select" id="var-filtro-status" onchange="varSolPage=1;loadVarSolicitacoes()" style="width:160px;">
             <option value="">Todos</option>
             <option value="pendente">🟡 Pendente</option>
             <option value="em_proposta">📋 Em Proposta</option>
@@ -2036,7 +2016,7 @@
           </select>
         </div>
         <div><label class="form-label">Prioridade</label>
-          <select class="form-select" id="var-filtro-prioridade" onchange="loadVarSolicitacoes()" style="width:140px;">
+          <select class="form-select" id="var-filtro-prioridade" onchange="varSolPage=1;loadVarSolicitacoes()" style="width:140px;">
             <option value="">Todas</option>
             <option value="normal">Normal</option>
             <option value="alta">Alta</option>
@@ -2182,9 +2162,9 @@
   <div class="page" id="page-pas-solicitacoes">
     <div class="page-header"><h1 class="page-title">✈️ Passagens — Solicitações</h1></div>
     <div class="card" style="margin-bottom:16px;"><div class="card-body" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;">
-      <div><label class="form-label">Buscar</label><input type="text" class="form-input" id="pas-f-busca" placeholder="passageiro, destino, código…" oninput="renderPasSolic()"></div>
-      <div><label class="form-label">Status</label><select class="form-select" id="pas-f-status" onchange="renderPasSolic()"><option value="">Todos</option></select></div>
-      <div><label class="form-label">Ordenar por</label><select class="form-select" id="pas-sort" onchange="renderPasSolic()">
+      <div><label class="form-label">Buscar</label><input type="text" class="form-input" id="pas-f-busca" placeholder="passageiro, destino, código…" oninput="pasSolicPage=1;renderPasSolic()"></div>
+      <div><label class="form-label">Status</label><select class="form-select" id="pas-f-status" onchange="pasSolicPage=1;renderPasSolic()"><option value="">Todos</option></select></div>
+      <div><label class="form-label">Ordenar por</label><select class="form-select" id="pas-sort" onchange="pasSolicPage=1;renderPasSolic()">
         <option value="data-desc">Data ↓ (mais recente)</option>
         <option value="data-asc">Data ↑ (mais antigo)</option>
         <option value="alpha">A → Z (passageiro)</option>
@@ -2306,13 +2286,13 @@
       <div class="stat-card stat-card-warn"><div class="stat-label">⏳ Pendente</div><div class="stat-value" id="frt-kpi-pendente">—</div></div>
     </div>
     <div class="card" style="margin-bottom:16px;"><div class="card-body" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;">
-      <div><label class="form-label">Buscar</label><input type="text" class="form-input" id="frt-f-busca" placeholder="freteiro, origem, destino, código…" oninput="renderFrtLista()"></div>
-      <div><label class="form-label">Pagamento</label><select class="form-select" id="frt-f-pag" onchange="renderFrtLista()">
+      <div><label class="form-label">Buscar</label><input type="text" class="form-input" id="frt-f-busca" placeholder="freteiro, origem, destino, código…" oninput="frtListaPage=1;renderFrtLista()"></div>
+      <div><label class="form-label">Pagamento</label><select class="form-select" id="frt-f-pag" onchange="frtListaPage=1;renderFrtLista()">
         <option value="">Todos</option><option value="pago">Pago</option><option value="pendente">Pendente</option><option value="parcial">Parcial</option>
       </select></div>
-      <div><label class="form-label">Freteiro</label><select class="form-select" id="frt-f-freteiro" onchange="renderFrtLista()"><option value="">Todos</option></select></div>
-      <div><label class="form-label">Mês</label><input type="month" class="form-input" id="frt-f-mes" onchange="renderFrtLista()"></div>
-      <div><label class="form-label">Ordenar por</label><select class="form-select" id="frt-sort" onchange="renderFrtLista()">
+      <div><label class="form-label">Freteiro</label><select class="form-select" id="frt-f-freteiro" onchange="frtListaPage=1;renderFrtLista()"><option value="">Todos</option></select></div>
+      <div><label class="form-label">Mês</label><input type="month" class="form-input" id="frt-f-mes" onchange="frtListaPage=1;renderFrtLista()"></div>
+      <div><label class="form-label">Ordenar por</label><select class="form-select" id="frt-sort" onchange="frtListaPage=1;renderFrtLista()">
         <option value="data-desc">Data ↓ (mais recente)</option>
         <option value="data-asc">Data ↑ (mais antigo)</option>
         <option value="alpha">A → Z (freteiro)</option>
@@ -3030,7 +3010,7 @@
 </div>
 
 <!-- FORNECEDORES / COMPARATIVO / pages are in the main content area -->
-<script src="js/paginas-html.js?v=11"></script>
+<script src="js/paginas-html.js?v=12"></script>
 
 <!-- ════════ MODAL: REGISTRAR TRANSFERÊNCIA FINANCEIRA ════════ -->
 <div class="modal-overlay hidden" id="modal-transf-financeira">
@@ -3574,25 +3554,25 @@
 <!-- ════════════════════════════════════════════════════════════
      SCRIPTS
      ════════════════════════════════════════════════════════════ -->
-<script src="js/01-core.js?v=6"></script>
+<script src="js/01-core.js?v=7"></script>
 <script src="js/02-auth.js?v=7"></script>
 <script src="js/03-navegacao.js?v=2"></script>
 <script src="js/04-percapita.js?v=17"></script>
 <script src="js/05-cadastros.js?v=2"></script>
-<script src="js/06-pedidos.js?v=19"></script>
+<script src="js/06-pedidos.js?v=20"></script>
 <script src="js/07-estoque-ia-form.js?v=4"></script>
 <script src="js/08-orcamento-casas.js?v=2"></script>
-<script src="js/09-indicadores-transf.js?v=3"></script>
-<script src="js/10-produtos-orcamento.js?v=10"></script>
+<script src="js/09-indicadores-transf.js?v=4"></script>
+<script src="js/10-produtos-orcamento.js?v=11"></script>
 <script src="js/11-fornecedores-pendentes.js?v=7"></script>
-<script src="js/12-financeiro-compras.js?v=8"></script>
+<script src="js/12-financeiro-compras.js?v=9"></script>
 <script src="js/13-ia-avancada.js?v=2"></script>
-<script src="js/14-gestao.js?v=3"></script>
+<script src="js/14-gestao.js?v=4"></script>
 <script src="js/15-fornecedores-metas.js?v=2"></script>
 <script src="js/16-chat-ia.js?v=2"></script>
 <script src="js/17-metas-wrappers.js?v=2"></script>
 <script src="js/cidades-brasil.js?v=1"></script>
-<script src="js/18-erp.js?v=41"></script>
+<script src="js/18-erp.js?v=42"></script>
 <script src="js/19-dashboard-diretoria.js?v=9"></script>
 <script src="js/20-percapita-diretoria.js?v=2"></script>
 <!-- CHAT IA FLUTUANTE -->
@@ -3678,7 +3658,7 @@
   </div>
 </div>
 
-<script src="js/variedades.js?v=3"></script>
+<script src="js/variedades.js?v=4"></script>
 <script src="js/21-inventario.js?v=1"></script>
 <script src="js/22-coord-dashboard.js?v=9"></script>
 <script src="js/23-importar-precos-nf.js?v=1"></script>

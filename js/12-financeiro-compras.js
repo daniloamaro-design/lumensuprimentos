@@ -247,6 +247,7 @@ function finLimparFiltros() {
   ['fin-filtro-mes','fin-filtro-ano','fin-filtro-forn','fin-filtro-casa','fin-filtro-class','fin-filtro-pago','fin-filtro-modulo'].forEach(id => {
     const el = document.getElementById(id); if (el) el.value = '';
   });
+  finPage = 1;
   finAplicarFiltros();
 }
 
@@ -278,6 +279,7 @@ function finAtualizarStats(dados) {
   if (cnt) cnt.textContent = dados.length + ' registros';
 }
 
+let finPage = 1;
 function finRenderizarTabela(dados) {
   const tb = document.getElementById('fin-tbody');
   if (!tb) return;
@@ -293,7 +295,8 @@ function finRenderizarTabela(dados) {
     if (sort === 'valor-asc')  return (Number(a.valor)||0) - (Number(b.valor)||0);
     return String(b.dataCompraStr||'').localeCompare(String(a.dataCompraStr||'')); // data-desc
   });
-  tb.innerHTML = dados.slice(0, 500).map(d => {
+  const pagObj = paginar(dados, finPage);
+  tb.innerHTML = pagObj.itens.map(d => {
     const isPago = FIN_PAGO(d.pago);
     const badge = isPago
       ? `<button onclick="finTogglePago('${d.id}',false)" title="Clique para marcar como pendente"
@@ -316,11 +319,10 @@ function finRenderizarTabela(dados) {
       <td style="text-align:center;">${badge}</td>
       <td style="text-align:center;">${badgeSP}</td>
     </tr>`;
-  }).join('');
-  if (dados.length > 500) {
-    tb.innerHTML += `<tr><td colspan="10" style="text-align:center;padding:10px;color:var(--text-muted);font-size:12px;">Mostrando 500 de ${dados.length} registros. Use os filtros para refinar.</td></tr>`;
-  }
+  }).join('') + `<tr><td colspan="10" style="padding:0;">${paginacaoHTML(pagObj, 'finGoToPage')}</td></tr>`;
 }
+function finGoToPage(p) { finPage = p; finRenderizarTabela(finFiltrados); }
+window.finGoToPage = finGoToPage;
 
 function finAtualizarGraficos(dados) {
   // Gráfico por Fornecedor
@@ -902,6 +904,7 @@ function finFiltrarNFs() {
   finRenderizarNFs(filtrados);
 }
 
+let finNFsPage = 1;
 function finRenderizarNFs(dados) {
   const tb = document.getElementById('fin-nf-tbody');
   if (!tb) return;
@@ -909,7 +912,8 @@ function finRenderizarNFs(dados) {
     tb.innerHTML = '<tr><td colspan="10" style="text-align:center;padding:32px;color:var(--text-muted);">Nenhum pedido encontrado.</td></tr>';
     return;
   }
-  tb.innerHTML = dados.map(d => {
+  const pagObj = paginar(dados, finNFsPage);
+  tb.innerHTML = pagObj.itens.map(d => {
     const dataP = d.createdAt?.toDate ? d.createdAt.toDate().toLocaleDateString('pt-BR') : '—';
     const temNF = d.nfNumero || d.nfFileName;
     const temBol = d.boletoVencimento || d.boletoFileName;
@@ -937,8 +941,10 @@ function finRenderizarNFs(dados) {
       <td style="text-align:center;">${iconBol}</td>
       <td style="text-align:center;"><button class="btn btn-outline btn-sm" onclick="goPage('all-orders');setTimeout(()=>showOrderDetail('${d.id}'),800);">Ver Pedido</button></td>
     </tr>`;
-  }).join('');
+  }).join('') + `<tr><td colspan="10" style="padding:0;">${paginacaoHTML(pagObj, 'finNFsGoToPage')}</td></tr>`;
 }
+function finNFsGoToPage(p) { finNFsPage = p; finRenderizarNFs(finFiltradosNFs); }
+window.finNFsGoToPage = finNFsGoToPage;
 
 function finExportarNFsExcel() {
   if (!finNFsData.length) { showToast('Nenhum dado para exportar!'); return; }
@@ -1257,9 +1263,11 @@ function pagFiltrar() {
   }).sort((a,b) => (a.vencimentoSerial||0) - (b.vencimentoSerial||0));
 
   pagSelecionados.clear();
+  pagTabPage = 1;
   pagRenderizarTabela();
 }
 
+let pagTabPage = 1;
 function pagRenderizarTabela() {
   const tb  = document.getElementById('pag-tbody');
   const cnt = document.getElementById('pag-table-count');
@@ -1273,7 +1281,8 @@ function pagRenderizarTabela() {
     return;
   }
 
-  tb.innerHTML = pagDadosFiltrados.map(d => {
+  const pagObjTab = paginar(pagDadosFiltrados, pagTabPage);
+  tb.innerHTML = pagObjTab.itens.map(d => {
     const isPago    = FIN_PAGO(d.pago);
     const isVencido = !isPago && d.vencimentoSerial && d.vencimentoSerial < hoje;
     const diasVenc  = isVencido ? Math.floor(hoje - d.vencimentoSerial) : null;
@@ -1315,8 +1324,10 @@ function pagRenderizarTabela() {
       <td style="text-align:center;">${badgeSP}</td>
       <td style="text-align:center;padding:6px 10px;">${statusBtn}</td>
     </tr>`;
-  }).join('');
+  }).join('') + `<tr><td colspan="10" style="padding:0;">${paginacaoHTML(pagObjTab, 'pagTabGoToPage')}</td></tr>`;
 }
+function pagTabGoToPage(p) { pagTabPage = p; pagRenderizarTabela(); }
+window.pagTabGoToPage = pagTabGoToPage;
 
 function pagToggleCheck(id, checked) {
   if (checked) pagSelecionados.add(id);

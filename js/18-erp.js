@@ -154,6 +154,7 @@ async function loadFrtLista() {
 }
 window.loadFrtLista = loadFrtLista;
 
+let frtListaPage = 1;
 function renderFrtLista() {
   const busca = (document.getElementById('frt-f-busca')?.value || '').toLowerCase().trim();
   const fpag = document.getElementById('frt-f-pag')?.value || '';
@@ -195,7 +196,8 @@ function renderFrtLista() {
     tb.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:24px;color:var(--text-muted);">Nenhum frete encontrado.</td></tr>';
     return;
   }
-  tb.innerHTML = lista.map(f => `
+  const pagObjFrt = paginar(lista, frtListaPage);
+  tb.innerHTML = pagObjFrt.itens.map(f => `
     <tr>
       <td>${frtEsc(f.code || '—')}</td>
       <td>${frtDataBR(f.data || f.createdAt)}</td>
@@ -208,9 +210,11 @@ function renderFrtLista() {
         ${f.statusPag !== 'pago' && f.status !== 'cancelado' ? `<button class="btn btn-secondary btn-sm" onclick="frtMarcarPago('${f.id}')">Marcar pago</button>` : ''}
         ${f.status !== 'cancelado' && f.status !== 'entregue' ? `<button class="btn btn-outline btn-sm" onclick="frtCancelar('${f.id}')">Cancelar</button>` : ''}
       </td>
-    </tr>`).join('');
+    </tr>`).join('') + `<tr><td colspan="7" style="padding:0;">${paginacaoHTML(pagObjFrt, 'frtListaGoToPage')}</td></tr>`;
 }
 window.renderFrtLista = renderFrtLista;
+function frtListaGoToPage(p) { frtListaPage = p; renderFrtLista(); }
+window.frtListaGoToPage = frtListaGoToPage;
 
 function abrirFreteDetalhe(id) {
   const f = _fretesCache.find(x => x.id === id);
@@ -903,6 +907,7 @@ async function loadPasSolic() {
 }
 window.loadPasSolic = loadPasSolic;
 
+let pasSolicPage = 1;
 function renderPasSolic() {
   const busca = (document.getElementById('pas-f-busca')?.value || '').toLowerCase().trim();
   const fst = document.getElementById('pas-f-status')?.value || '';
@@ -926,7 +931,8 @@ function renderPasSolic() {
     tb.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:24px;color:var(--text-muted);">Nenhuma solicitação encontrada.</td></tr>';
     return;
   }
-  tb.innerHTML = lista.map(s => `
+  const pagObjPas = paginar(lista, pasSolicPage);
+  tb.innerHTML = pagObjPas.itens.map(s => `
     <tr>
       <td>${frtEsc(s.codigo || '—')}</td>
       <td>${frtDataBR(s.criadoEm)}</td>
@@ -935,9 +941,11 @@ function renderPasSolic() {
       <td style="max-width:260px;">${frtEsc(s.origem || '—')} <span style="color:var(--text-muted);">→</span> ${frtEsc(s.destino || '—')}</td>
       <td>${pasBadge(s.status)}</td>
       <td style="text-align:right;"><button class="btn btn-outline btn-sm" onclick="abrirPasDetalhe('${s.id}')">Ver</button></td>
-    </tr>`).join('');
+    </tr>`).join('') + `<tr><td colspan="7" style="padding:0;">${paginacaoHTML(pagObjPas, 'pasSolicGoToPage')}</td></tr>`;
 }
 window.renderPasSolic = renderPasSolic;
+function pasSolicGoToPage(p) { pasSolicPage = p; renderPasSolic(); }
+window.pasSolicGoToPage = pasSolicGoToPage;
 
 let _pasDetId = null;   // solicitação aberta no detalhe
 let _pasOrcSel = -1;    // índice da cotação selecionada

@@ -351,6 +351,7 @@ function setOrderStatusFilter(btn, status) {
   currentOrderStatusFilter = status;
   document.querySelectorAll('.status-filter-btn').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
+  allOrdersPage = 1;
   loadAllOrders();
 }
 
@@ -421,6 +422,9 @@ async function toggleDelivery(orderId, isCurrentlyDelivered) {
     showToast('Erro ao atualizar entrega: ' + e.message);
   }
 }
+
+let allOrdersPage = 1;
+let _allOrdersDocsAtuais = []; // já filtrados/ordenados — o que loadAllOrders() deixa pronto pra renderAllOrdersTable() paginar sem rebuscar do banco
 
 async function loadAllOrders() {
   const tbody = document.getElementById('all-orders-tbody');
@@ -515,8 +519,6 @@ async function loadAllOrders() {
     console.warn('Erro ao checar cotações aprovadas órfãs:', e);
     window._allOrdersCache.forEach(o => { o._fornecedorNomeEfetivo = (o.fornecedorNome && o.fornecedorNome.trim()) ? o.fornecedorNome : ''; });
   }
-  const efetivoPorId = {};
-  window._allOrdersCache.forEach(o => { efetivoPorId[o.id] = o; });
 
   // Ordenação client-side após filtros
   const orderSort = document.getElementById('orders-sort')?.value || 'data-desc';
@@ -528,7 +530,17 @@ async function loadAllOrders() {
   // data-desc já vem ordenado do Firestore (orderBy createdAt desc)
 
   tbody.dataset.loaded = '1';
-  tbody.innerHTML = docs.map(d => {
+  _allOrdersDocsAtuais = docs;
+  renderAllOrdersTable();
+}
+
+function renderAllOrdersTable() {
+  const tbody = document.getElementById('all-orders-tbody');
+  if (!tbody) return;
+  const efetivoPorId = {};
+  window._allOrdersCache.forEach(o => { efetivoPorId[o.id] = o; });
+  const pagObj = paginar(_allOrdersDocsAtuais, allOrdersPage);
+  tbody.innerHTML = pagObj.itens.map(d => {
     const o = d.data();
     const itemCount = Object.values(o.items || {}).reduce((a,c) => a + Object.keys(c).length, 0);
     const status = o.status || 'aberto';
@@ -583,7 +595,7 @@ async function loadAllOrders() {
         <button class="btn btn-secondary btn-sm" onclick="showOrderDetail('${d.id}')">Ver</button>
       </td>
     </tr>`;
-  }).join('');
+  }).join('') + `<tr class="no-hover"><td colspan="11" style="padding:0;">${paginacaoHTML(pagObj, 'allOrdersGoToPage')}</td></tr>`;
 
   const headerCheck = document.getElementById('all-orders-check-all');
   if (headerCheck) {
@@ -592,6 +604,9 @@ async function loadAllOrders() {
   }
   updateComprasExportBtn();
 }
+
+function allOrdersGoToPage(p) { allOrdersPage = p; renderAllOrdersTable(); }
+window.allOrdersGoToPage = allOrdersGoToPage;
 
 // ── Seleção múltipla de pedidos p/ PDF de compras em lote ──
 let comprasSelecionadas = new Set();

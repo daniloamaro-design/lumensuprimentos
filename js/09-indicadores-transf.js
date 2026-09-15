@@ -642,10 +642,17 @@ async function onTransfOrigemChange() {
     });
   });
 
-  // Também considera transferências saindo dessa casa
+  // Também considera transferências saindo dessa casa. Só as GERADAS
+  // AUTOMATICAMENTE (fluxo de avaliação de pedido, js/06-pedidos.js) entram
+  // aqui: elas não criam movimento de saída, então o estoque só reflete essa
+  // saída através deste registro. Transferências manuais (confirmarTransferencia,
+  // acima) já criam um movimento 'saida' que a consulta a 'movements' já contou —
+  // somar de novo aqui contaria a mesma saída duas vezes.
   const transfSnap = await db.collection('transferencias').where('origem','==',house).where('status','==','confirmada').get();
   transfSnap.docs.forEach(d => {
-    (d.data().items||[]).forEach(item => {
+    const t = d.data();
+    if (!t.geradaAutomaticamente) return;
+    (t.items||[]).forEach(item => {
       const key = `${item.catKey}__${item.prodId}`;
       if (!origemStockCache[key]) origemStockCache[key] = 0;
       origemStockCache[key] -= item.qty;
@@ -851,38 +858,26 @@ async function loadTransferencias() {
   renderTransfPage();
 }
 
-// ── Paginação do histórico de transferências (30 em 30, mais recente primeiro) ──
+// ── Paginação do histórico de transferências (20 em 20, mais recente primeiro) ──
 let transfDocsAll = [];
 let transfPage = 1;
-const TRANSF_PAGE_SIZE = 30;
 let _transfDetailAtual = null;
 let transfSelecionadas = new Set();
 const TRANSF_CANCEL_ROLES = ['admin','diretor','gerente','coordenador'];
 
-function transfTotalPages() {
-  return Math.max(1, Math.ceil((transfDocsAll || []).length / TRANSF_PAGE_SIZE));
-}
-
-function transfGoToPage(p) {
-  const max = transfTotalPages();
-  transfPage = Math.min(Math.max(1, p), max);
-  renderTransfPage();
-}
+function transfGoToPage(p) { transfPage = p; renderTransfPage(); }
+window.transfGoToPage = transfGoToPage;
 
 function renderTransfPage() {
   const tbody   = document.getElementById('transf-tbody');
-  const pagWrap = document.getElementById('transf-pagination');
 
   if (transfDocsAll.length === 0) {
     tbody.innerHTML = '<tr><td colspan="8" class="text-muted" style="text-align:center;padding:32px;">Nenhuma transferência registrada ainda.</td></tr>';
-    pagWrap.style.display = 'none';
     return;
   }
 
-  const totalPages = transfTotalPages();
-  if (transfPage > totalPages) transfPage = totalPages;
-  const start = (transfPage - 1) * TRANSF_PAGE_SIZE;
-  const pageDocs = transfDocsAll.slice(start, start + TRANSF_PAGE_SIZE);
+  const pagObjTransf = paginar(transfDocsAll, transfPage);
+  const pageDocs = pagObjTransf.itens;
 
   tbody.innerHTML = pageDocs.map(t => {
     const cancelada = t.status === 'cancelada';
@@ -915,28 +910,20 @@ function renderTransfPage() {
   const headerCheck = document.getElementById('transf-check-all');
   if (headerCheck) headerCheck.checked = pageDocs.length > 0 && pageDocs.every(t => transfSelecionadas.has(t.id));
 
-  pagWrap.style.display = 'flex';
-  document.getElementById('transf-pag-info').textContent =
-    `Mostrando ${start + 1}–${Math.min(start + TRANSF_PAGE_SIZE, transfDocsAll.length)} de ${transfDocsAll.length}`;
-  document.getElementById('transf-pag-pages').textContent = `Página ${transfPage} de ${totalPages}`;
-  document.getElementById('transf-pag-first').disabled = transfPage === 1;
-  document.getElementById('transf-pag-prev').disabled  = transfPage === 1;
-  document.getElementById('transf-pag-next').disabled  = transfPage === totalPages;
-  document.getElementById('transf-pag-last').disabled  = transfPage === totalPages;
+  tbody.innerHTML += `<tr><td colspan="9" style="padding:0;">${paginacaoHTML(pagObjTransf, 'transfGoToPage')}</td></tr>`;
 }
 
 // ── Seleção múltipla para exportação de PDF em lote ──
 function transfToggleCheck(docId, checked) {
   if (checked) transfSelecionadas.add(docId); else transfSelecionadas.delete(docId);
   updateTransfExportBtn();
-  const pageDocs = transfDocsAll.slice((transfPage-1)*TRANSF_PAGE_SIZE, (transfPage-1)*TRANSF_PAGE_SIZE + TRANSF_PAGE_SIZE);
+  const pageDocs = paginar(transfDocsAll, transfPage).itens;
   const headerCheck = document.getElementById('transf-check-all');
   if (headerCheck) headerCheck.checked = pageDocs.length > 0 && pageDocs.every(t => transfSelecionadas.has(t.id));
 }
 
 function transfToggleAll(checked) {
-  const start = (transfPage - 1) * TRANSF_PAGE_SIZE;
-  const pageDocs = transfDocsAll.slice(start, start + TRANSF_PAGE_SIZE);
+  const pageDocs = paginar(transfDocsAll, transfPage).itens;
   pageDocs.forEach(t => { if (checked) transfSelecionadas.add(t.id); else transfSelecionadas.delete(t.id); });
   document.querySelectorAll('.transf-row-check').forEach(cb => { cb.checked = checked; });
   updateTransfExportBtn();

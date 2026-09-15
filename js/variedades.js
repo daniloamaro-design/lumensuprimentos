@@ -328,7 +328,8 @@ async function loadVarSolicitacoes() {
     };
 
     listEl.dataset.loaded = '1';
-    listEl.innerHTML = docs.map(d => {
+    const pagObjVar = paginar(docs, varSolPage);
+    listEl.innerHTML = pagObjVar.itens.map(d => {
       const dt = d.dataLimite ? new Date(d.dataLimite + 'T00:00:00').toLocaleDateString('pt-BR') : '—';
       const valor = d.valorEstimado > 0 ? 'R$ ' + d.valorEstimado.toLocaleString('pt-BR',{minimumFractionDigits:2}) : '—';
       const forn = d.fornecedor?.empresa ? `<span style="font-size:11px;color:var(--text-muted);">🏪 ${d.fornecedor.empresa}</span>` : '';
@@ -371,11 +372,14 @@ async function loadVarSolicitacoes() {
           </div>
         </div>
       </div>`;
-    }).join('');
+    }).join('') + paginacaoHTML(pagObjVar, 'varSolGoToPage');
   } catch(e) {
     listEl.innerHTML = '<div class="empty-state"><div class="empty-state-icon">⚠️</div><div class="empty-state-title">Erro ao carregar: ' + e.message + '</div></div>';
   }
 }
+let varSolPage = 1;
+function varSolGoToPage(p) { varSolPage = p; loadVarSolicitacoes(); }
+window.varSolGoToPage = varSolGoToPage;
 
 async function avancarStatusVar(docId, statusAtual) {
   const novo = proximoStatusVar(statusAtual, 'avancar');
@@ -438,11 +442,13 @@ let _varFiltroGrupo = null;
 
 function filtrarVarPorGrupo(grupoId) {
   _varFiltroGrupo = grupoId;
+  varSolPage = 1;
   loadVarSolicitacoes();
 }
 
 function limparFiltroGrupoVar() {
   _varFiltroGrupo = null;
+  varSolPage = 1;
   loadVarSolicitacoes();
 }
 
@@ -452,6 +458,7 @@ function resetVarFiltros() {
     if (el) el.value = '';
   });
   _varFiltroGrupo = null;
+  varSolPage = 1;
   loadVarSolicitacoes();
 }
 

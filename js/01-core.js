@@ -56,6 +56,39 @@ function _iaMarcarLimiteAtingido() {
 // o aviso de novo assim que o DOM estiver pronto (não só na hora do erro).
 document.addEventListener('DOMContentLoaded', () => { if (_iaLimiteAtingidoHoje()) _iaMostrarAvisoLimite(); });
 
+// ─────────────────────────────────────────────
+// 📄  PAGINAÇÃO (helper genérico, usado por toda lista/tabela do sistema)
+// ─────────────────────────────────────────────
+// Fatia o array pra página atual. Corrige sozinho página fora do intervalo
+// (ex.: um filtro reduziu a lista e a página salva não existe mais).
+function paginar(array, page, pageSize = 20) {
+  const total = array.length;
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const p = Math.min(Math.max(1, page || 1), totalPages);
+  const inicio = (p - 1) * pageSize;
+  return { itens: array.slice(inicio, inicio + pageSize), page: p, totalPages, total, pageSize };
+}
+
+// Gera o HTML da barra de paginação (« ‹ Página X de Y › », "Mostrando N–M
+// de T"). goToPageFn é o NOME (string) da função global que recebe o
+// número da página, ex.: paginacaoHTML(pag, 'frtGoToPage'). Retorna ''
+// quando cabe tudo numa página só (nada pra mostrar).
+function paginacaoHTML(pag, goToPageFn) {
+  if (pag.totalPages <= 1) return '';
+  const de = (pag.page - 1) * pag.pageSize + 1;
+  const ate = Math.min(pag.page * pag.pageSize, pag.total);
+  return `<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;padding:10px 4px;font-size:12px;color:var(--text-muted);">
+    <span>Mostrando ${de}–${ate} de ${pag.total}</span>
+    <div style="display:flex;gap:4px;align-items:center;">
+      <button class="btn btn-outline btn-sm" ${pag.page<=1?'disabled':''} onclick="${goToPageFn}(1)">«</button>
+      <button class="btn btn-outline btn-sm" ${pag.page<=1?'disabled':''} onclick="${goToPageFn}(${pag.page-1})">‹</button>
+      <span style="padding:0 8px;">Página ${pag.page} de ${pag.totalPages}</span>
+      <button class="btn btn-outline btn-sm" ${pag.page>=pag.totalPages?'disabled':''} onclick="${goToPageFn}(${pag.page+1})">›</button>
+      <button class="btn btn-outline btn-sm" ${pag.page>=pag.totalPages?'disabled':''} onclick="${goToPageFn}(${pag.totalPages})">»</button>
+    </div>
+  </div>`;
+}
+
 async function geminiFetch(init) {
   if (window._geminiIndisponivel) throw new Error('IA indisponível (verifique a GEMINI_API_KEY na Vercel).');
   if (_iaLimiteAtingidoHoje()) { _iaMostrarAvisoLimite(); throw new Error('Limite diário gratuito de IA atingido. Tente novamente amanhã.'); }

@@ -1023,24 +1023,13 @@ async function loadMovHistory() {
   } catch(e) {
     console.error('loadMovHistory error:', e);
     tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:32px;color:var(--danger);">Erro ao carregar: ${e.message}<br><small style="color:var(--text-muted);">Se aparecer "requires an index", crie o índice no Firebase Console (link no console do navegador)</small></td></tr>`;
-    document.getElementById('hist-pagination').style.display = 'none';
   }
 }
 
-// ── Paginação do histórico (30 em 30, mais recente primeiro) ──
-const HIST_PAGE_SIZE = 30;
+// ── Paginação do histórico (20 em 20, mais recente primeiro) ──
 let histPage = 1;
-
-function histTotalPages() {
-  const total = (window._histDocs || []).length;
-  return Math.max(1, Math.ceil(total / HIST_PAGE_SIZE));
-}
-
-function histGoToPage(p) {
-  const max = histTotalPages();
-  histPage = Math.min(Math.max(1, p), max);
-  renderHistTable();
-}
+function histGoToPage(p) { histPage = p; renderHistTable(); }
+window.histGoToPage = histGoToPage;
 
 function histRowHtml(d) {
   let dt = null;
@@ -1094,31 +1083,16 @@ function histRowHtml(d) {
 
 function renderHistTable() {
   const tbody = document.getElementById('hist-tbody');
-  const pagWrap = document.getElementById('hist-pagination');
   const docs = window._histDocs || [];
 
   if (docs.length === 0) {
     tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:32px;color:var(--text-muted);">Nenhuma movimentação encontrada</td></tr>';
-    pagWrap.style.display = 'none';
     return;
   }
 
-  const totalPages = histTotalPages();
-  if (histPage > totalPages) histPage = totalPages;
-  const start = (histPage - 1) * HIST_PAGE_SIZE;
-  const pageDocs = docs.slice(start, start + HIST_PAGE_SIZE);
-
-  tbody.innerHTML = pageDocs.map(histRowHtml).join('');
-
-  // Controles de paginação
-  pagWrap.style.display = 'flex';
-  document.getElementById('hist-pag-info').textContent =
-    `Mostrando ${start + 1}–${Math.min(start + HIST_PAGE_SIZE, docs.length)} de ${docs.length}`;
-  document.getElementById('hist-pag-pages').textContent = `Página ${histPage} de ${totalPages}`;
-  document.getElementById('hist-pag-first').disabled = histPage === 1;
-  document.getElementById('hist-pag-prev').disabled  = histPage === 1;
-  document.getElementById('hist-pag-next').disabled  = histPage === totalPages;
-  document.getElementById('hist-pag-last').disabled   = histPage === totalPages;
+  const pagObjHist = paginar(docs, histPage);
+  tbody.innerHTML = pagObjHist.itens.map(histRowHtml).join('')
+    + `<tr><td colspan="8" style="padding:0;">${paginacaoHTML(pagObjHist, 'histGoToPage')}</td></tr>`;
 }
 
 function exportHistoricoCSV() {

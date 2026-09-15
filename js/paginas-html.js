@@ -1528,13 +1528,13 @@ document.querySelector('.main-content').insertAdjacentHTML('beforeend', `
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:12px;align-items:flex-end;">
         <div>
           <label class="form-label">Casa</label>
-          <select class="form-select" id="orc-hist-casa" onchange="loadOrcHistorico()">
+          <select class="form-select" id="orc-hist-casa" onchange="orcHistPage=1;loadOrcHistorico()">
             <option value="">Todas as casas</option>
           </select>
         </div>
         <div>
           <label class="form-label">Bloco</label>
-          <select class="form-select" id="orc-hist-bloco" onchange="loadOrcHistorico()">
+          <select class="form-select" id="orc-hist-bloco" onchange="orcHistPage=1;loadOrcHistorico()">
             <option value="">Todos os blocos</option>
             <option value="A">Bloco A</option>
             <option value="B">Bloco B</option>
@@ -1544,7 +1544,7 @@ document.querySelector('.main-content').insertAdjacentHTML('beforeend', `
         </div>
         <div>
           <label class="form-label">Mês de referência</label>
-          <input type="month" class="form-input" id="orc-hist-mes" onchange="loadOrcHistorico()">
+          <input type="month" class="form-input" id="orc-hist-mes" onchange="orcHistPage=1;loadOrcHistorico()">
         </div>
         <div>
           <button class="btn btn-secondary" onclick="loadOrcHistorico()">🔄 Atualizar</button>
@@ -1871,7 +1871,7 @@ document.querySelector('.main-content').insertAdjacentHTML('beforeend', `
       <div class="card-body">
         <div class="fin-filter-bar">
           <div class="form-group"><label class="form-label">Mês</label>
-            <select class="form-select" id="fin-filtro-mes" onchange="finAplicarFiltros()">
+            <select class="form-select" id="fin-filtro-mes" onchange="finPage=1;finAplicarFiltros()">
               <option value="">Todos</option>
               <option>JANEIRO</option><option>FEVEREIRO</option><option>MARÇO</option>
               <option>ABRIL</option><option>MAIO</option><option>JUNHO</option>
@@ -1880,37 +1880,37 @@ document.querySelector('.main-content').insertAdjacentHTML('beforeend', `
             </select>
           </div>
           <div class="form-group"><label class="form-label">Ano</label>
-            <select class="form-select" id="fin-filtro-ano" onchange="finAplicarFiltros()">
+            <select class="form-select" id="fin-filtro-ano" onchange="finPage=1;finAplicarFiltros()">
               <option value="">Todos</option>
               <option>2024</option><option>2025</option><option>2026</option>
             </select>
           </div>
           <div class="form-group"><label class="form-label">Fornecedor</label>
-            <select class="form-select" id="fin-filtro-forn" onchange="finAplicarFiltros()">
+            <select class="form-select" id="fin-filtro-forn" onchange="finPage=1;finAplicarFiltros()">
               <option value="">Todos</option>
             </select>
           </div>
           <div class="form-group"><label class="form-label">Casa / Destinatário</label>
-            <select class="form-select" id="fin-filtro-casa" onchange="finAplicarFiltros()">
+            <select class="form-select" id="fin-filtro-casa" onchange="finPage=1;finAplicarFiltros()">
               <option value="">Todas</option>
             </select>
           </div>
           <div class="form-group"><label class="form-label">Classificação</label>
-            <select class="form-select" id="fin-filtro-class" onchange="finAplicarFiltros()">
+            <select class="form-select" id="fin-filtro-class" onchange="finPage=1;finAplicarFiltros()">
               <option value="">Todas</option>
               <option>Proteína</option><option>Cereal</option><option>Higiene</option>
               <option>Diverso</option><option>Diversas</option><option>Gás</option>
             </select>
           </div>
           <div class="form-group"><label class="form-label">Situação</label>
-            <select class="form-select" id="fin-filtro-pago" onchange="finAplicarFiltros()">
+            <select class="form-select" id="fin-filtro-pago" onchange="finPage=1;finAplicarFiltros()">
               <option value="">Todas</option>
               <option value="Sim">Pago</option>
               <option value="nao">Não Pago</option>
             </select>
           </div>
           <div class="form-group"><label class="form-label">Módulo</label>
-            <select class="form-select" id="fin-filtro-modulo" onchange="finAplicarFiltros()">
+            <select class="form-select" id="fin-filtro-modulo" onchange="finPage=1;finAplicarFiltros()">
               <option value="">Todos</option>
               <option value="suprimentos">Suprimentos</option>
               <option value="passagens">Passagens</option>
@@ -1918,7 +1918,7 @@ document.querySelector('.main-content').insertAdjacentHTML('beforeend', `
             </select>
           </div>
           <div class="form-group"><label class="form-label">Ordenar por</label>
-            <select class="form-select" id="fin-sort" onchange="finAplicarFiltros()">
+            <select class="form-select" id="fin-sort" onchange="finPage=1;finAplicarFiltros()">
               <option value="data-desc">Data ↓ (mais recente)</option>
               <option value="data-asc">Data ↑ (mais antigo)</option>
               <option value="alpha">A → Z (fornecedor)</option>
@@ -2273,15 +2273,15 @@ document.querySelector('.main-content').insertAdjacentHTML('beforeend', `
       <div class="card-body">
         <div class="fin-filter-bar">
           <div class="form-group"><label class="form-label">Buscar pedido</label>
-            <input type="text" class="form-input" id="fin-nf-search" placeholder="Código do pedido..." oninput="finFiltrarNFs()">
+            <input type="text" class="form-input" id="fin-nf-search" placeholder="Código do pedido..." oninput="finNFsPage=1;finFiltrarNFs()">
           </div>
           <div class="form-group"><label class="form-label">Casa</label>
-            <select class="form-select" id="fin-nf-casa" onchange="finFiltrarNFs()">
+            <select class="form-select" id="fin-nf-casa" onchange="finNFsPage=1;finFiltrarNFs()">
               <option value="">Todas</option>
             </select>
           </div>
           <div class="form-group"><label class="form-label">Situação NF</label>
-            <select class="form-select" id="fin-nf-status" onchange="finFiltrarNFs()">
+            <select class="form-select" id="fin-nf-status" onchange="finNFsPage=1;finFiltrarNFs()">
               <option value="">Todas</option>
               <option value="com_nf">Com NF</option>
               <option value="sem_nf">Sem NF</option>
