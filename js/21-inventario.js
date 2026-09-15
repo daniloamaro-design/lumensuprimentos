@@ -102,6 +102,7 @@ async function invCarregarProdutos() {
 
   document.getElementById('inv-categorias-wrap').style.display = 'block';
   invAtualizarResumo();
+  invHistPage = 1;
   await invCarregarHistorico(casa);
   document.getElementById('inv-historico-wrap').style.display = 'block';
 }
@@ -179,6 +180,7 @@ async function invEnviarParaAprovacao() {
     });
     showToast(`✅ Inventário enviado para aprovação! Acurácia: ${acuracia.toFixed(1)}%`);
     invLimpar();
+    invHistPage = 1;
     await invCarregarHistorico(casa);
   } catch(e) {
     showToast('Erro ao enviar: ' + e.message);
@@ -197,6 +199,7 @@ function invLimpar() {
 async function invCarregarHistorico(casa) {
   const wrap = document.getElementById('inv-historico-lista');
   if (!wrap) return;
+  _invHistCasaAtual = casa;
   wrap.innerHTML = '<div class="loading-state"><div class="spinner spinner-dark"></div>Carregando...</div>';
 
   try {
@@ -211,7 +214,8 @@ async function invCarregarHistorico(casa) {
     }
 
     const statusMap = { pendente: '🟡 Aguardando aprovação', autorizado: '✅ Autorizado', recusado: '❌ Recusado' };
-    wrap.innerHTML = snap.docs.map(d => {
+    const pagObjInv = paginar(snap.docs, invHistPage);
+    wrap.innerHTML = pagObjInv.itens.map(d => {
       const inv = d.data();
       const cor = inv.acuracia >= 98 ? 'var(--ok)' : inv.acuracia >= 95 ? 'var(--warn)' : 'var(--danger)';
       const dataFmt = inv.data ? new Date(inv.data + 'T00:00:00').toLocaleDateString('pt-BR') : '—';
@@ -239,12 +243,16 @@ async function invCarregarHistorico(casa) {
                 </div>`).join('')}
             </div>` : ''}
         </div>`;
-    }).join('');
+    }).join('') + paginacaoHTML(pagObjInv, 'invHistGoToPage');
     document.getElementById('inv-historico-wrap').style.display = 'block';
   } catch(e) {
     wrap.innerHTML = `<div style="font-size:12px;color:var(--danger);">Erro ao carregar histórico: ${e.message}</div>`;
   }
 }
+let invHistPage = 1;
+let _invHistCasaAtual = null;
+function invHistGoToPage(p) { invHistPage = p; invCarregarHistorico(_invHistCasaAtual); }
+window.invHistGoToPage = invHistGoToPage;
 
 // ── KPI de Acurácia para Dashboard da Diretoria ──────────────────────────
 async function dashdirAtualizarAcuracia() {

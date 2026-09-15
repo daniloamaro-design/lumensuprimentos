@@ -165,9 +165,11 @@ function filterIndFornecedores() {
     });
   }
   indFornecedoresFiltered = filtered;
+  indfPage = 1;
   renderIndFornecedores();
 }
 
+let indfPage = 1;
 function renderIndFornecedores() {
   const sort = document.getElementById('indf-sort')?.value || 'valor-desc';
   let data = (indFornecedoresFiltered || []).slice().sort((a, b) => {
@@ -209,7 +211,8 @@ function renderIndFornecedores() {
   if (!data.length) {
     tbody.innerHTML = '<tr><td colspan="10" class="text-muted" style="text-align:center;padding:32px;">Nenhum fornecedor encontrado.</td></tr>';
   } else {
-    tbody.innerHTML = data.map(s => {
+    const pagObjIndf = paginar(data, indfPage);
+    tbody.innerHTML = pagObjIndf.itens.map(s => {
       const pct = s.limite>0 ? Math.min(100,(s.utilizado/s.limite*100)) : 0;
       const barColor = pct>=90?'var(--danger)':pct>=50?'var(--warn)':'var(--ok)';
       const cats = (s.categorias||[]).map(c=>CATEGORIAS[c]?.icon+' '+CATEGORIAS[c]?.nome).join(', ')||'—';
@@ -239,7 +242,7 @@ function renderIndFornecedores() {
         <td><span class="badge badge-gray">${s.prazoLabel}</span></td>
         <td>${statusBadge}</td>
       </tr>`;
-    }).join('');
+    }).join('') + `<tr><td colspan="10" style="padding:0;">${paginacaoHTML(pagObjIndf, 'indfGoToPage')}</td></tr>`;
   }
 
   _renderChartPagoAberto(data);
@@ -249,6 +252,8 @@ function renderIndFornecedores() {
   renderIndFornecedoresCasaDetail();
   renderIndFornecedoresBlocos();
 }
+function indfGoToPage(p) { indfPage = p; renderIndFornecedores(); }
+window.indfGoToPage = indfGoToPage;
 
 function _destroyChart(ref) { if(ref){try{ref.destroy();}catch(e){}} return null; }
 
@@ -640,6 +645,7 @@ function opcSetGrupo(grupo, btn) {
   opcGrupo = grupo;
   document.querySelectorAll('#opc-filtros .status-filter-btn').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
+  opcPage = 1;
   opcRenderizar();
 }
 
@@ -1112,7 +1118,9 @@ function opcRenderizar() {
   }
 
   let html = '';
-  Object.entries(grupos).sort(([a], [b]) => a.localeCompare(b, 'pt-BR')).forEach(([grpNome, entradas]) => {
+  const gruposOrdenados = Object.entries(grupos).sort(([a], [b]) => a.localeCompare(b, 'pt-BR'));
+  const pagObjOpc = paginar(gruposOrdenados, opcPage);
+  pagObjOpc.itens.forEach(([grpNome, entradas]) => {
     const cotsDoGrupo = entradas.filter(e => e.cotacao).map(e => e.cotacao);
     const totalGrp    = cotsDoGrupo.reduce((s, q) => s + (parseFloat(q.valor)||0), 0);
     const cotIds      = cotsDoGrupo.map(q => q.id);
@@ -1350,9 +1358,12 @@ function opcRenderizar() {
     html += `</div></div>`;
   });
 
-  el.innerHTML = html;
+  el.innerHTML = html + paginacaoHTML(pagObjOpc, 'opcGoToPage');
   opcAtualizarTotais();
 }
+let opcPage = 1;
+function opcGoToPage(p) { opcPage = p; opcRenderizar(); }
+window.opcGoToPage = opcGoToPage;
 
 function opcGetGrpNome(p, q) {
   if (opcGrupo === 'casa') return p.house || 'Sem casa';

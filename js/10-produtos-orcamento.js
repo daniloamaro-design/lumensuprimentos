@@ -42,6 +42,7 @@ function setMpCat(cat) {
   if (titleEl) titleEl.textContent = `${info.icon} Produtos de ${info.nome}`;
   // Popula o select de categoria do formulário
   populateCatSelect('mp-categoria', false, cat);
+  mpPage = 1;
   loadMpProducts();
 }
 
@@ -115,7 +116,8 @@ async function loadMpProducts() {
     return String(a.nome||'').localeCompare(String(b.nome||''), 'pt-BR');
   });
 
-  tbody.innerHTML = rows.map(r => `
+  const pagObjMp = paginar(rows, mpPage);
+  tbody.innerHTML = pagObjMp.itens.map(r => `
     <tr>
       <td><strong>${r.nome}</strong></td>
       <td><span class="badge badge-gray">${r.unidade}</span></td>
@@ -132,8 +134,11 @@ async function loadMpProducts() {
         <button class="btn btn-secondary btn-sm" onclick="editProduct('${r.id}','${r.tipo}')">✏️ Editar</button>
         <button class="btn btn-danger btn-sm" onclick="deleteProduct('${r.tipo==='custom'?r.docId:r.id}','${r.nome.replace(/'/g,"\\'")}','${r.tipo}')">Remover</button>
       </td>
-    </tr>`).join('');
+    </tr>`).join('') + `<tr><td colspan="7" style="padding:0;">${paginacaoHTML(pagObjMp, 'mpGoToPage')}</td></tr>`;
 }
+let mpPage = 1;
+function mpGoToPage(p) { mpPage = p; loadMpProducts(); }
+window.mpGoToPage = mpGoToPage;
 
 async function saveProduct() {
   const nome      = document.getElementById('mp-nome').value.trim();
@@ -1591,11 +1596,17 @@ function renderSuppliersList() {
     if (sort === 'limite-asc')  return (Number(a.limite)||0) - (Number(b.limite)||0);
     return String(a.nome||'').localeCompare(String(b.nome||''), 'pt-BR'); // alpha default
   });
-  wrap.innerHTML = lista.length
-    ? lista.map(s => renderSupplierCard(s)).join('')
-    : '<div class="empty-state"><div class="empty-state-icon">🔍</div><div class="empty-state-title">Nenhum fornecedor nesse tipo</div><div>Marque o tipo no cadastro do fornecedor, ou mude o filtro acima.</div></div>';
+  if (!lista.length) {
+    wrap.innerHTML = '<div class="empty-state"><div class="empty-state-icon">🔍</div><div class="empty-state-title">Nenhum fornecedor nesse tipo</div><div>Marque o tipo no cadastro do fornecedor, ou mude o filtro acima.</div></div>';
+    return;
+  }
+  const pagObjSup = paginar(lista, supListPage);
+  wrap.innerHTML = pagObjSup.itens.map(s => renderSupplierCard(s)).join('') + paginacaoHTML(pagObjSup, 'supListGoToPage');
 }
 window.renderSuppliersList = renderSuppliersList;
+let supListPage = 1;
+function supListGoToPage(p) { supListPage = p; renderSuppliersList(); }
+window.supListGoToPage = supListGoToPage;
 
 function renderSupplierCard(s) {
   const limite  = parseFloat(s.limite) || 0;

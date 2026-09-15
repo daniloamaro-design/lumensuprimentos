@@ -260,7 +260,7 @@ document.querySelector('.main-content').insertAdjacentHTML('beforeend', `
     <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
       <div style="display:flex;align-items:center;gap:8px;">
         <label style="font-size:12px;color:var(--text-muted);">Tipo</label>
-        <select class="form-select" id="sup-filter-tipo" onchange="renderSuppliersList()" style="font-size:12px;padding:5px 10px;width:auto;">
+        <select class="form-select" id="sup-filter-tipo" onchange="supListPage=1;renderSuppliersList()" style="font-size:12px;padding:5px 10px;width:auto;">
           <option value="">Todos</option>
           <option value="produtos">📦 Suprimentos</option>
           <option value="passagens">✈️ Passagens</option>
@@ -269,7 +269,7 @@ document.querySelector('.main-content').insertAdjacentHTML('beforeend', `
       </div>
       <div style="display:flex;align-items:center;gap:8px;">
         <label style="font-size:12px;color:var(--text-muted);">Ordenar por</label>
-        <select class="form-select" id="sup-sort" onchange="renderSuppliersList()" style="font-size:12px;padding:5px 10px;width:auto;">
+        <select class="form-select" id="sup-sort" onchange="supListPage=1;renderSuppliersList()" style="font-size:12px;padding:5px 10px;width:auto;">
           <option value="alpha">A → Z (nome)</option>
           <option value="alpha-desc">Z → A (nome)</option>
           <option value="limite-desc">Limite ↓ (maior)</option>
@@ -1263,7 +1263,7 @@ document.querySelector('.main-content').insertAdjacentHTML('beforeend', `
         </div>
         <div>
           <label class="form-label">Ordenar por</label>
-          <select class="form-select" id="indf-sort" onchange="renderIndFornecedores()">
+          <select class="form-select" id="indf-sort" onchange="indfPage=1;renderIndFornecedores()">
             <option value="valor-desc">Valor ↓ (maior)</option>
             <option value="valor-asc">Valor ↑ (menor)</option>
             <option value="alpha">A → Z (nome)</option>
@@ -1698,7 +1698,7 @@ document.querySelector('.main-content').insertAdjacentHTML('beforeend', `
           </div>
         </div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;">
-          <button class="btn btn-primary btn-sm" onclick="histBuscar()">🔍 Buscar</button>
+          <button class="btn btn-primary btn-sm" onclick="histBuscaPage=1;histBuscar()">🔍 Buscar</button>
           <button class="btn btn-secondary btn-sm" onclick="histExportarCSV()">📥 Exportar CSV</button>
           <button class="btn btn-secondary btn-sm" onclick="histExportarPDF()">📄 Exportar PDF</button>
         </div>

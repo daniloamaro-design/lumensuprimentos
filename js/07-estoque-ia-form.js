@@ -960,6 +960,10 @@ async function histPopularFornecedores() {
   } catch(e) {}
 }
 
+let histBuscaPage = 1;
+function histBuscaGoToPage(p) { histBuscaPage = p; histBuscar(); }
+window.histBuscaGoToPage = histBuscaGoToPage;
+
 async function histBuscar() {
   const ini  = document.getElementById('hist-ini').value;
   const fim  = document.getElementById('hist-fim').value;
@@ -1056,7 +1060,8 @@ async function histBuscar() {
     }
 
     // Renderiza tabela
-    tbody.innerHTML = rows.map(({ q, p }) => {
+    const pagObjHistBusca = paginar(rows, histBuscaPage);
+    tbody.innerHTML = pagObjHistBusca.itens.map(({ q, p }) => {
       const val = parseFloat(q.valor || 0);
       const cats = (p.categories || []).map(c => CATEGORIAS[c] ? CATEGORIAS[c].icon + ' ' + CATEGORIAS[c].nome : c).join(', ');
       const data = q.createdAt?.toDate ? q.createdAt.toDate().toLocaleDateString('pt-BR') : '—';
@@ -1083,7 +1088,7 @@ async function histBuscar() {
         <td style="font-size:12px;color:var(--text-muted);">${autEm}</td>
         <td style="text-align:center;">${nivel}</td>
       </tr>`;
-    }).join('');
+    }).join('') + `<tr><td colspan="8" style="padding:0;">${paginacaoHTML(pagObjHistBusca, 'histBuscaGoToPage')}</td></tr>`;
 
     // Guarda para export
     window._histRows = rows;

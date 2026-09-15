@@ -24,7 +24,8 @@ async function loadUsers() {
     pendingEl.innerHTML = '<div class="empty-state"><div class="empty-state-icon">✅</div><div class="empty-state-title">Nenhuma solicitação pendente</div></div>';
   } else {
     const houseOptions = CASAS.map(c => `<option value="${c}">${c}</option>`).join('');
-    pendingEl.innerHTML = pending.map(d => {
+    const pagObjPending = paginar(pending, usersPendingPage);
+    pendingEl.innerHTML = pagObjPending.itens.map(d => {
       const u = d.data();
       return `<div class="pending-card" id="pcard-${d.id}">
         <div class="pending-info">
@@ -62,7 +63,7 @@ async function loadUsers() {
           <button class="btn btn-secondary btn-sm" onclick="approveWithHouse('${d.id}')">✓ Aprovar</button>
         </div>
       </div>`;
-    }).join('');
+    }).join('') + paginacaoHTML(pagObjPending, 'usersPendingGoToPage');
   }
 
   const tbody = document.getElementById('active-users-tbody');
@@ -83,7 +84,8 @@ async function loadUsers() {
     const [cls, label] = map[r] || ['badge-gray', r || 'Usuário'];
     return `<span class="badge ${cls}">${label}</span>`;
   };
-  tbody.innerHTML = approved.map(d => {
+  const pagObjApproved = paginar(approved, usersApprovedPage);
+  tbody.innerHTML = pagObjApproved.itens.map(d => {
     const u = d.data();
     return `<tr>
       <td><strong>${u.name}</strong></td>
@@ -96,10 +98,12 @@ async function loadUsers() {
       </td>
     </tr>`;
   }).join('') || '<tr><td colspan="5" class="text-muted" style="text-align:center;padding:24px;">Nenhum usuário ativo.</td></tr>';
+  if (approved.length) tbody.innerHTML += `<tr><td colspan="5" style="padding:0;">${paginacaoHTML(pagObjApproved, 'usersApprovedGoToPage')}</td></tr>`;
 
   const revokedTbody = document.getElementById('revoked-users-tbody');
   if (revokedTbody) {
-    revokedTbody.innerHTML = revoked.map(d => {
+    const pagObjRevoked = paginar(revoked, usersRevokedPage);
+    revokedTbody.innerHTML = pagObjRevoked.itens.map(d => {
       const u = d.data();
       return `<tr>
         <td><strong>${u.name}</strong></td>
@@ -109,8 +113,16 @@ async function loadUsers() {
         <td><button class="btn btn-secondary btn-sm" onclick="updateUserStatus('${d.id}','approved','','')">↩️ Reativar acesso</button></td>
       </tr>`;
     }).join('') || '<tr><td colspan="5" class="text-muted" style="text-align:center;padding:24px;">Nenhum acesso revogado.</td></tr>';
+    if (revoked.length) revokedTbody.innerHTML += `<tr><td colspan="5" style="padding:0;">${paginacaoHTML(pagObjRevoked, 'usersRevokedGoToPage')}</td></tr>`;
   }
 }
+let usersPendingPage = 1, usersApprovedPage = 1, usersRevokedPage = 1;
+function usersPendingGoToPage(p) { usersPendingPage = p; loadUsers(); }
+function usersApprovedGoToPage(p) { usersApprovedPage = p; loadUsers(); }
+function usersRevokedGoToPage(p) { usersRevokedPage = p; loadUsers(); }
+window.usersPendingGoToPage = usersPendingGoToPage;
+window.usersApprovedGoToPage = usersApprovedGoToPage;
+window.usersRevokedGoToPage = usersRevokedGoToPage;
 
 function onApproveRoleChange(uid) {
   const role = document.getElementById(`approve-role-${uid}`)?.value;

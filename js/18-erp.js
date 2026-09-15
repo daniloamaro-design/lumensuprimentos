@@ -1612,13 +1612,19 @@ async function loadPlanoAcao() {
 }
 window.loadPlanoAcao = loadPlanoAcao;
 
+let _planoAcaoFiltrados = [];
 function filtrarPlanoAcao() {
   const status = document.getElementById('pl-filtro-status')?.value || '';
   const modulo = document.getElementById('pl-filtro-modulo')?.value || '';
-  const filtrados = _planoAcaoCache.filter(t => (!status || t.status === status) && (!modulo || t.modulo === modulo));
-  renderPlanoAcao(filtrados);
+  _planoAcaoFiltrados = _planoAcaoCache.filter(t => (!status || t.status === status) && (!modulo || t.modulo === modulo));
+  plPage = 1;
+  renderPlanoAcao(_planoAcaoFiltrados);
 }
 window.filtrarPlanoAcao = filtrarPlanoAcao;
+
+let plPage = 1;
+function plGoToPage(p) { plPage = p; renderPlanoAcao(_planoAcaoFiltrados); }
+window.plGoToPage = plGoToPage;
 
 function renderPlanoAcao(tarefas) {
   const tb = document.getElementById('pl-tbody');
@@ -1628,7 +1634,8 @@ function renderPlanoAcao(tarefas) {
     return;
   }
   const hoje = new Date().toISOString().slice(0, 10);
-  tb.innerHTML = tarefas.map(t => {
+  const pagObjPl = paginar(tarefas, plPage);
+  tb.innerHTML = pagObjPl.itens.map(t => {
     const atrasada = t.status !== 'concluido' && t.prazo && t.prazo < hoje;
     const statusOpts = Object.entries(PL_STATUS_LABEL).map(([k, v]) => `<option value="${k}"${t.status === k ? ' selected' : ''}>${v}</option>`).join('');
     return `<tr style="${atrasada ? 'background:rgba(198,40,40,0.07);' : ''}">
@@ -1639,7 +1646,7 @@ function renderPlanoAcao(tarefas) {
       <td><select class="form-select" style="font-size:12px;padding:4px 8px;" onchange="plAtualizarStatus('${t.id}',this.value)">${statusOpts}</select></td>
       <td style="text-align:center;"><button class="btn btn-outline btn-sm" onclick="plExcluir('${t.id}')" title="Excluir">🗑️</button></td>
     </tr>`;
-  }).join('');
+  }).join('') + `<tr><td colspan="6" style="padding:0;">${paginacaoHTML(pagObjPl, 'plGoToPage')}</td></tr>`;
 }
 
 async function salvarPlanoAcao() {
