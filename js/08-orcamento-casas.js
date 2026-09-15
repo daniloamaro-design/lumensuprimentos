@@ -1030,6 +1030,10 @@ async function crHouseChange() {
   inp.placeholder = (casa && casas[casa]) ? ('Atual: ' + casas[casa]) : 'Qtd. pessoas';
 }
 
+let crPage = 1;
+function crGoToPage(p) { crPage = p; loadCalcReal(); }
+window.crGoToPage = crGoToPage;
+
 async function loadCalcReal() {
   const tbody = document.getElementById('cr-tbody');
   const kpis  = document.getElementById('cr-kpis');
@@ -1124,7 +1128,8 @@ async function loadCalcReal() {
       return;
     }
 
-    tbody.innerHTML = linhas.map(p => {
+    const pagObjCr = paginar(linhas, crPage);
+    tbody.innerHTML = pagObjCr.itens.map(p => {
       let badge, corVar;
       if (p.varPct === null)   { badge = '🔴 s/ per capita';          corVar = 'var(--danger)'; }
       else if (p.varPct <= 0)  { badge = '🟢 ' + f(p.varPct, 0) + '%';  corVar = 'var(--ok)'; }
@@ -1144,7 +1149,7 @@ async function loadCalcReal() {
         '<td style="text-align:right;font-family:monospace;">' + f(p.estoque) + '</td>' +
         '<td style="text-align:right;font-weight:700;">' + (p.diasRest == null ? '—' : f(p.diasRest, 0) + ' dias') + '</td>' +
         '</tr>';
-    }).join('');
+    }).join('') + '<tr><td colspan="11" style="padding:0;">' + paginacaoHTML(pagObjCr, 'crGoToPage') + '</td></tr>';
   } catch (e) {
     console.error('Erro em loadCalcReal:', e);
     tbody.innerHTML = '<tr><td colspan="11" style="text-align:center;padding:40px;color:var(--danger);">Erro ao analisar: ' + e.message + '</td></tr>';

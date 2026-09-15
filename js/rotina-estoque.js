@@ -441,13 +441,18 @@ function _rotRenderGrafico(timeline, dados, gran) {
   });
 }
 
+let rotPage = 1;
+function rotGoToPage(p) { rotPage = p; _rotRenderTabela(rotTabelaDados); }
+window.rotGoToPage = rotGoToPage;
+
 function _rotRenderTabela(dados) {
   const tbody = document.getElementById('rot-tbody');
   if (!dados.length) {
     tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:24px;color:var(--text-muted);">Nenhuma movimentação encontrada no período.</td></tr>';
     return;
   }
-  tbody.innerHTML = dados.map(p => {
+  const pagObjRot = paginar(dados, rotPage);
+  tbody.innerHTML = pagObjRot.itens.map(p => {
     const variacao = p.saldoFim - p.saldoIni;
     const pct      = p.saldoIni > 0 ? (variacao / p.saldoIni * 100) : (p.entradas > 0 ? 100 : 0);
     let tendEmoji = '➡️';
@@ -466,7 +471,7 @@ function _rotRenderTabela(dados) {
       <td style="padding:9px 10px;text-align:right;font-family:monospace;font-size:12px;color:var(--lumen);">${p.mediaDia.toFixed(2).replace('.',',')}${p.unidade ? '/'+p.unidade : ''}/d</td>
       <td style="padding:9px 10px;text-align:center;font-size:14px;color:${tendCor};" title="${pct > 0 ? '+' : ''}${pct.toFixed(1)}%">${tendEmoji}</td>
     </tr>`;
-  }).join('');
+  }).join('') + `<tr><td colspan="8" style="padding:0;">${paginacaoHTML(pagObjRot, 'rotGoToPage')}</td></tr>`;
 }
 
 // ── Exportação CSV ────────────────────────────────────────

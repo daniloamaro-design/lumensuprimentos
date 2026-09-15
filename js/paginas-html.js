@@ -813,7 +813,7 @@ document.querySelector('.main-content').insertAdjacentHTML('beforeend', `
             <option value="semana">Por semana</option>
           </select>
         </div>
-        <button class="btn btn-primary" onclick="carregarRotinaEstoque()">🔍 Analisar</button>
+        <button class="btn btn-primary" onclick="rotPage=1;carregarRotinaEstoque()">🔍 Analisar</button>
         <button class="btn btn-outline btn-sm" onclick="exportarRotinaCSV()" id="rot-btn-export" style="display:none;">⬇️ CSV</button>
       </div>
     </div>
@@ -2361,7 +2361,7 @@ document.querySelector('.main-content').insertAdjacentHTML('beforeend', `
           <input type="number" class="form-input" id="cr-pessoas-sim" placeholder="Qtd. pessoas" min="1" style="width:130px;">
         </div>
         <div>
-          <button class="btn btn-primary" onclick="loadCalcReal()" style="height:38px;padding:0 20px;">
+          <button class="btn btn-primary" onclick="crPage=1;loadCalcReal()" style="height:38px;padding:0 20px;">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="14" height="14"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
             Analisar
           </button>

@@ -460,6 +460,7 @@ async function loadComprasPorItem() {
 }
 window.loadComprasPorItem = loadComprasPorItem;
 
+let indCompPage = 1;
 function renderTabelaCompras(lista) {
   const tb = document.getElementById('ind-comp-tbody');
   if (!tb) return;
@@ -467,20 +468,24 @@ function renderTabelaCompras(lista) {
     tb.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:24px;color:var(--text-muted);">Nenhum pedido concluído no período.</td></tr>';
     return;
   }
-  tb.innerHTML = lista.map(r => `
+  const pagObjIndComp = paginar(lista, indCompPage);
+  tb.innerHTML = pagObjIndComp.itens.map(r => `
     <tr>
       <td style="font-weight:600;">${r.nome}</td>
       <td style="color:var(--text-muted);">${r.cat}</td>
       <td style="color:var(--text-muted);">${r.unidade}</td>
       <td style="text-align:right;font-weight:700;">${r.qty % 1 === 0 ? r.qty : r.qty.toFixed(2)}</td>
       <td style="text-align:right;color:var(--text-muted);">${r.pedidos}</td>
-    </tr>`).join('');
+    </tr>`).join('') + `<tr><td colspan="5" style="padding:0;">${paginacaoHTML(pagObjIndComp, 'indCompGoToPage')}</td></tr>`;
 }
+function indCompGoToPage(p) { indCompPage = p; filtrarTabelaCompras(); }
+window.indCompGoToPage = indCompGoToPage;
 
+let _comprasCacheFiltrado = [];
 function filtrarTabelaCompras() {
   const q = (document.getElementById('ind-comp-busca')?.value || '').toLowerCase().trim();
-  if (!q) { renderTabelaCompras(_comprasCache); return; }
-  renderTabelaCompras(_comprasCache.filter(r => r.nome.toLowerCase().includes(q) || r.cat.toLowerCase().includes(q)));
+  _comprasCacheFiltrado = q ? _comprasCache.filter(r => r.nome.toLowerCase().includes(q) || r.cat.toLowerCase().includes(q)) : _comprasCache;
+  renderTabelaCompras(_comprasCacheFiltrado);
 }
 window.filtrarTabelaCompras = filtrarTabelaCompras;
 
@@ -579,20 +584,24 @@ async function loadComprasPorProduto() {
       stats.innerHTML = `<span style="font-size:13px;color:var(--text-muted);">📋 <strong>${totalPedidos}</strong> pedido(s) encontrado(s) &nbsp;·&nbsp; <strong>${lista.length}</strong> produto(s) diferente(s)</span>`;
     }
 
-    tb.innerHTML = lista.map(r => `
+    const pagObjCc = paginar(lista, ccPage);
+    tb.innerHTML = pagObjCc.itens.map(r => `
       <tr>
         <td style="font-weight:600;">${r.nome}</td>
         <td style="color:var(--text-muted);">${r.cat}</td>
         <td style="color:var(--text-muted);">${r.unidade}</td>
         <td style="text-align:right;font-weight:700;">${r.qty % 1 === 0 ? r.qty : r.qty.toFixed(2)}</td>
         <td style="text-align:right;color:var(--text-muted);">${r.pedidos}</td>
-      </tr>`).join('');
+      </tr>`).join('') + `<tr><td colspan="5" style="padding:0;">${paginacaoHTML(pagObjCc, 'ccGoToPage')}</td></tr>`;
   } catch(e) {
     console.error(e);
     if (tb) tb.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:24px;color:var(--danger);">Erro: ${e.message}</td></tr>`;
   }
 }
 window.loadComprasPorProduto = loadComprasPorProduto;
+let ccPage = 1;
+function ccGoToPage(p) { ccPage = p; loadComprasPorProduto(); }
+window.ccGoToPage = ccGoToPage;
 
 // ─────────────────────────────────────────────
 // 🔄  TRANSFERÊNCIAS

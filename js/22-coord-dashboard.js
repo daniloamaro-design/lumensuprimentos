@@ -541,9 +541,19 @@ function _cdOrdenarSaldo(porFornecedor) {
     .sort((a, b) => b.saldo - a.saldo);
 }
 
+let _cdSaldoPages = {}; // tbodyId -> página atual (cada aba/tabela pagina independente)
+let _cdSaldoLinhasCache = {}; // tbodyId -> { linhas, limitesPorFornecedor } — pra goToPage não precisar recalcular
+function _cdSaldoGoToPage(tbodyId, p) {
+  _cdSaldoPages[tbodyId] = p;
+  const cache = _cdSaldoLinhasCache[tbodyId];
+  if (cache) _cdRenderSaldoTabela(tbodyId, cache.linhas, cache.limitesPorFornecedor);
+}
+window._cdSaldoGoToPage = _cdSaldoGoToPage;
+
 function _cdRenderSaldoTabela(tbodyId, linhas, limitesPorFornecedor) {
   const tbody = document.getElementById(tbodyId);
   if (!tbody) return;
+  _cdSaldoLinhasCache[tbodyId] = { linhas, limitesPorFornecedor };
   if (!linhas.length) {
     tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:20px;color:var(--text-muted);">Nenhum lançamento encontrado.</td></tr>';
     return;
@@ -566,7 +576,16 @@ function _cdRenderSaldoTabela(tbodyId, linhas, limitesPorFornecedor) {
       <td style="text-align:right;font-weight:600;${corPct}">${destaque ? '' : (pct === null ? '<span style="color:var(--text-muted);">—</span>' : pct.toFixed(0) + '%')}</td>
     </tr>`;
   };
-  tbody.innerHTML = linhas.map(l => linha(l, false)).join('') + linha({ fornecedor: 'Total', ...totais }, true);
+  const pagObjCd = paginar(linhas, _cdSaldoPages[tbodyId] || 1);
+  // paginacaoHTML() chama a função pelo nome (só aceita 1 argumento: a
+  // página) — como essa tabela é reaproveitada pra 6 ids diferentes
+  // (Coordenador e Financeiro × Suprimentos/Passagens/Fretes), cria um
+  // atalho global por id na hora, só pra fechar esse argumento extra.
+  const fnName = '_cdGoTo_' + tbodyId.replace(/[^a-zA-Z0-9_]/g, '_');
+  window[fnName] = p => _cdSaldoGoToPage(tbodyId, p);
+  tbody.innerHTML = pagObjCd.itens.map(l => linha(l, false)).join('')
+    + `<tr><td colspan="6" style="padding:0;">${paginacaoHTML(pagObjCd, fnName)}</td></tr>`
+    + linha({ fornecedor: 'Total (todos)', ...totais }, true);
 }
 
 // ── 6. CONCILIAÇÃO FINANCEIRA (planilha "Visão Contas a Pagar" do financeiro) ─
@@ -750,6 +769,10 @@ function _cdRenderResumoConciliacao() {
     </div>`;
 }
 
+let coordConcNaoidentPage = 1;
+function coordConcNaoidentGoToPage(p) { coordConcNaoidentPage = p; _coordConcRenderNaoIdentificados(); }
+window.coordConcNaoidentGoToPage = coordConcNaoidentGoToPage;
+
 function _coordConcRenderNaoIdentificados() {
   const card = document.getElementById('coord-conc-card-naoident');
   const lista = document.getElementById('coord-conc-naoident-lista');
@@ -758,7 +781,10 @@ function _coordConcRenderNaoIdentificados() {
   card.style.display = '';
   const opcoesSuppliers = _coordConc.suppliers.slice().sort((a,b) => (a.nome||'').localeCompare(b.nome||'','pt-BR'))
     .map(s => `<option value="${s.id}">${frtEsc(s.nome)}</option>`).join('');
-  lista.innerHTML = itens.map((it, i) => {
+  // i sempre é o índice no array COMPLETO (não no da página) — coordConcIdentificar
+  // e coordConcNovoFornecedor usam esse índice pra achar o item certo.
+  const pagObjNaoident = paginar(itens.map((it, i) => ({ it, i })), coordConcNaoidentPage);
+  lista.innerHTML = pagObjNaoident.itens.map(({ it, i }) => {
     const totalItem = it.linhas.reduce((s,l)=>s+l.valor,0);
     return `
     <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:8px 10px;border:1px solid var(--border);border-radius:6px;">
@@ -773,7 +799,7 @@ function _coordConcRenderNaoIdentificados() {
       <button class="btn btn-outline btn-sm" onclick="coordConcIdentificar(${i})">Usar este</button>
       <button class="btn btn-outline btn-sm" onclick="coordConcNovoFornecedor(${i})">+ Cadastrar novo</button>
     </div>`;
-  }).join('');
+  }).join('') + paginacaoHTML(pagObjNaoident, 'coordConcNaoidentGoToPage');
 }
 
 function coordConcIdentificar(i) {
@@ -807,6 +833,12 @@ window.coordConcNovoFornecedor = coordConcNovoFornecedor;
 async function coordConcRecalcular() { await coordConcProcessar(); }
 window.coordConcRecalcular = coordConcRecalcular;
 
+// Fica de fora da paginação de propósito: "Selecionar todos"
+// (coordConcToggleAll) e coordConcAplicar() dependem de TODAS as linhas
+// (e seus índices) estarem no DOM ao mesmo tempo pra aplicar o lote certo
+// de pagamentos — paginar aqui arriscaria marcar como pago só o que
+// estivesse visível na página, sem o usuário perceber. Lista tipicamente
+// pequena (reconciliação semanal), risco de ficar longa é baixo.
 function _cdRenderPropostosPagar(linhas) {
   const card = document.getElementById('coord-conc-card-pagar');
   const tbody = document.getElementById('coord-conc-pagar-tbody');
@@ -828,18 +860,23 @@ function coordConcToggleAll(checked) {
 }
 window.coordConcToggleAll = coordConcToggleAll;
 
+let coordConcNaosistemaPage = 1;
+function coordConcNaosistemaGoToPage(p) { coordConcNaosistemaPage = p; _cdRenderSoNaPlanilha(_coordConc.soNaPlanilha); }
+window.coordConcNaosistemaGoToPage = coordConcNaosistemaGoToPage;
+
 function _cdRenderSoNaPlanilha(linhas) {
   const card = document.getElementById('coord-conc-card-naosistema');
   const tbody = document.getElementById('coord-conc-naosistema-tbody');
   if (!linhas.length) { card.style.display = 'none'; return; }
   card.style.display = '';
-  tbody.innerHTML = linhas.map(l => `
+  const pagObjNaosist = paginar(linhas, coordConcNaosistemaPage);
+  tbody.innerHTML = pagObjNaosist.itens.map(l => `
     <tr>
       <td>${frtEsc(l.fornecedor)}</td>
       <td style="max-width:320px;">${frtEsc(l.descricao)}</td>
       <td style="text-align:right;">${_cd.BRL(l.valor)}</td>
       <td>${frtEsc(l.vencimento)}</td>
-    </tr>`).join('');
+    </tr>`).join('') + `<tr><td colspan="4" style="padding:0;">${paginacaoHTML(pagObjNaosist, 'coordConcNaosistemaGoToPage')}</td></tr>`;
 }
 
 async function coordConcAplicar() {
