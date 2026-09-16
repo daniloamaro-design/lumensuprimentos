@@ -1796,9 +1796,11 @@ document.querySelector('.main-content').insertAdjacentHTML('beforeend', `
               <th style="padding:8px 12px;text-align:right;font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.4px;border-bottom:1px solid var(--border);">🌾 Cereal</th>
               <th style="padding:8px 12px;text-align:right;font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.4px;border-bottom:1px solid var(--border);">🧴 Higiene</th>
               <th style="padding:8px 12px;text-align:right;font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.4px;border-bottom:1px solid var(--border);">🥩 Proteína</th>
+              <th style="padding:8px 12px;text-align:right;font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.4px;border-bottom:1px solid var(--border);">🎁 Doação</th>
+              <th style="padding:8px 12px;text-align:right;font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.4px;border-bottom:1px solid var(--border);">🔄 Transferência</th>
             </tr></thead>
             <tbody id="hist-cmp-tbody">
-              <tr><td colspan="5" style="padding:18px 12px;text-align:center;color:var(--text-muted);font-size:12px;">Selecione os dois períodos e clique em Comparar.</td></tr>
+              <tr><td colspan="7" style="padding:18px 12px;text-align:center;color:var(--text-muted);font-size:12px;">Selecione os dois períodos e clique em Comparar.</td></tr>
             </tbody>
           </table>
         </div>

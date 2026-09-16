@@ -147,7 +147,7 @@ async function histCompararPeriodos() {
   if (!aIni || !aFim || !bIni || !bFim) { showToast('Preencha as datas dos dois períodos.'); return; }
 
   const tbody = document.getElementById('hist-cmp-tbody');
-  tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:16px;"><div class="loading-state"><div class="spinner spinner-dark"></div>Carregando...</div></td></tr>';
+  tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:16px;"><div class="loading-state"><div class="spinner spinner-dark"></div>Carregando...</div></td></tr>';
 
   const fmtD = d => d.split('-').reverse().join('/');
 
@@ -252,17 +252,17 @@ async function histCompararPeriodos() {
           <strong style="color:var(--text);">Período A</strong>
           <div style="font-size:11px;color:var(--text-muted);">${fmtD(aIni)} a ${fmtD(aFim)}</div>
         </td>
-        ${cell(A.totalGeral,B.totalGeral,true)}${cell(A.cereal,B.cereal,false)}${cell(A.higiene,B.higiene,false)}${cell(A.proteina,B.proteina,false)}
+        ${cell(A.totalGeral,B.totalGeral,true)}${cell(A.cereal,B.cereal,false)}${cell(A.higiene,B.higiene,false)}${cell(A.proteina,B.proteina,false)}${cell(DTA.doacao.total,DTB.doacao.total,false)}${cell(DTA.transferencia.total,DTB.transferencia.total,false)}
       </tr>
       <tr>
         <td style="padding:11px 14px;">
           <strong style="color:var(--text);">Período B</strong>
           <div style="font-size:11px;color:var(--text-muted);">${fmtD(bIni)} a ${fmtD(bFim)}</div>
         </td>
-        ${cell(B.totalGeral,A.totalGeral,false)}${cell(B.cereal,A.cereal,false)}${cell(B.higiene,A.higiene,false)}${cell(B.proteina,A.proteina,false)}
+        ${cell(B.totalGeral,A.totalGeral,false)}${cell(B.cereal,A.cereal,false)}${cell(B.higiene,A.higiene,false)}${cell(B.proteina,A.proteina,false)}${cell(DTB.doacao.total,DTA.doacao.total,false)}${cell(DTB.transferencia.total,DTA.transferencia.total,false)}
       </tr>`;
   } catch(e) {
-    tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:16px;color:var(--danger);">Erro: ${e.message}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:16px;color:var(--danger);">Erro: ${e.message}</td></tr>`;
     if (doaTransfTbody) doaTransfTbody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:16px;color:var(--danger);">Erro: ${e.message}</td></tr>`;
   }
 }
