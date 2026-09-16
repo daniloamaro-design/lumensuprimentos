@@ -1052,6 +1052,23 @@ async function histBuscar() {
     sv('hist-s-economia',  FMT_HIST(economia));
     sv('hist-s-casas',     casasSet.size);
     sv('hist-s-casas-n',   `de ${CASAS.length} casas`);
+
+    // Doação e transferência recebidas no mesmo período/casa — pra ter noção
+    // do gasto total real da semana (uma casa que recebeu mais doação numa
+    // semana "economiza" na compra, o que pode enganar quem só olha o valor
+    // autorizado). Mesmo helper usado no Comparativo entre dois períodos
+    // (js/08-orcamento-casas.js) — estimado pelo preço de referência.
+    if (typeof somarDoacoesTransferenciasPeriodo === 'function') {
+      const casasValidas = casa ? new Set([casa]) : new Set(CASAS);
+      somarDoacoesTransferenciasPeriodo(ini, fim, casasValidas).then(({ doacao, transferencia }) => {
+        sv('hist-s-doacao', FMT_HIST(doacao.total));
+        sv('hist-s-transferencia', FMT_HIST(transferencia.total));
+      }).catch(e => {
+        console.error('[hist doação/transferência]', e);
+        sv('hist-s-doacao', '—');
+        sv('hist-s-transferencia', '—');
+      });
+    }
     sv('hist-count-label', `${rows.length} registro${rows.length !== 1 ? 's' : ''}`);
 
     if (rows.length === 0) {

@@ -1737,6 +1737,16 @@ document.querySelector('.main-content').insertAdjacentHTML('beforeend', `
         <div class="hist-stat-value" id="hist-s-casas">—</div>
         <div class="hist-stat-sub" id="hist-s-casas-n">no período</div>
       </div>
+      <div class="hist-stat-card">
+        <div class="hist-stat-label">🎁 Doação (estimado)</div>
+        <div class="hist-stat-value" id="hist-s-doacao" style="color:var(--text-muted);">—</div>
+        <div class="hist-stat-sub">preço de referência, não é compra</div>
+      </div>
+      <div class="hist-stat-card">
+        <div class="hist-stat-label">🔄 Transferência (estimado)</div>
+        <div class="hist-stat-value" id="hist-s-transferencia" style="color:var(--text-muted);">—</div>
+        <div class="hist-stat-sub">preço de referência, não é compra</div>
+      </div>
     </div>
 
     <!-- Comparativo entre dois períodos -->
