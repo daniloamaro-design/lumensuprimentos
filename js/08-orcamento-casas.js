@@ -219,6 +219,12 @@ async function histCompararPeriodos() {
       doaTransfTbody.innerHTML = linhaDT('Período A', DTA) + linhaDT('Período B', DTB);
     }
 
+    // Total Geral passa a incluir doação + transferência estimadas (mesma
+    // lógica já aplicada na Análise detalhada por casa) — Cereal/Higiene/
+    // Proteína continuam só compras.
+    A.totalGeral = A.total + DTA.doacao.total + DTA.transferencia.total;
+    B.totalGeral = B.total + DTB.doacao.total + DTB.transferencia.total;
+
     const varTag = (a, b) => {
       if (!b) return '';
       const pct = ((a-b)/b*100).toFixed(1);
@@ -234,8 +240,8 @@ async function histCompararPeriodos() {
 
     // Pill de tendência total
     const pill = document.getElementById('hist-trend-pill');
-    if (pill && B.total > 0) {
-      const pct = ((A.total - B.total)/B.total*100).toFixed(1);
+    if (pill && B.totalGeral > 0) {
+      const pct = ((A.totalGeral - B.totalGeral)/B.totalGeral*100).toFixed(1);
       const isUp = parseFloat(pct) > 0;
       pill.innerHTML = `<span class="trend-pill ${isUp?'trend-up':'trend-down'}">${isUp?'▲':'▼'}${Math.abs(pct)}% vs período B</span>`;
     }
@@ -246,14 +252,14 @@ async function histCompararPeriodos() {
           <strong style="color:var(--text);">Período A</strong>
           <div style="font-size:11px;color:var(--text-muted);">${fmtD(aIni)} a ${fmtD(aFim)}</div>
         </td>
-        ${cell(A.total,B.total,true)}${cell(A.cereal,B.cereal,false)}${cell(A.higiene,B.higiene,false)}${cell(A.proteina,B.proteina,false)}
+        ${cell(A.totalGeral,B.totalGeral,true)}${cell(A.cereal,B.cereal,false)}${cell(A.higiene,B.higiene,false)}${cell(A.proteina,B.proteina,false)}
       </tr>
       <tr>
         <td style="padding:11px 14px;">
           <strong style="color:var(--text);">Período B</strong>
           <div style="font-size:11px;color:var(--text-muted);">${fmtD(bIni)} a ${fmtD(bFim)}</div>
         </td>
-        ${cell(B.total,A.total,false)}${cell(B.cereal,A.cereal,false)}${cell(B.higiene,A.higiene,false)}${cell(B.proteina,A.proteina,false)}
+        ${cell(B.totalGeral,A.totalGeral,false)}${cell(B.cereal,A.cereal,false)}${cell(B.higiene,A.higiene,false)}${cell(B.proteina,A.proteina,false)}
       </tr>`;
   } catch(e) {
     tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:16px;color:var(--danger);">Erro: ${e.message}</td></tr>`;
