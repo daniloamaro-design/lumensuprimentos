@@ -306,6 +306,54 @@ async function somarPeriodoPorCasa(ini, fim) {
   return porCasa;
 }
 
+// Mesma coisa que somarDoacoesTransferenciasPeriodo, mas separado por casa
+// (pra usar na "Análise detalhada por casa" — cada casa vê o próprio total,
+// não o agregado das casas todas).
+async function somarDoacoesTransferenciasPorCasa(ini, fim, casasValidas) {
+  const mapaPrecos = await _histCarregarMapaPrecos();
+  const de = new Date(ini + 'T00:00:00');
+  const ate = new Date(fim + 'T23:59:59');
+
+  const [movSnap, trfSnap] = await Promise.all([
+    db.collection('movements').where('isDonation','==',true).get().catch(e=>{console.error('[COMP-doa-casa]',e); return {docs:[]};}),
+    db.collection('transferencias').where('status','==','confirmada').get().catch(e=>{console.error('[COMP-trf-casa]',e); return {docs:[]};}),
+  ]);
+
+  const vazio = () => ({ total:0, cereal:0, higiene:0, proteina:0 });
+  const somaItensEm = (acc, items, city) => {
+    (items || []).forEach(item => {
+      const val = (mapaPrecos[`${item.catKey}|${item.prodId}|${city}`] || 0) * (Number(item.qty) || 0);
+      acc.total += val;
+      if (item.catKey === 'cereal')   acc.cereal   += val;
+      if (item.catKey === 'higiene')  acc.higiene  += val;
+      if (item.catKey === 'proteina') acc.proteina += val;
+    });
+  };
+
+  const porCasa = {};
+  const alvo = casa => porCasa[casa] || (porCasa[casa] = { doacao: vazio(), transferencia: vazio() });
+
+  movSnap.docs.forEach(d => {
+    const m = d.data();
+    const casa = m.house || '—';
+    if (!casasValidas.has(casa)) return;
+    const dt = m.date ? new Date(String(m.date).slice(0,10) + 'T00:00:00') : null;
+    if (!dt || dt < de || dt > ate) return;
+    somaItensEm(alvo(casa).doacao, m.items, CASAS_CIDADES[casa] || '');
+  });
+
+  trfSnap.docs.forEach(d => {
+    const t = d.data();
+    const casa = t.destino || '—';
+    if (!casasValidas.has(casa)) return;
+    const dt = t.data ? new Date(String(t.data).slice(0,10) + 'T00:00:00') : null;
+    if (!dt || dt < de || dt > ate) return;
+    somaItensEm(alvo(casa).transferencia, t.items, CASAS_CIDADES[casa] || '');
+  });
+
+  return porCasa;
+}
+
 async function histCompararPorCasa() {
   const aIni = document.getElementById('hist-cmp-a-ini').value;
   const aFim = document.getElementById('hist-cmp-a-fim').value;
@@ -318,15 +366,30 @@ async function histCompararPorCasa() {
   wrap.innerHTML = '<div class="loading-state"><div class="spinner spinner-dark"></div>Carregando...</div>';
 
   try {
-    const [porCasaA, porCasaB] = await Promise.all([somarPeriodoPorCasa(aIni, aFim), somarPeriodoPorCasa(bIni, bFim)]);
-    const casas = [...new Set([...Object.keys(porCasaA), ...Object.keys(porCasaB)])];
+    const casasValidas = orcCasasFiltradas();
+    const [porCasaA, porCasaB, dtA, dtB] = await Promise.all([
+      somarPeriodoPorCasa(aIni, aFim), somarPeriodoPorCasa(bIni, bFim),
+      somarDoacoesTransferenciasPorCasa(aIni, aFim, casasValidas),
+      somarDoacoesTransferenciasPorCasa(bIni, bFim, casasValidas),
+    ]);
+    const casas = [...new Set([...Object.keys(porCasaA), ...Object.keys(porCasaB), ...Object.keys(dtA), ...Object.keys(dtB)])];
     const nomesCat = { cereal:'🌾 Cereal', higiene:'🧴 Higiene', proteina:'🥩 Proteína' };
 
+    // Total por casa passa a incluir doação + transferência estimadas (além
+    // das compras) — dá a noção do valor total que passou pela casa, não só
+    // o que foi efetivamente comprado. Cereal/Higiene/Proteína continuam só
+    // compras (é o que "categoria que mais puxou" compara).
+    const montar = (compras, dt) => {
+      const doacao = dt?.doacao?.total || 0;
+      const transferencia = dt?.transferencia?.total || 0;
+      return { ...compras, doacao, transferencia, totalGeral: compras.total + doacao + transferencia };
+    };
+
     const linhas = casas.map(casa => {
-      const A = porCasaA[casa] || { total:0, cereal:0, higiene:0, proteina:0 };
-      const B = porCasaB[casa] || { total:0, cereal:0, higiene:0, proteina:0 };
-      const semBase = B.total === 0; // não teve orçamento no período B — não dá pra calcular variação real
-      const pct = semBase ? (A.total > 0 ? Infinity : 0) : ((A.total - B.total)/B.total*100);
+      const A = montar(porCasaA[casa] || { total:0, cereal:0, higiene:0, proteina:0 }, dtA[casa]);
+      const B = montar(porCasaB[casa] || { total:0, cereal:0, higiene:0, proteina:0 }, dtB[casa]);
+      const semBase = B.totalGeral === 0; // não teve movimento no período B — não dá pra calcular variação real
+      const pct = semBase ? (A.totalGeral > 0 ? Infinity : 0) : ((A.totalGeral - B.totalGeral)/B.totalGeral*100);
       const deltas = { cereal: A.cereal-B.cereal, higiene: A.higiene-B.higiene, proteina: A.proteina-B.proteina };
       const catMaior = Object.entries(deltas).sort((x,y)=>y[1]-x[1])[0][0];
       return { casa, A, B, pct, semBase, catMaior };
@@ -365,29 +428,35 @@ async function histCompararPorCasa() {
           <table style="width:100%;border-collapse:collapse;font-size:13px;">
             <thead><tr>
               <th style="padding:8px 12px;text-align:left;font-size:11px;color:var(--text-muted);text-transform:uppercase;">Período</th>
-              <th style="padding:8px 12px;text-align:right;font-size:11px;color:var(--text-muted);text-transform:uppercase;">Total</th>
+              <th style="padding:8px 12px;text-align:right;font-size:11px;color:var(--text-muted);text-transform:uppercase;">Total geral</th>
               <th style="padding:8px 12px;text-align:right;font-size:11px;color:var(--text-muted);text-transform:uppercase;">🌾 Cereal</th>
               <th style="padding:8px 12px;text-align:right;font-size:11px;color:var(--text-muted);text-transform:uppercase;">🧴 Higiene</th>
               <th style="padding:8px 12px;text-align:right;font-size:11px;color:var(--text-muted);text-transform:uppercase;">🥩 Proteína</th>
+              <th style="padding:8px 12px;text-align:right;font-size:11px;color:var(--text-muted);text-transform:uppercase;">🎁 Doação</th>
+              <th style="padding:8px 12px;text-align:right;font-size:11px;color:var(--text-muted);text-transform:uppercase;">🔄 Transf.</th>
             </tr></thead>
             <tbody>
               <tr style="border-top:1px solid var(--border);">
                 <td style="padding:9px 12px;">Período A</td>
-                ${cellComp(l.A.total, l.B.total)}
+                ${cellComp(l.A.totalGeral, l.B.totalGeral)}
                 ${cellComp(l.A.cereal, l.B.cereal)}
                 ${cellComp(l.A.higiene, l.B.higiene)}
                 ${cellComp(l.A.proteina, l.B.proteina)}
+                ${cellComp(l.A.doacao, l.B.doacao)}
+                ${cellComp(l.A.transferencia, l.B.transferencia)}
               </tr>
               <tr style="border-top:1px solid var(--border);">
                 <td style="padding:9px 12px;">Período B</td>
-                ${cellComp(l.B.total, l.A.total)}
+                ${cellComp(l.B.totalGeral, l.A.totalGeral)}
                 ${cellComp(l.B.cereal, l.A.cereal)}
                 ${cellComp(l.B.higiene, l.A.higiene)}
                 ${cellComp(l.B.proteina, l.A.proteina)}
+                ${cellComp(l.B.doacao, l.A.doacao)}
+                ${cellComp(l.B.transferencia, l.A.transferencia)}
               </tr>
             </tbody>
           </table>
-          <div style="padding:6px 14px;font-size:11.5px;color:var(--text-muted);background:var(--surface);">Categoria que mais puxou o valor: <strong style="color:var(--danger);">${catLabel}</strong></div>
+          <div style="padding:6px 14px;font-size:11.5px;color:var(--text-muted);background:var(--surface);">Categoria que mais puxou o valor (compras): <strong style="color:var(--danger);">${catLabel}</strong> &nbsp;·&nbsp; Total geral inclui doação e transferência estimadas</div>
         </div>`;
     });
 
