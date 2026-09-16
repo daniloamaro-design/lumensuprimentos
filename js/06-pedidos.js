@@ -326,15 +326,19 @@ async function submitOrder() {
   try {
     await db.collection('orders').add(orderData);
 
-    // Send email
-    if (recipient) {
-      await sendOrderEmail(orderData, recipient);
-    }
-
+    // O pedido já foi criado — a tela não pode mais ficar travada esperando
+    // nada depois disso. O e-mail é só um aviso extra (EmailJS às vezes
+    // trava sem erro nem timeout se a rede engasgar); dispara por fora,
+    // sem "await" no caminho principal, pra nunca prender o usuário numa
+    // tela presa mesmo com o pedido já salvo no banco.
     clearOrder();
     showToast(`✅ Pedido ${code} enviado com sucesso!`);
     if (!['admin','diretor','gerente','coordenador'].includes(currentUserData.role)) goPage('my-orders');
     else { goPage('all-orders'); loadDashboard(); }
+
+    if (recipient) {
+      sendOrderEmail(orderData, recipient).catch(e => console.warn('sendOrderEmail (não bloqueia o pedido):', e));
+    }
   } catch(e) {
     console.error(e);
     showToast('Erro ao enviar pedido. Verifique o console.');
