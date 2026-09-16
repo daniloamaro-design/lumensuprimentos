@@ -1147,8 +1147,8 @@
     <!-- PAGE: NEW ORDER -->
     <div class="page" id="page-new-order">
       <div class="page-header">
-        <div class="page-title">Nova Solicitação de Compra</div>
-        <div class="page-sub">Selecione os itens necessários e envie a solicitação</div>
+        <div class="page-title" id="new-order-page-title">Nova Solicitação de Compra</div>
+        <div class="page-sub" id="new-order-page-sub">Selecione os itens necessários e envie a solicitação</div>
       </div>
 
       <!-- Step 1: Info -->
@@ -3167,6 +3167,7 @@
     <div class="modal-footer">
       <button class="btn btn-outline" onclick="closeModal('modal-order-detail')">Fechar</button>
       <button class="btn btn-secondary" id="btn-pdf-detail" onclick="generatePDFFromDetail()">📄 Solicitação em PDF</button>
+      <button class="btn btn-secondary" id="btn-edit-order" onclick="editarPedido()" style="background:var(--warn-bg,#fff3cd);color:var(--warn,#856404);border:1px solid rgba(217,119,6,0.3);">✏️ Editar Pedido</button>
       <button class="btn btn-secondary" id="btn-open-quotation" onclick="openQuotationModal()">💰 Orçamentos</button>
       <button class="btn btn-secondary" id="btn-attach-nf" onclick="openAttachModal()">📎 Anexar NF/Boleto</button>
       <button class="btn btn-secondary" id="btn-eval-stock" onclick="openStockEvalModal()" style="background:var(--ok-bg);color:var(--ok);border:1px solid rgba(26,122,68,0.3);">🏪 Avaliar Estoque</button>
@@ -3559,7 +3560,7 @@
 <script src="js/03-navegacao.js?v=2"></script>
 <script src="js/04-percapita.js?v=17"></script>
 <script src="js/05-cadastros.js?v=3"></script>
-<script src="js/06-pedidos.js?v=21"></script>
+<script src="js/06-pedidos.js?v=22"></script>
 <script src="js/07-estoque-ia-form.js?v=6"></script>
 <script src="js/08-orcamento-casas.js?v=7"></script>
 <script src="js/09-indicadores-transf.js?v=5"></script>

@@ -245,6 +245,15 @@ function clearOrder() {
   renderOrderProducts();
   const ccSel = document.getElementById('order-centro-custo');
   if (ccSel) ccSel.value = '';
+  // "Limpar tudo" também sai do modo edição — volta a tela pro estado normal
+  // de Nova Solicitação, pra não ficar preso editando um pedido sem querer.
+  editingOrderId = null;
+  const title = document.getElementById('new-order-page-title');
+  const sub   = document.getElementById('new-order-page-sub');
+  const btn   = document.getElementById('btn-submit-order');
+  if (title) title.textContent = 'Nova Solicitação de Compra';
+  if (sub)   sub.textContent   = 'Selecione os itens necessários e envie a solicitação';
+  if (btn)   btn.textContent   = 'Enviar Solicitação';
 }
 
 function previewOrder() {
@@ -278,6 +287,10 @@ function siglaCasa(nome) {
   return sigla;
 }
 
+// Id do pedido em edição (setado por editarPedido()) — quando preenchido,
+// submitOrder() atualiza esse pedido em vez de criar um novo.
+let editingOrderId = null;
+
 async function submitOrder() {
   closeModal('modal-preview');
   const house = v('order-house');
@@ -291,6 +304,40 @@ async function submitOrder() {
   setBtnLoading('btn-submit-order', true);
 
   const catsUsed = Object.entries(orderItems).filter(([,v]) => Object.keys(v).length > 0).map(([k]) => k);
+
+  const ccSel  = document.getElementById('order-centro-custo');
+  const ccId   = ccSel?.value || '';
+  const ccNome = ccSel?.options[ccSel.selectedIndex]?.getAttribute('data-nome') || '';
+
+  // ── Modo edição: atualiza o pedido existente, sem trocar código nem status ──
+  if (editingOrderId) {
+    const orderIdSendoEditado = editingOrderId;
+    try {
+      await db.collection('orders').doc(orderIdSendoEditado).update({
+        house,
+        categories: catsUsed,
+        items: orderItems,
+        people: currentHousePeople,
+        observations: v('order-obs'),
+        recipient: recipient || '',
+        centroCustoId:   ccId,
+        centroCustoNome: ccNome,
+        editedAt: firebase.firestore.FieldValue.serverTimestamp(),
+        editedBy: currentUserData.name,
+      });
+      editingOrderId = null;
+      clearOrder();
+      showToast('✅ Pedido editado com sucesso!');
+      goPage('all-orders');
+      showOrderDetail(orderIdSendoEditado);
+    } catch(e) {
+      console.error(e);
+      showToast('Erro ao salvar edição. Verifique o console.');
+    }
+    setBtnLoading('btn-submit-order', false);
+    return;
+  }
+
   const catType = catsUsed.length > 1 ? 'MIX' : catsUsed[0].toUpperCase().slice(0,3);
   const dateStr = new Date().toISOString().slice(0,10).replace(/-/g,'');
 
@@ -300,10 +347,6 @@ async function submitOrder() {
   const seq    = String(todayOrders.size + 1).padStart(3,'0');
   const prefix = siglaCasa(house); // sigla da casa substitui "LM"
   const code   = `OB-${prefix}-${catType}-${dateStr}-${seq}`;
-
-  const ccSel  = document.getElementById('order-centro-custo');
-  const ccId   = ccSel?.value || '';
-  const ccNome = ccSel?.options[ccSel.selectedIndex]?.getAttribute('data-nome') || '';
 
   const orderData = {
     code,
@@ -345,6 +388,53 @@ async function submitOrder() {
   }
   setBtnLoading('btn-submit-order', false);
 }
+
+// Abre o pedido atualmente em detalhe (detailOrderData) na tela de Nova
+// Solicitação, pré-preenchido, em modo edição. Só chamado pelo botão
+// "✏️ Editar Pedido" — que já fica escondido fora da janela permitida
+// (status aguardando_estoque), mas confere de novo aqui por segurança.
+async function editarPedido() {
+  const o = detailOrderData;
+  if (!o || !o.id) return;
+  const statusEditavel = ['aguardando_estoque', 'aberto', 'pendente_pag'].includes(o.status || 'aguardando_estoque');
+  if (!statusEditavel) {
+    showToast('⚠️ Esse pedido já passou da Avaliação de Estoque — não dá mais pra editar.');
+    return;
+  }
+
+  editingOrderId = o.id;
+  closeModal('modal-order-detail');
+  goPage('new-order');
+
+  // Preenche a casa e espera carregar estoque/preços/percapita daquela casa
+  // antes de jogar os itens salvos — onOrderHouseChange() termina chamando
+  // renderOrderProducts(), então só preenche orderItems depois dela resolver.
+  const houseSel = document.getElementById('order-house');
+  if (houseSel) houseSel.value = o.house || '';
+  await onOrderHouseChange();
+
+  orderItems = JSON.parse(JSON.stringify(o.items || {}));
+  Object.keys(CATEGORIAS).forEach(k => { if (!orderItems[k]) orderItems[k] = {}; });
+  currentOrderCat = Object.keys(CATEGORIAS).find(k => Object.keys(orderItems[k] || {}).length > 0) || Object.keys(CATEGORIAS)[0];
+
+  const obsEl = document.getElementById('order-obs');
+  const recEl = document.getElementById('order-recipient');
+  const ccSel = document.getElementById('order-centro-custo');
+  if (obsEl) obsEl.value = o.observations || '';
+  if (recEl) recEl.value = o.recipient || '';
+  if (ccSel) ccSel.value = o.centroCustoId || '';
+
+  const title = document.getElementById('new-order-page-title');
+  const sub   = document.getElementById('new-order-page-sub');
+  const btn   = document.getElementById('btn-submit-order');
+  if (title) title.textContent = `✏️ Editando Pedido ${o.code}`;
+  if (sub)   sub.textContent   = 'Ajuste os itens e salve — isso atualiza o pedido já enviado, sem criar um novo.';
+  if (btn)   btn.textContent   = 'Salvar Edição';
+
+  renderOrderProducts();
+  showToast(`✏️ Editando ${o.code} — ajuste os itens e clique em "Salvar Edição".`);
+}
+window.editarPedido = editarPedido;
 
 // ─────────────────────────────────────────────
 // 📋  ALL ORDERS
@@ -947,7 +1037,12 @@ async function showOrderDetail(docId) {
     }
   }
 
-  document.getElementById('modal-order-detail-body').innerHTML = pipelineHTML + purchaseNotice + buildOrderHTML(o.house, orderBodyItems, true, o);
+  const editedNotice = o.editedAt
+    ? `<div class="info-box" style="margin-bottom:12px;background:var(--warn-bg,#fff3cd);border-color:rgba(217,119,6,0.3);color:var(--warn,#856404);font-size:12.5px;">
+        ✏️ Pedido editado por <strong>${o.editedBy || '—'}</strong> em ${o.editedAt?.toDate ? o.editedAt.toDate().toLocaleString('pt-BR') : ''} — a lista abaixo já reflete a edição.
+      </div>`
+    : '';
+  document.getElementById('modal-order-detail-body').innerHTML = pipelineHTML + editedNotice + purchaseNotice + buildOrderHTML(o.house, orderBodyItems, true, o);
 
   // Show transfer/purchase summary if evaluated
   if (o.stockEval) {
@@ -980,9 +1075,18 @@ async function showOrderDetail(docId) {
   const btnEval = document.getElementById('btn-eval-stock');
   const btnQuot = document.getElementById('btn-open-quotation');
   const btnNF   = document.getElementById('btn-attach-nf');
+  const btnEdit = document.getElementById('btn-edit-order');
   if (btnEval) btnEval.style.display = ['admin','diretor','gerente','coordenador','estoque','compras'].includes(role) ? 'inline-flex' : 'none';
   if (btnQuot) btnQuot.style.display = ['admin','diretor','gerente','coordenador','compras'].includes(role) ? 'inline-flex' : 'none';
   if (btnNF)   btnNF.style.display   = ['admin','diretor','gerente','coordenador','compras'].includes(role) ? 'inline-flex' : 'none';
+  // Editar só é permitido ENQUANTO o estoque ainda não avaliou o pedido —
+  // depois disso a avaliação/cotação já foi feita em cima da lista atual de
+  // itens, e editar destravaria uma inconsistência (avaliação de uma lista
+  // que não existe mais). Quem pediu (mesmo sem cargo de gestão) também pode
+  // corrigir o próprio pedido nessa janela.
+  const statusEditavel = ['aguardando_estoque', 'aberto', 'pendente_pag'].includes(o.status || 'aguardando_estoque');
+  const podeEditar = statusEditavel && (['admin','diretor','gerente','coordenador','estoque','compras'].includes(role) || o.requesterUid === currentUser?.uid);
+  if (btnEdit) btnEdit.style.display = podeEditar ? 'inline-flex' : 'none';
   if (sel)     sel.style.display     = ['admin','diretor','gerente','coordenador','compras','estoque'].includes(role) ? 'inline-flex' : 'none';
 
   // Show NF info if present
