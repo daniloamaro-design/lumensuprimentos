@@ -1450,14 +1450,55 @@ function pasParaData(v) {
   return isNaN(d) ? null : d;
 }
 
+// Filtra pelas datas de #pas-ind-ini/#pas-ind-fim (vazio = sem limite).
+// "Solicitações" usa a data do pedido (criadoEm); tudo que é dinheiro (valor
+// comprado, gasto por agência, meta) usa a data da COMPRA (dataCompra) — uma
+// solicitação pode ter sido pedida num mês e comprada só no seguinte, e é o
+// mês da compra que importa pra bater com a meta daquele mês.
+function pasIndSetQuick(btn, days) {
+  document.querySelectorAll('#page-pas-indicadores .hist-qbtn').forEach(b => b.classList.remove('active'));
+  if (btn) { btn.classList.add('active'); }
+  else {
+    const personalizado = [...document.querySelectorAll('#page-pas-indicadores .hist-qbtn')].find(b => b.textContent.trim() === 'Personalizado');
+    if (personalizado) personalizado.classList.add('active');
+  }
+  if (days === -1) return; // Personalizado — datas ficam como o usuário deixou
+  if (days === 0) {
+    document.getElementById('pas-ind-ini').value = '';
+    document.getElementById('pas-ind-fim').value = '';
+  } else {
+    const fim = new Date();
+    const ini = new Date(); ini.setDate(ini.getDate() - days);
+    document.getElementById('pas-ind-fim').value = fim.toISOString().split('T')[0];
+    document.getElementById('pas-ind-ini').value = ini.toISOString().split('T')[0];
+  }
+  loadPasIndicadores();
+}
+window.pasIndSetQuick = pasIndSetQuick;
+
 async function loadPasIndicadores() {
   const cont = document.getElementById('pas-ind-conteudo');
   if (!cont) return;
   try {
     if (!_pasCache.length) { const snap = await db.collection('passagens_solicitacoes').get(); _pasCache = snap.docs.map(d => ({ id: d.id, ...d.data() })); }
-    const ps = _pasCache;
+    if (!window._pasMetasCache) { const snap = await db.collection('passagens_metas').get(); window._pasMetasCache = snap.docs.map(d => d.data()); }
+    const metas = window._pasMetasCache;
+    const metaPorMes = {}; metas.forEach(m => { if (m.mes) metaPorMes[m.mes] = Number(m.mensal) || 0; });
+
+    const iniStr = v('pas-ind-ini'), fimStr = v('pas-ind-fim');
+    // Data em 'T00:00:00Z' (UTC), não local — combina com pasParaData(), que
+    // parseia string 'YYYY-MM-DD' pura (dataCompra, criadoEm vindo do import)
+    // como meia-noite UTC. Misturar limite local com dado em UTC empurra
+    // registros do dia 1 pro mês anterior em fusos negativos (Brasil).
+    const iniDt = iniStr ? new Date(iniStr + 'T00:00:00Z') : null;
+    const fimDt = fimStr ? new Date(fimStr + 'T23:59:59Z') : null;
+    const dentro = (data) => { if (!data) return false; if (iniDt && data < iniDt) return false; if (fimDt && data > fimDt) return false; return true; };
+
+    const ps = iniDt || fimDt ? _pasCache.filter(s => dentro(pasParaData(s.criadoEm))) : _pasCache;
     const porStatus = {}; ps.forEach(s => { const st = s.status || '—'; porStatus[st] = (porStatus[st] || 0) + 1; });
-    const compradas = ps.filter(s => s.status === 'comprada');
+
+    const compradasTodas = _pasCache.filter(s => s.status === 'comprada');
+    const compradas = iniDt || fimDt ? compradasTodas.filter(s => dentro(pasParaData(s.dataCompra))) : compradasTodas;
     const valorComprado = compradas.reduce((a, s) => { const vf = s.valorFinal && (s.valorFinal.valor ?? s.valorFinal); return a + (Number(vf) || 0); }, 0);
     const custoMedio = compradas.length ? valorComprado / compradas.length : 0;
     const porMotivo = {}; ps.forEach(s => { const m = s.motivo || '—'; porMotivo[m] = (porMotivo[m] || 0) + 1; });
@@ -1493,6 +1534,25 @@ async function loadPasIndicadores() {
     }).filter(v => v != null);
     const tempoMedio = prazos.length ? prazos.reduce((a, b) => a + b, 0) / prazos.length : null;
 
+    // Gasto por mês (dataCompra) x meta cadastrada naquele mês — só entram
+    // meses que TÊM meta cadastrada (senão "ultrapassou" não quer dizer nada).
+    const gastoPorMes = {};
+    compradas.forEach(s => {
+      const dt = pasParaData(s.dataCompra);
+      if (!dt) return;
+      const mesKey = `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}`;
+      const vf = s.valorFinal && (s.valorFinal.valor ?? s.valorFinal);
+      gastoPorMes[mesKey] = (gastoPorMes[mesKey] || 0) + (Number(vf) || 0);
+    });
+    const mesesComMeta = Object.keys(metaPorMes).filter(mes => gastoPorMes[mes] !== undefined || dentro(new Date(mes + '-01T12:00:00')));
+    const comparativoMeses = mesesComMeta
+      .filter(mes => metaPorMes[mes] > 0)
+      .map(mes => ({ mes, gasto: gastoPorMes[mes] || 0, meta: metaPorMes[mes], pct: (gastoPorMes[mes] || 0) / metaPorMes[mes] * 100 }))
+      .sort((a, b) => b.mes.localeCompare(a.mes));
+    const mesesAcima = comparativoMeses.filter(m => m.gasto > m.meta).length;
+    const pctMesesAcima = comparativoMeses.length ? (mesesAcima / comparativoMeses.length * 100) : null;
+    const fmtMes = mes => { const [y,m] = mes.split('-'); return new Date(Number(y), Number(m)-1, 1).toLocaleDateString('pt-BR',{month:'short',year:'numeric'}); };
+
     cont.innerHTML = `
       <div style="${_erpGrid}">
         ${_erpStat('📋 Solicitações', ps.length)}
@@ -1501,6 +1561,7 @@ async function loadPasIndicadores() {
         ${_erpStat('⏳ Em aberto', (porStatus.pendente || 0) + (porStatus.em_analise || 0) + (porStatus['Em Análise'] || 0), '', 'stat-card-warn')}
         ${_erpStat('🎫 Custo médio', frtBRL(custoMedio))}
         ${_erpStat('⏱️ Solicitação → compra', tempoMedio != null ? tempoMedio.toFixed(1) + ' dias' : '—', prazos.length ? `${prazos.length} com as 2 datas` : 'sem dados suficientes')}
+        ${_erpStat('🎯 Meses acima da meta', pctMesesAcima != null ? pctMesesAcima.toFixed(0) + '%' : '—', comparativoMeses.length ? `${mesesAcima} de ${comparativoMeses.length} meses com meta` : 'nenhum mês com meta cadastrada no período', pctMesesAcima > 0 ? 'stat-card-warn' : '')}
       </div>
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px;">
         <div class="card"><div class="card-header"><b>Por status</b></div><div class="card-body">${statusPares.length ? _erpBarras(statusPares) : '—'}</div></div>
@@ -1508,6 +1569,21 @@ async function loadPasIndicadores() {
         <div class="card"><div class="card-header"><b>Por tipo</b></div><div class="card-body">${tipoPares.length ? _erpBarras(tipoPares) : '—'}</div></div>
         <div class="card"><div class="card-header"><b>Gasto por agência</b></div><div class="card-body">${agenciaPares.length ? _erpBarras(agenciaPares, frtBRL) : '—'}</div></div>
         <div class="card"><div class="card-header"><b>Top solicitantes</b></div><div class="card-body">${solicitantePares.length ? _erpBarras(solicitantePares) : '—'}</div></div>
+        <div class="card">
+          <div class="card-header"><b>Gasto x Meta por mês</b></div>
+          <div class="card-body">
+            ${comparativoMeses.length ? comparativoMeses.map(m => {
+              const cor = m.pct > 100 ? 'var(--danger,#dc2626)' : m.pct >= 80 ? 'var(--warn,#d97706)' : 'var(--ok,#16a34a)';
+              return `<div style="margin-bottom:8px;">
+                <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:2px;gap:8px;">
+                  <span>${frtEsc(fmtMes(m.mes))}</span>
+                  <b style="color:${cor};">${frtBRL(m.gasto)} / ${frtBRL(m.meta)} (${m.pct.toFixed(0)}%)</b>
+                </div>
+                <div style="height:8px;background:var(--border);border-radius:4px;overflow:hidden;"><div style="height:100%;width:${Math.min(100,m.pct).toFixed(1)}%;background:${cor};"></div></div>
+              </div>`;
+            }).join('') : 'Nenhum mês com meta cadastrada no período (cadastre em Passagens → Metas).'}
+          </div>
+        </div>
       </div>`;
   } catch (e) { cont.innerHTML = `<div class="card"><div class="card-body" style="color:var(--danger,#dc2626);">Erro: ${frtEsc(e.message)}</div></div>`; }
 }

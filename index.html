@@ -2643,6 +2643,37 @@
   <!-- PAGE: Indicadores de Passagens -->
   <div class="page" id="page-pas-indicadores">
     <div class="page-header"><h1 class="page-title">✈️ Indicadores de Passagens</h1></div>
+
+    <div class="card" style="margin-bottom:16px;">
+      <div class="card-header"><div class="card-header-title">🔍 Período de análise</div></div>
+      <div class="card-body">
+        <div style="margin-bottom:12px;">
+          <label class="form-label">Período rápido</label>
+          <div class="hist-quick-btns">
+            <button class="hist-qbtn" onclick="pasIndSetQuick(this,30)">Últimos 30 dias</button>
+            <button class="hist-qbtn" onclick="pasIndSetQuick(this,90)">Últimos 3 meses</button>
+            <button class="hist-qbtn" onclick="pasIndSetQuick(this,365)">Últimos 12 meses</button>
+            <button class="hist-qbtn active" onclick="pasIndSetQuick(this,0)">Tudo</button>
+            <button class="hist-qbtn" onclick="pasIndSetQuick(this,-1)">Personalizado</button>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;align-items:end;">
+          <div>
+            <label class="form-label">Data início</label>
+            <input type="date" class="form-input" id="pas-ind-ini" onchange="pasIndSetQuick(null,-1);loadPasIndicadores();">
+          </div>
+          <div>
+            <label class="form-label">Data fim</label>
+            <input type="date" class="form-input" id="pas-ind-fim" onchange="pasIndSetQuick(null,-1);loadPasIndicadores();">
+          </div>
+          <div>
+            <button class="btn btn-primary" onclick="loadPasIndicadores()">🔎 Aplicar</button>
+          </div>
+        </div>
+        <div style="font-size:11px;color:var(--text-muted);margin-top:8px;" id="pas-ind-periodo-legenda">Considera a data da solicitação (nº de pedidos) e a data da compra (valores e meta) dentro do período.</div>
+      </div>
+    </div>
+
     <div id="pas-ind-conteudo"><div class="loading-state"><div class="spinner spinner-dark"></div>Carregando...</div></div>
   </div>
 
@@ -3573,7 +3604,7 @@
 <script src="js/16-chat-ia.js?v=2"></script>
 <script src="js/17-metas-wrappers.js?v=2"></script>
 <script src="js/cidades-brasil.js?v=1"></script>
-<script src="js/18-erp.js?v=43"></script>
+<script src="js/18-erp.js?v=44"></script>
 <script src="js/19-dashboard-diretoria.js?v=9"></script>
 <script src="js/20-percapita-diretoria.js?v=2"></script>
 <!-- CHAT IA FLUTUANTE -->
