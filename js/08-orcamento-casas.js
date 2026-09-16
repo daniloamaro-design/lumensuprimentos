@@ -72,6 +72,73 @@ function orcCasasFiltradas() {
   return _orcCasasAtivas;
 }
 
+// ── Estimativa de valor pra Doações e Transferências ────────────────────
+// Doação e transferência entre casas não têm preço de compra (não houve
+// compra) — pra dar uma noção de quanto isso representa, multiplica a
+// quantidade movimentada pelo preço de referência cadastrado em Preços por
+// Cidade (o mesmo usado pra montar Orçamento Financeiro). É uma estimativa,
+// não o valor real: produto sem preço cadastrado naquela cidade entra como
+// R$0 (fica subestimado nesse item, não quebra o cálculo).
+let _histMapaPrecos = null;
+async function _histCarregarMapaPrecos() {
+  if (_histMapaPrecos) return _histMapaPrecos;
+  const snap = await db.collection('prices').get();
+  const mapa = {};
+  snap.docs.forEach(d => {
+    const p = d.data();
+    mapa[`${p.cat}|${p.prodId}|${p.city}`] = parseFloat(p.price) || 0;
+  });
+  _histMapaPrecos = mapa;
+  return mapa;
+}
+
+async function somarDoacoesTransferenciasPeriodo(ini, fim, casasValidas) {
+  const mapaPrecos = await _histCarregarMapaPrecos();
+  const de = new Date(ini + 'T00:00:00');
+  const ate = new Date(fim + 'T23:59:59');
+
+  const [movSnap, trfSnap] = await Promise.all([
+    db.collection('movements').where('isDonation','==',true).get().catch(e=>{console.error('[COMP-doa]',e); return {docs:[]};}),
+    db.collection('transferencias').where('status','==','confirmada').get().catch(e=>{console.error('[COMP-trf]',e); return {docs:[]};}),
+  ]);
+
+  const somaItens = (items, city) => {
+    const acc = { total:0, cereal:0, higiene:0, proteina:0 };
+    (items || []).forEach(item => {
+      const preco = mapaPrecos[`${item.catKey}|${item.prodId}|${city}`] || 0;
+      const val = preco * (Number(item.qty) || 0);
+      acc.total += val;
+      if (item.catKey === 'cereal')   acc.cereal   += val;
+      if (item.catKey === 'higiene')  acc.higiene  += val;
+      if (item.catKey === 'proteina') acc.proteina += val;
+    });
+    return acc;
+  };
+  const somaTudo = (a, b) => ({ total: a.total+b.total, cereal: a.cereal+b.cereal, higiene: a.higiene+b.higiene, proteina: a.proteina+b.proteina });
+
+  let doacao = { total:0, cereal:0, higiene:0, proteina:0 };
+  movSnap.docs.forEach(d => {
+    const m = d.data();
+    if (!casasValidas.has(m.house || '—')) return;
+    const dt = m.date ? new Date(String(m.date).slice(0,10) + 'T00:00:00') : null;
+    if (!dt || dt < de || dt > ate) return;
+    const city = CASAS_CIDADES[m.house] || '';
+    doacao = somaTudo(doacao, somaItens(m.items, city));
+  });
+
+  let transferencia = { total:0, cereal:0, higiene:0, proteina:0 };
+  trfSnap.docs.forEach(d => {
+    const t = d.data();
+    if (!casasValidas.has(t.destino || '—')) return; // conta como "recebido" pela casa de destino
+    const dt = t.data ? new Date(String(t.data).slice(0,10) + 'T00:00:00') : null;
+    if (!dt || dt < de || dt > ate) return;
+    const city = CASAS_CIDADES[t.destino] || '';
+    transferencia = somaTudo(transferencia, somaItens(t.items, city));
+  });
+
+  return { doacao, transferencia };
+}
+
 async function histCompararPeriodos() {
   const aIni = document.getElementById('hist-cmp-a-ini').value;
   const aFim = document.getElementById('hist-cmp-a-fim').value;
@@ -128,8 +195,29 @@ async function histCompararPeriodos() {
     return tot;
   }
 
+  const doaTransfTbody = document.getElementById('hist-cmp-doatransf-tbody');
+  if (doaTransfTbody) doaTransfTbody.innerHTML = '<tr><td colspan="6" style="padding:18px 12px;text-align:center;color:var(--text-muted);font-size:12px;"><div class="loading-state"><div class="spinner spinner-dark"></div>Carregando...</div></td></tr>';
+
   try {
-    const [A, B] = await Promise.all([somarPeriodo(aIni, aFim), somarPeriodo(bIni, bFim)]);
+    const casasValidas = orcCasasFiltradas();
+    const [A, B, DTA, DTB] = await Promise.all([
+      somarPeriodo(aIni, aFim), somarPeriodo(bIni, bFim),
+      somarDoacoesTransferenciasPeriodo(aIni, aFim, casasValidas),
+      somarDoacoesTransferenciasPeriodo(bIni, bFim, casasValidas),
+    ]);
+
+    if (doaTransfTbody) {
+      const linhaDT = (label, dt) => `
+        <tr>
+          <td style="padding:11px 14px;border-bottom:1px solid var(--border);"><strong style="color:var(--text);">${label}</strong></td>
+          <td style="padding:11px 14px;text-align:right;border-bottom:1px solid var(--border);color:var(--text);">${FMT_HIST(dt.doacao.total)}</td>
+          <td style="padding:11px 14px;text-align:right;border-bottom:1px solid var(--border);color:var(--text);">${FMT_HIST(dt.transferencia.total)}</td>
+          <td style="padding:11px 14px;text-align:right;border-bottom:1px solid var(--border);color:var(--text-muted);">${FMT_HIST(dt.doacao.cereal + dt.transferencia.cereal)}</td>
+          <td style="padding:11px 14px;text-align:right;border-bottom:1px solid var(--border);color:var(--text-muted);">${FMT_HIST(dt.doacao.higiene + dt.transferencia.higiene)}</td>
+          <td style="padding:11px 14px;text-align:right;border-bottom:1px solid var(--border);color:var(--text-muted);">${FMT_HIST(dt.doacao.proteina + dt.transferencia.proteina)}</td>
+        </tr>`;
+      doaTransfTbody.innerHTML = linhaDT('Período A', DTA) + linhaDT('Período B', DTB);
+    }
 
     const varTag = (a, b) => {
       if (!b) return '';
@@ -169,6 +257,7 @@ async function histCompararPeriodos() {
       </tr>`;
   } catch(e) {
     tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:16px;color:var(--danger);">Erro: ${e.message}</td></tr>`;
+    if (doaTransfTbody) doaTransfTbody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:16px;color:var(--danger);">Erro: ${e.message}</td></tr>`;
   }
 }
 
