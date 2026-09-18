@@ -378,10 +378,6 @@ async function submitOrder() {
     showToast(`✅ Pedido ${code} enviado com sucesso!`);
     if (!['admin','diretor','gerente','coordenador'].includes(currentUserData.role)) goPage('my-orders');
     else { goPage('all-orders'); loadDashboard(); }
-
-    if (recipient) {
-      sendOrderEmail(orderData, recipient).catch(e => console.warn('sendOrderEmail (não bloqueia o pedido):', e));
-    }
   } catch(e) {
     console.error(e);
     showToast('Erro ao enviar pedido. Verifique o console.');
@@ -2296,43 +2292,6 @@ function makePDF(house, items, meta, isPurchaseOnly) {
 // ─────────────────────────────────────────────
 // 📧  EMAIL SENDING (via Vercel Function + Resend)
 // ─────────────────────────────────────────────
-async function sendOrderEmail(orderData, recipient) {
-  let summary = '';
-  Object.entries(orderData.items).forEach(([catKey, prods]) => {
-    const keys = Object.keys(prods);
-    if (keys.length === 0) return;
-    const cat = CATEGORIAS[catKey];
-    summary += `\n--- ${cat.nome.toUpperCase()} ---\n`;
-    keys.forEach(pid => {
-      const p = cat.produtos.find(x => x.id === pid);
-      if (p) summary += `  • ${p.nome}: ${prods[pid]} ${p.unidade}\n`;
-    });
-  });
-
-  // Gera PDF em base64 para anexar
-  let pdfBase64 = '';
-  try {
-    pdfBase64 = makePDFBase64(orderData.house, orderData.items, orderData);
-  } catch(e) {
-    console.warn('Erro ao gerar PDF:', e);
-  }
-
-  try {
-    await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, {
-      to_email:     recipient,
-      to_name:      'Equipe Lumen',
-      from_name:    'Sistema Suprimentos Obra Lumen',
-      reply_to:     ADMIN_EMAIL,
-      subject:      `📦 Pedido ${orderData.code} — ${orderData.house}`,
-      message:      `Pedido: ${orderData.code}\nCasa: ${orderData.house}\nSolicitante: ${orderData.requesterName || '—'}\nData: ${new Date().toLocaleDateString('pt-BR')}\nCategorias: ${formatCats(orderData.categories)}\nPessoas: ${orderData.people || '—'}\n\nItens:\n${summary}\n\nObservações: ${orderData.observations || 'Nenhuma'}`,
-    });
-    showToast('✅ E-mail enviado com sucesso!');
-  } catch(e) {
-    console.warn('Erro ao enviar e-mail via EmailJS:', e);
-    showToast(`⚠️ E-mail não enviado: ${e.message}`);
-  }
-}
-
 async function sendAlertEmail(subject, body) {
   try {
     await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, {
@@ -2346,104 +2305,6 @@ async function sendAlertEmail(subject, body) {
   } catch(e) {
     console.warn('Erro ao enviar alerta:', e);
   }
-}
-
-// ─────────────────────────────────────────────
-// 📄  PDF BASE64 (para anexar no email)
-// ─────────────────────────────────────────────
-function makePDFBase64(house, items, meta) {
-  const { jsPDF } = window.jspdf;
-  const doc = new jsPDF();
-  const blue   = [0, 56, 117];
-  const orange = [192, 57, 43];
-  const gray   = [107, 114, 128];
-  const dateStr = meta
-    ? (meta.createdAt?.toDate ? meta.createdAt.toDate().toLocaleDateString('pt-BR') : new Date().toLocaleDateString('pt-BR'))
-    : new Date().toLocaleDateString('pt-BR');
-
-  // Se o pedido já foi avaliado, usa só os itens a comprar
-  let renderItems = items;
-  let isPurchaseOnly = false;
-  if (meta?.stockEval) {
-    isPurchaseOnly = true;
-    // Prioridade: purchaseItems já salvo no Firestore; fallback: recalcular do stockEval
-    if (meta.purchaseItems) {
-      renderItems = meta.purchaseItems;
-    } else {
-      const map = {};
-      Object.values(meta.stockEval)
-        .filter(ev => !ev.transfer || ev.qty <= 0)
-        .forEach(ev => {
-          if (!map[ev.catKey]) map[ev.catKey] = {};
-          const buyQty = ev.needed - (ev.transfer ? (ev.qty || 0) : 0);
-          map[ev.catKey][ev.prodId] = Math.max(0, buyQty || ev.needed);
-        });
-      renderItems = map;
-    }
-  }
-
-  const headerColor = isPurchaseOnly ? orange : blue;
-
-  doc.setFillColor(...headerColor);
-  doc.rect(0, 0, 210, isPurchaseOnly ? 38 : 32, 'F');
-  doc.setTextColor(255,255,255);
-  doc.setFontSize(16); doc.setFont('helvetica','bold');
-  doc.text(isPurchaseOnly ? 'Obra Lumen — Itens para COMPRA' : 'Obra Lumen — Solicitação de Compras', 14, 14);
-  doc.setFontSize(9); doc.setFont('helvetica','normal');
-  doc.text(`Casa: ${house}   |   Data: ${dateStr}${meta ? `   |   Código: ${meta.code}` : ''}`, 14, 24);
-  if (meta?.requesterName) doc.text(`Solicitante: ${meta.requesterName}`, 14, 30);
-  if (isPurchaseOnly) { doc.setFontSize(8); doc.text('Itens nao disponiveis no estoque - necessario adquirir externamente', 14, 36); }
-
-  let y = isPurchaseOnly ? 50 : 44;
-  doc.setTextColor(0,0,0);
-
-  Object.entries(renderItems).forEach(([catKey, prods]) => {
-    const keys = Object.keys(prods).filter(pid => prods[pid] > 0);
-    if (keys.length === 0) return;
-    const cat = CATEGORIAS[catKey];
-
-    if (y > 240) { doc.addPage(); y = 20; }
-
-    doc.setFillColor(...headerColor);
-    doc.rect(12, y-5, 186, 10, 'F');
-    doc.setTextColor(255,255,255);
-    doc.setFontSize(10); doc.setFont('helvetica','bold');
-    doc.text(`${cat.nome}`, 16, y+2);
-    y += 12;
-
-    doc.setFillColor(isPurchaseOnly ? 253 : 230, isPurchaseOnly ? 237 : 238, isPurchaseOnly ? 236 : 248);
-    doc.rect(12, y-4, 186, 8, 'F');
-    doc.setTextColor(...gray);
-    doc.setFontSize(8); doc.setFont('helvetica','bold');
-    doc.text('PRODUTO', 16, y+1);
-    doc.text(isPurchaseOnly ? 'QTD A COMPRAR' : 'QTD', 140, y+1);
-    doc.text('UNIDADE', 168, y+1);
-    y += 8;
-
-    keys.forEach((prodId, idx) => {
-      if (y > 265) { doc.addPage(); y = 20; }
-      const p = cat.produtos.find(x => x.id === prodId);
-      if (!p) return;
-      if (idx % 2 === 0) { doc.setFillColor(250,251,252); doc.rect(12, y-4, 186, 8, 'F'); }
-      doc.setTextColor(0,0,0); doc.setFont('helvetica','normal'); doc.setFontSize(9);
-      doc.text(p.nome, 16, y+1);
-      doc.setFont('helvetica','bold'); doc.setTextColor(...(isPurchaseOnly ? orange : blue));
-      doc.text(String(prods[prodId]), isPurchaseOnly ? 158 : 150, y+1, isPurchaseOnly ? { align: 'right' } : {});
-      doc.setFont('helvetica','normal'); doc.setTextColor(...gray);
-      doc.text(p.unidade, 168, y+1);
-      y += 8;
-    });
-    y += 8;
-  });
-
-  const label = isPurchaseOnly
-    ? 'Documento de COMPRA — apenas itens nao cobertos pelo estoque | lumenserfeliz.org'
-    : 'Gerado pelo Sistema Suprimentos Obra Lumen — lumenserfeliz.org';
-  doc.setTextColor(...gray); doc.setFontSize(8);
-  doc.text(label, 14, 290);
-
-  // Retorna base64 puro (sem o prefixo data:application/pdf;base64,)
-  return doc.output('datauristring').split(',')[1];
 }
 
 async function notifyAdminNewUser(name, email) {

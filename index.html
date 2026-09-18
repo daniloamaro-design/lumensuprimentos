@@ -1155,17 +1155,11 @@
       <div class="card" style="margin-bottom:16px;" id="order-info-card">
         <div class="card-header"><div class="card-header-title">1. Informações da Solicitação</div></div>
         <div class="card-body">
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
-            <div class="form-group" style="margin:0;">
-              <label class="form-label">Casa / Unidade</label>
-              <select class="form-select" id="order-house" onchange="onOrderHouseChange()">
-                <option value="">Selecione...</option>
-              </select>
-            </div>
-            <div class="form-group" style="margin:0;">
-              <label class="form-label">Enviar Pedido Para (e-mail)</label>
-              <input type="email" class="form-input" id="order-recipient" placeholder="compras@lumenserfeliz.org">
-            </div>
+          <div class="form-group" style="margin:0;max-width:400px;">
+            <label class="form-label">Casa / Unidade</label>
+            <select class="form-select" id="order-house" onchange="onOrderHouseChange()">
+              <option value="">Selecione...</option>
+            </select>
           </div>
           <div style="margin-top:14px;">
             <div class="form-group" style="margin:0;max-width:400px;">
@@ -3591,7 +3585,7 @@
 <script src="js/03-navegacao.js?v=2"></script>
 <script src="js/04-percapita.js?v=17"></script>
 <script src="js/05-cadastros.js?v=3"></script>
-<script src="js/06-pedidos.js?v=22"></script>
+<script src="js/06-pedidos.js?v=23"></script>
 <script src="js/07-estoque-ia-form.js?v=6"></script>
 <script src="js/08-orcamento-casas.js?v=7"></script>
 <script src="js/09-indicadores-transf.js?v=5"></script>
