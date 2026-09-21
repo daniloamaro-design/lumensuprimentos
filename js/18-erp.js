@@ -154,15 +154,30 @@ async function loadFrtLista() {
 }
 window.loadFrtLista = loadFrtLista;
 
+// Situação "pendente" de cada frete (usada pelos cards/filtro de sinalização acima da lista).
+function frtFaltaConcluir(f) { return f.status !== 'entregue' && f.status !== 'cancelado'; }
+function frtFaltaAvaliar(f)  { return f.status === 'entregue' && f.etapaStatus !== 'avaliado'; }
+function frtFaltaPagar(f)    { return f.statusPag !== 'pago' && f.status !== 'cancelado'; }
+
+function frtFiltrarSituacao(sit) {
+  const sel = document.getElementById('frt-f-situacao');
+  if (!sel) return;
+  sel.value = sel.value === sit ? '' : sit; // clicar de novo no mesmo card desmarca o filtro
+  frtListaPage = 1;
+  renderFrtLista();
+}
+window.frtFiltrarSituacao = frtFiltrarSituacao;
+
 let frtListaPage = 1;
 function renderFrtLista() {
   const busca = (document.getElementById('frt-f-busca')?.value || '').toLowerCase().trim();
   const fpag = document.getElementById('frt-f-pag')?.value || '';
   const ffret = document.getElementById('frt-f-freteiro')?.value || '';
   const fmes = document.getElementById('frt-f-mes')?.value || '';
+  const fsit = document.getElementById('frt-f-situacao')?.value || '';
 
   const sort = document.getElementById('frt-sort')?.value || 'data-desc';
-  let lista = _fretesCache.filter(f => {
+  const listaSemSituacao = _fretesCache.filter(f => {
     if (fpag && (f.statusPag || '') !== fpag) return false;
     if (ffret && (f.freteiroNome || '') !== ffret) return false;
     if (fmes && frtMesDaData(f.data || f.createdAt) !== fmes) return false;
@@ -170,6 +185,22 @@ function renderFrtLista() {
       const alvo = `${f.code || ''} ${f.freteiroNome || ''} ${f.origem || ''} ${f.destino || ''} ${f.motivo || ''}`.toLowerCase();
       if (!alvo.includes(busca)) return false;
     }
+    return true;
+  });
+
+  // Contagens dos cards de sinalização — sempre sobre o filtro atual (exceto
+  // a própria situação), pra atualizar junto com busca/freteiro/mês.
+  document.getElementById('frt-kpi-a-concluir').textContent = listaSemSituacao.filter(frtFaltaConcluir).length;
+  document.getElementById('frt-kpi-a-avaliar').textContent  = listaSemSituacao.filter(frtFaltaAvaliar).length;
+  document.getElementById('frt-kpi-a-pagar').textContent    = listaSemSituacao.filter(frtFaltaPagar).length;
+  ['a-concluir','a-avaliar','a-pagar'].forEach(k => {
+    document.getElementById(`frt-kpi-card-${k}`)?.classList.toggle('stat-card-ativo', fsit === k.replace(/-/g,'_'));
+  });
+
+  let lista = listaSemSituacao.filter(f => {
+    if (fsit === 'a_concluir') return frtFaltaConcluir(f);
+    if (fsit === 'a_avaliar')  return frtFaltaAvaliar(f);
+    if (fsit === 'a_pagar')    return frtFaltaPagar(f);
     return true;
   });
   lista = lista.slice().sort((a, b) => {

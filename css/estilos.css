@@ -552,6 +552,7 @@
     .stat-card-danger::before { background: var(--danger); }
     .stat-card-warn::before   { background: var(--warn);   }
     .stat-card-ok::before     { background: var(--ok);     }
+    .stat-card-ativo { border-color: var(--lumen); box-shadow: 0 0 0 2px var(--lumen); }
 
     /* ícone no canto */
     .stat-icon {

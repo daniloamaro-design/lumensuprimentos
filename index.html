@@ -29,7 +29,7 @@
   <!-- SheetJS para leitura e exportação de Excel -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
-  <link rel="stylesheet" href="css/estilos.css?v=10">
+  <link rel="stylesheet" href="css/estilos.css?v=11">
 </head>
 <body>
 
@@ -2279,8 +2279,19 @@
       <div class="stat-card stat-card-ok"><div class="stat-label">✅ Pago</div><div class="stat-value ok" id="frt-kpi-pago">—</div></div>
       <div class="stat-card stat-card-warn"><div class="stat-label">⏳ Pendente</div><div class="stat-value" id="frt-kpi-pendente">—</div></div>
     </div>
+    <div class="stat-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:16px;">
+      <div class="stat-card stat-card-warn" id="frt-kpi-card-a-concluir" onclick="frtFiltrarSituacao('a_concluir')" style="cursor:pointer;"><div class="stat-label">🔧 Faltam concluir</div><div class="stat-value" id="frt-kpi-a-concluir">—</div><div class="stat-sub">solicitado, conferência ou transporte</div></div>
+      <div class="stat-card stat-card-warn" id="frt-kpi-card-a-avaliar" onclick="frtFiltrarSituacao('a_avaliar')" style="cursor:pointer;"><div class="stat-label">⭐ Faltam avaliar</div><div class="stat-value" id="frt-kpi-a-avaliar">—</div><div class="stat-sub">entregues sem avaliação</div></div>
+      <div class="stat-card stat-card-warn" id="frt-kpi-card-a-pagar" onclick="frtFiltrarSituacao('a_pagar')" style="cursor:pointer;"><div class="stat-label">💸 Faltam pagar</div><div class="stat-value" id="frt-kpi-a-pagar">—</div><div class="stat-sub">pendentes ou parciais</div></div>
+    </div>
     <div class="card" style="margin-bottom:16px;"><div class="card-body" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;">
       <div><label class="form-label">Buscar</label><input type="text" class="form-input" id="frt-f-busca" placeholder="freteiro, origem, destino, código…" oninput="frtListaPage=1;renderFrtLista()"></div>
+      <div><label class="form-label">Situação</label><select class="form-select" id="frt-f-situacao" onchange="frtListaPage=1;renderFrtLista()">
+        <option value="">Todas</option>
+        <option value="a_concluir">🔧 Faltam concluir</option>
+        <option value="a_avaliar">⭐ Faltam avaliar</option>
+        <option value="a_pagar">💸 Faltam pagar</option>
+      </select></div>
       <div><label class="form-label">Pagamento</label><select class="form-select" id="frt-f-pag" onchange="frtListaPage=1;renderFrtLista()">
         <option value="">Todos</option><option value="pago">Pago</option><option value="pendente">Pendente</option><option value="parcial">Parcial</option>
       </select></div>
@@ -3598,7 +3609,7 @@
 <script src="js/16-chat-ia.js?v=2"></script>
 <script src="js/17-metas-wrappers.js?v=2"></script>
 <script src="js/cidades-brasil.js?v=1"></script>
-<script src="js/18-erp.js?v=44"></script>
+<script src="js/18-erp.js?v=45"></script>
 <script src="js/19-dashboard-diretoria.js?v=9"></script>
 <script src="js/20-percapita-diretoria.js?v=2"></script>
 <!-- CHAT IA FLUTUANTE -->
