@@ -525,6 +525,7 @@ function goPage(page) {
   if (page === 'kanban') setTimeout(loadKanban, 50);
   // Módulo Fretes (U3)
   if (page === 'frt-lista') setTimeout(loadFrtLista, 50);
+  if (page === 'frt-pagamento') setTimeout(loadFrtPagamento, 50);
   if (page === 'frt-novo') setTimeout(loadFrtNovoForm, 50);
   if (page === 'frt-rotas') setTimeout(frtCarregarTransfPendentes, 50);
   if (page === 'orc-historico-fin') setTimeout(loadOrcHistorico, 50);

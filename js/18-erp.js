@@ -247,6 +247,105 @@ window.renderFrtLista = renderFrtLista;
 function frtListaGoToPage(p) { frtListaPage = p; renderFrtLista(); }
 window.frtListaGoToPage = frtListaGoToPage;
 
+// ── Solicitação de pagamento (processo semanal, antes não ficava registrado) ──
+let _frtPagSelecionados = new Set();
+async function loadFrtPagamento() {
+  const tb = document.getElementById('frt-pag-tbody');
+  if (tb) tb.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:24px;color:var(--text-muted);">Carregando…</td></tr>';
+  _frtPagSelecionados = new Set();
+  try {
+    await loadFrtLista(); // popula/atualiza _fretesCache
+    renderFrtPagamento();
+  } catch (e) {
+    console.error('loadFrtPagamento', e);
+    if (tb) tb.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:24px;color:var(--danger,#dc2626);">Erro ao carregar: ${frtEsc(e.message)}</td></tr>`;
+  }
+}
+window.loadFrtPagamento = loadFrtPagamento;
+
+function frtPagPendentes() {
+  return _fretesCache.filter(f => f.status !== 'cancelado' && f.freteiroNome && Number(f.valor) > 0 && !f.pagamentoSolicitadoEm)
+    .sort((a, b) => String(a.data || a.createdAt || '').localeCompare(String(b.data || b.createdAt || '')));
+}
+
+function renderFrtPagamento() {
+  const lista = frtPagPendentes();
+  document.getElementById('frt-pag-kpi-qtd').textContent = lista.length;
+  document.getElementById('frt-pag-kpi-total').textContent = frtBRL(lista.reduce((s, f) => s + (Number(f.valor) || 0), 0));
+
+  const tb = document.getElementById('frt-pag-tbody');
+  if (!tb) return;
+  if (!lista.length) {
+    tb.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:24px;color:var(--text-muted);">Nenhum frete pendente de solicitação de pagamento. 🎉</td></tr>';
+  } else {
+    tb.innerHTML = lista.map(f => `
+      <tr>
+        <td><input type="checkbox" class="frt-pag-check" data-id="${f.id}" ${_frtPagSelecionados.has(f.id) ? 'checked' : ''} onchange="frtPagToggleCheck('${f.id}', this.checked)"></td>
+        <td>${frtEsc(f.code || '—')}</td>
+        <td>${frtDataBR(f.data || f.createdAt)}</td>
+        <td>${frtEsc(f.freteiroNome || '—')}</td>
+        <td style="max-width:280px;">${frtEsc(f.origem || '—')} <span style="color:var(--text-muted);">→</span> ${frtEsc(f.destino || '—')}</td>
+        <td style="text-align:right;">${frtBRL(f.valor)}</td>
+        <td style="text-align:right;white-space:nowrap;"><button class="btn btn-outline btn-sm" onclick="abrirFreteDetalhe('${f.id}')">Ver</button></td>
+      </tr>`).join('');
+  }
+  document.getElementById('frt-pag-marcar-todos').checked = lista.length > 0 && lista.every(f => _frtPagSelecionados.has(f.id));
+  frtPagAtualizarBotao();
+}
+
+function frtPagToggleCheck(id, marcado) {
+  if (marcado) _frtPagSelecionados.add(id); else _frtPagSelecionados.delete(id);
+  const lista = frtPagPendentes();
+  document.getElementById('frt-pag-marcar-todos').checked = lista.length > 0 && lista.every(f => _frtPagSelecionados.has(f.id));
+  frtPagAtualizarBotao();
+}
+window.frtPagToggleCheck = frtPagToggleCheck;
+
+function frtPagMarcarTodos(marcarTudo) {
+  const lista = frtPagPendentes();
+  if (marcarTudo) lista.forEach(f => _frtPagSelecionados.add(f.id));
+  else lista.forEach(f => _frtPagSelecionados.delete(f.id));
+  renderFrtPagamento();
+}
+window.frtPagMarcarTodos = frtPagMarcarTodos;
+
+function frtPagAtualizarBotao() {
+  const btn = document.getElementById('frt-pag-btn-solicitar');
+  if (!btn) return;
+  btn.textContent = `Marcar selecionados como solicitados (${_frtPagSelecionados.size})`;
+  btn.disabled = _frtPagSelecionados.size === 0;
+}
+
+async function frtPagMarcarSolicitados() {
+  const ids = [..._frtPagSelecionados];
+  if (!ids.length) return;
+  if (!confirm(`Marcar ${ids.length} frete(s) como "pagamento solicitado"?`)) return;
+  const nome = (typeof currentUserData !== 'undefined' && currentUserData?.name) || null;
+  const agora = new Date().toISOString();
+  const hist = { acao: 'Pagamento solicitado ao financeiro', por: nome, data: agora };
+  const btn = document.getElementById('frt-pag-btn-solicitar');
+  if (btn) { btn.disabled = true; btn.dataset.orig = btn.innerHTML; btn.innerHTML = '<div class="spinner"></div> Aguarde...'; }
+  try {
+    for (const id of ids) {
+      await db.collection('fretes').doc(id).update({
+        pagamentoSolicitadoEm: agora,
+        historico: firebase.firestore.FieldValue.arrayUnion(hist),
+        updatedBy: nome, updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+      });
+      const f = _fretesCache.find(x => x.id === id);
+      if (f) { f.pagamentoSolicitadoEm = agora; f.historico = [...(Array.isArray(f.historico) ? f.historico : []), hist]; }
+    }
+    showToast(`✅ ${ids.length} frete(s) marcado(s) como solicitado(s).`);
+    _frtPagSelecionados = new Set();
+    renderFrtPagamento();
+  } catch (e) {
+    console.error(e);
+    showToast('❌ Erro: ' + e.message);
+    frtPagAtualizarBotao();
+  }
+}
+window.frtPagMarcarSolicitados = frtPagMarcarSolicitados;
+
 function abrirFreteDetalhe(id) {
   const f = _fretesCache.find(x => x.id === id);
   if (!f) return;
@@ -2045,7 +2144,7 @@ window.salvarPasOrcamento = salvarPasOrcamento;
    ══════════════════════════════════════════════════════════════════════ */
 
 // páginas dos módulos (hoje abertas a todos; o admin restringe na tela)
-const _MOD_PAGES = ['pas-solicitacoes', 'pas-nova', 'pas-detalhe', 'pas-indicadores', 'pas-calendario', 'frt-lista', 'frt-novo', 'frt-rotas', 'frt-metas', 'frt-indicadores', 'ind-geral', 'plano-acao', 'diretoria-dashboard', 'diretoria-percapita'];
+const _MOD_PAGES = ['pas-solicitacoes', 'pas-nova', 'pas-detalhe', 'pas-indicadores', 'pas-calendario', 'frt-lista', 'frt-pagamento', 'frt-novo', 'frt-rotas', 'frt-metas', 'frt-indicadores', 'ind-geral', 'plano-acao', 'diretoria-dashboard', 'diretoria-percapita'];
 // todas as páginas do Suprimentos (perfis de gestão têm tudo)
 const _SUP_PAGES = ['dashboard', 'users', 'houses', 'manage-houses', 'manage-cities', 'manage-products',
   'manage-cats', 'percapita-financeiro', 'manage-cc', 'all-orders', 'produtividade', 'kanban',

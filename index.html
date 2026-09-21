@@ -706,6 +706,10 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
         Fretes
       </button>
+      <button class="sidebar-item" data-page="frt-pagamento" onclick="goPageMobile('frt-pagamento')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></svg>
+        Solicitar Pagamento
+      </button>
       <button class="sidebar-item" data-page="frt-novo" onclick="goPageMobile('frt-novo')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
         Novo Frete
@@ -2315,6 +2319,32 @@
     </div></div>
   </div>
 
+  <!-- PAGE: Solicitação de Pagamento de Fretes -->
+  <div class="page" id="page-frt-pagamento">
+    <div class="page-header">
+      <h1 class="page-title">📨 Solicitar Pagamento</h1>
+    </div>
+    <div class="page-sub" style="margin-bottom:16px;margin-top:-14px;">Fretes com freteiro e valor já definidos cuja solicitação de pagamento ao financeiro ainda não foi registrada como feita.</div>
+    <div class="stat-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:16px;">
+      <div class="stat-card stat-card-warn"><div class="stat-label">📨 Pendentes</div><div class="stat-value" id="frt-pag-kpi-qtd">—</div></div>
+      <div class="stat-card stat-card-warn"><div class="stat-label">💰 Valor total</div><div class="stat-value" id="frt-pag-kpi-total">—</div></div>
+    </div>
+    <div class="card"><div class="card-body">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;flex-wrap:wrap;">
+        <label style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--text-muted);cursor:pointer;">
+          <input type="checkbox" id="frt-pag-marcar-todos" onchange="frtPagMarcarTodos(this.checked)"> Selecionar todos
+        </label>
+        <button class="btn btn-primary btn-sm" id="frt-pag-btn-solicitar" onclick="frtPagMarcarSolicitados()" disabled>Marcar selecionados como solicitados (0)</button>
+      </div>
+      <div class="table-wrap">
+        <table class="fin-table">
+          <thead><tr><th style="width:30px;"></th><th>Código</th><th>Data</th><th>Freteiro</th><th>Trajeto</th><th style="text-align:right;">Valor</th><th></th></tr></thead>
+          <tbody id="frt-pag-tbody"><tr><td colspan="7" style="text-align:center;padding:24px;color:var(--text-muted);">Carregando…</td></tr></tbody>
+        </table>
+      </div>
+    </div></div>
+  </div>
+
   <!-- PAGE: Rotas -->
   <div class="page" id="page-frt-rotas">
     <div class="page-header"><h1 class="page-title">🚚 Rotas</h1></div>
@@ -3594,7 +3624,7 @@
 <script src="js/01-core.js?v=7"></script>
 <script src="js/02-auth.js?v=7"></script>
 <script src="js/03-navegacao.js?v=2"></script>
-<script src="js/04-percapita.js?v=17"></script>
+<script src="js/04-percapita.js?v=18"></script>
 <script src="js/05-cadastros.js?v=3"></script>
 <script src="js/06-pedidos.js?v=23"></script>
 <script src="js/07-estoque-ia-form.js?v=6"></script>
@@ -3609,7 +3639,7 @@
 <script src="js/16-chat-ia.js?v=2"></script>
 <script src="js/17-metas-wrappers.js?v=2"></script>
 <script src="js/cidades-brasil.js?v=1"></script>
-<script src="js/18-erp.js?v=45"></script>
+<script src="js/18-erp.js?v=46"></script>
 <script src="js/19-dashboard-diretoria.js?v=9"></script>
 <script src="js/20-percapita-diretoria.js?v=2"></script>
 <!-- CHAT IA FLUTUANTE -->
