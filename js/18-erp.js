@@ -338,7 +338,7 @@ async function frtPagExportarPlanilha() {
     const doc = mapaDocs.get(_caNorm(f.freteiroNome)) || '';
     linhas.push([
       dtComp || '', dtVenc || '', '', -Math.abs(Number(f.valor) || 0),
-      '2.5.5 Transporte - Missionários', desc, f.freteiroNome || '', doc,
+      '2.4.3 Frete', desc, f.freteiroNome || '', doc,
       'Centro Administrativo', f.obs || '',
     ]);
   });
