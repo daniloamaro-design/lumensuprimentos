@@ -310,11 +310,52 @@ function frtPagMarcarTodos(marcarTudo) {
 window.frtPagMarcarTodos = frtPagMarcarTodos;
 
 function frtPagAtualizarBotao() {
+  const n = _frtPagSelecionados.size;
   const btn = document.getElementById('frt-pag-btn-solicitar');
-  if (!btn) return;
-  btn.textContent = `Marcar selecionados como solicitados (${_frtPagSelecionados.size})`;
-  btn.disabled = _frtPagSelecionados.size === 0;
+  if (btn) { btn.textContent = `Marcar selecionados como solicitados (${n})`; btn.disabled = n === 0; }
+  const btnExp = document.getElementById('frt-pag-btn-exportar');
+  if (btnExp) { btnExp.textContent = `📊 Exportar planilha (${n})`; btnExp.disabled = n === 0; }
 }
+
+// Exporta os fretes selecionados no layout Conta Azul (mesmas colunas usadas
+// pelo financeiro em NFs/Boletos — ver _caMontarLinhas em 12-financeiro-compras.js).
+async function frtPagExportarPlanilha() {
+  const ids = [..._frtPagSelecionados];
+  if (!ids.length) return;
+  const selecionados = _fretesCache.filter(f => ids.includes(f.id));
+
+  await _caGarantirFornecedores();
+  const mapaDocs = _caMapaDocs();
+
+  const header = ['Data de Competência','Data de Vencimento','Data de Pagamento','Valor','Categoria','Descrição','Cliente/Fornecedor','CNPJ/CPF Cliente/Fornecedor','Centro de Custo','Observações'];
+  const linhas = [header];
+  selecionados.forEach(f => {
+    let dataStr = f.data || f.createdAt || '';
+    if (dataStr?.toDate) dataStr = dataStr.toDate().toISOString().slice(0,10);
+    const dtComp = dataStr ? new Date(dataStr + 'T00:00:00') : null;
+    const dtVenc = dtComp ? new Date(dtComp.getTime() + 7 * 86400000) : null;
+    const desc = `Frete ${f.code || ''} — ${f.origem || ''} → ${f.destino || ''}`;
+    const doc = mapaDocs.get(_caNorm(f.freteiroNome)) || '';
+    linhas.push([
+      dtComp || '', dtVenc || '', '', -Math.abs(Number(f.valor) || 0),
+      '2.5.5 Transporte - Missionários', desc, f.freteiroNome || '', doc,
+      'Centro Administrativo', f.obs || '',
+    ]);
+  });
+
+  const ws = XLSX.utils.aoa_to_sheet(linhas, { cellDates: true });
+  for (let r = 1; r < linhas.length; r++) {
+    ['A','B'].forEach(col => { const c = ws[col + (r+1)]; if (c && c.v instanceof Date) { c.t='d'; c.z='dd/mm/yyyy'; } });
+    const h = ws['H' + (r+1)];
+    if (h && h.v !== undefined && h.v !== '') { h.t='s'; h.v = String(h.v); }
+  }
+  ws['!cols'] = [{wch:18},{wch:18},{wch:18},{wch:12},{wch:26},{wch:40},{wch:30},{wch:24},{wch:20},{wch:30}];
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Dados');
+  XLSX.writeFile(wb, 'Fretes-Pagamento-' + new Date().toISOString().slice(0,10) + '.xlsx', { cellDates: true });
+}
+window.frtPagExportarPlanilha = frtPagExportarPlanilha;
 
 async function frtPagMarcarSolicitados() {
   const ids = [..._frtPagSelecionados];
