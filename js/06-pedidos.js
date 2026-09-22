@@ -1405,7 +1405,9 @@ async function saveStockEval() {
         };
       });
 
-      const transfCode = 'OB-TRF-' + new Date().toISOString().slice(0,10).replace(/-/g,'') + '-' + Math.random().toString(36).slice(2,6).toUpperCase();
+      const dataTransf = new Date().toISOString().slice(0, 10);
+      const dateStrTransf = dataTransf.replace(/-/g, '');
+      const transfCode = 'OB-TRF-' + dateStrTransf + '-' + Math.random().toString(36).slice(2,6).toUpperCase();
       await db.collection('transferencias').add({
         code: transfCode,
         orderId: currentDetailOrderId,
@@ -1416,7 +1418,31 @@ async function saveStockEval() {
         status: 'confirmada',   // já confirmada automaticamente
         geradaAutomaticamente: true,
         criadaPor: currentUserData.name,
-        data: new Date().toISOString().slice(0, 10),
+        data: dataTransf,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+
+      // Baixa de verdade o estoque (mesmo par saída/entrada que a confirmação
+      // manual de transferência cria — sem isso a transferência ficava marcada
+      // "confirmada" mas o estoque de nenhuma das duas casas era alterado).
+      await db.collection('movements').add({
+        code: `${transfCode}-SAI`,
+        house: casaEstoque, type: 'saida', date: dataTransf, dateStr: dateStrTransf,
+        items: transfItemsFormatted,
+        obs: `Transferência ${transfCode} → ${o.house} (avaliação de estoque do pedido ${o.code})`,
+        registeredBy: currentUserData.name,
+        registeredUid: currentUser.uid,
+        isTransferencia: true,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+      await db.collection('movements').add({
+        code: `${transfCode}-ENT`,
+        house: o.house, type: 'entrada', date: dataTransf, dateStr: dateStrTransf,
+        items: transfItemsFormatted,
+        obs: `Transferência ${transfCode} ← ${casaEstoque} (avaliação de estoque do pedido ${o.code})`,
+        registeredBy: currentUserData.name,
+        registeredUid: currentUser.uid,
+        isTransferencia: true,
         createdAt: firebase.firestore.FieldValue.serverTimestamp()
       });
 
