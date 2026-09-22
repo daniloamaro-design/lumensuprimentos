@@ -1004,6 +1004,80 @@ async function sincronizarSistema() {
   }
 }
 
+// ═══════════════════════════════════════════════════════════════
+// 🔗 SINCRONIZAÇÃO PASSAGENS → FINANCEIRO
+// Mesma ideia da sincronização de Pedidos, mas pra Passagens: sem isso,
+// uma passagem comprada nunca aparecia no Saldo Devedor sozinha — só quem
+// já vinha da importação histórica de 06/08/2026. Dedupe por pedidoRef
+// (código da passagem) — o backfill único (tools/migracao/
+// sincronizar-passagens-financeiro.mjs) já linkou todo o histórico
+// existente até 22/09/2026; daqui pra frente é só isso aqui.
+// ═══════════════════════════════════════════════════════════════
+async function sincronizarPassagensFinanceiro() {
+  if (!confirm(
+    '🔗 SINCRONIZAÇÃO PASSAGENS → FINANCEIRO\n\n' +
+    'Isso vai criar registros financeiros para toda passagem comprada que ainda não tem lançamento.\n\n' +
+    'Deseja continuar?'
+  )) return;
+
+  showToast('⏳ Sincronizando passagens, aguarde...');
+  let criados = 0, ignorados = 0;
+
+  try {
+    const [pasSnap, finSnap, supSnap] = await Promise.all([
+      db.collection('passagens_solicitacoes').where('status','==','comprada').get(),
+      db.collection('compras_financeiro').where('modulo','==','passagens').get(),
+      db.collection('suppliers').get(),
+    ]);
+
+    const jaLancadas = new Set(finSnap.docs.map(d => d.data().pedidoRef).filter(Boolean));
+    const supMap = {};
+    supSnap.docs.forEach(d => { const s = d.data(); supMap[(s.nome||'').trim().toUpperCase()] = { id: d.id, ...s }; });
+
+    const batch = db.batch();
+    let batchCount = 0;
+
+    for (const doc of pasSnap.docs) {
+      const p = doc.data();
+      if (jaLancadas.has(p.codigo)) { ignorados++; continue; }
+      const valor = parseFloat(p.valorFinal) || 0;
+      if (!valor) { ignorados++; continue; }
+
+      const nomeForn = p.fornecedor?.nome || '';
+      const sup = supMap[nomeForn.trim().toUpperCase()];
+      const refDate = p.dataCompra ? new Date(p.dataCompra + 'T00:00:00') : (p.criadoEm?.toDate ? p.criadoEm.toDate() : new Date());
+
+      const newRef = db.collection('compras_financeiro').doc();
+      batch.set(newRef, {
+        fornecedor: sup?.nome || nomeForn,
+        fornecedorId: sup?.id || '',
+        classificacao: 'Passagem',
+        destinatario: p.passageiro || '',
+        mes: MESES_PT[refDate.getMonth()],
+        ano: refDate.getFullYear(),
+        dataCompraSerial: refDate.getTime(),
+        valor,
+        pago: '',
+        pedidoRef: p.codigo,
+        pedidoId: doc.id,
+        modulo: 'passagens',
+        obs: `Sincronizado automaticamente — ${p.codigo}`,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+      });
+      criados++;
+      batchCount++;
+      if (batchCount >= 490) { await batch.commit(); batchCount = 0; }
+    }
+    if (batchCount > 0) await batch.commit();
+
+    showToast(`✅ Sincronização concluída! ${criados} passagem(ns) lançada(s), ${ignorados} já estavam.`);
+  } catch(e) {
+    console.error('sincronizarPassagensFinanceiro error:', e);
+    showToast('❌ Erro na sincronização: ' + e.message);
+  }
+}
+window.sincronizarPassagensFinanceiro = sincronizarPassagensFinanceiro;
+
 // Auto-lança no financeiro quando pedido é liberado pelo gerente
 // (já existe em opcGerenteDecisao, mas adicionamos também ao mudar status manualmente)
 async function lancarPedidoNoFinanceiro(orderId, orderData) {
