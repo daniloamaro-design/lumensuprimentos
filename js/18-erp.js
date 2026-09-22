@@ -561,6 +561,21 @@ function abrirFreteDetalhe(id) {
   if (semFreteiro && f.status !== 'cancelado') popularSelectFreteiros('frt-atrib-forn');
 }
 
+// Lança (ou atualiza) o frete no financeiro assim que ele tem freteiro+valor
+// definidos — chamado depois de toda gravação que pode ter mudado isso.
+function frtSincronizarFinanceiro(id) {
+  const f = _fretesCache.find(x => x.id === id);
+  if (!f || f.status === 'cancelado' || !f.freteiroNome || !(Number(f.valor) > 0)) return;
+  if (typeof _syncFinanceiroLancar !== 'function') return;
+  _syncFinanceiroLancar({
+    pedidoRef: f.code, pedidoId: id,
+    fornecedor: f.freteiroNome, fornecedorId: f.freteiroId || '',
+    classificacao: 'Frete', destinatario: f.destino || '',
+    valor: Number(f.valor), pago: f.statusPag === 'pago' ? 'Sim' : '',
+    modulo: 'frete', dataRef: f.data ? new Date(f.data + 'T00:00:00').getTime() : Date.now(),
+  }).catch(e => console.warn('sync financeiro (frete):', e));
+}
+
 async function frtSalvarValor(id) {
   const valor = Number(document.getElementById('frt-det-valor').value);
   if (!(valor > 0)) return showToast('⚠️ Informe um valor válido.');
@@ -574,6 +589,7 @@ async function frtSalvarValor(id) {
       updatedBy: nome, updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
     });
     if (f) { f.valor = valor; f.historico = [...(Array.isArray(f.historico) ? f.historico : []), hist]; }
+    frtSincronizarFinanceiro(id);
     showToast('✅ Valor atualizado.');
     abrirFreteDetalhe(id);
     renderFrtLista();
@@ -636,6 +652,7 @@ async function frtAtribuirFreteiro(id) {
       updatedBy: nome, updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
     });
     if (f) { f.freteiroId = fid; f.freteiroNome = fnome; f.valor = valor; f.previsaoEntrega = previsaoEntrega; f.status = novoStatus; f.etapaStatus = novoStatus; f.statusPag = 'pendente'; f.historico = [...(Array.isArray(f.historico) ? f.historico : []), hist]; }
+    frtSincronizarFinanceiro(id);
     showToast(precisaConferencia ? '✅ Freteiro atribuído — confira a carga para liberar o transporte.' : '✅ Freteiro atribuído — frete em transporte.');
     abrirFreteDetalhe(id);
     renderFrtLista();
@@ -948,6 +965,7 @@ async function frtMarcarPago(id, fecharModalDepois) {
       updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
     });
     f.statusPag = 'pago'; f.valorPago = Number(f.valor) || 0;
+    frtSincronizarFinanceiro(id);
     showToast('✅ Frete marcado como pago.');
     if (fecharModalDepois) closeModal('modal-frete-detalhe');
     renderFrtLista();
@@ -1041,7 +1059,7 @@ async function salvarNovoFrete() {
   const btn = document.getElementById('frt-n-salvar');
   if (btn) { btn.disabled = true; btn.textContent = 'Salvando…'; }
   try {
-    await db.collection('fretes').add({
+    const novoFrete = await db.collection('fretes').add({
       code, data, dateStr: ymd, previsaoEntrega,
       freteiroId, freteiroNome,
       origem, destino, paradas,
@@ -1055,6 +1073,16 @@ async function salvarNovoFrete() {
       createdAt: firebase.firestore.FieldValue.serverTimestamp(),
       updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
     });
+    // Lança sozinho no financeiro se já nasceu com valor (freteiro às vezes só
+    // informa depois — nesse caso frtSalvarValor cuida do lançamento).
+    if (valor > 0 && typeof _syncFinanceiroLancar === 'function') {
+      _syncFinanceiroLancar({
+        pedidoRef: code, pedidoId: novoFrete.id,
+        fornecedor: freteiroNome, fornecedorId: freteiroId,
+        classificacao: 'Frete', destinatario: destino,
+        valor, pago: '', modulo: 'frete', dataRef: new Date(data + 'T00:00:00').getTime(),
+      }).catch(e => console.warn('sync financeiro (frete novo):', e));
+    }
     showToast(`✅ Frete ${code} criado.`);
     // limpa
     ['frt-n-origem', 'frt-n-destino', 'frt-n-paradas', 'frt-n-motivo', 'frt-n-valor', 'frt-n-obs', 'frt-n-previsao'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
@@ -1458,6 +1486,16 @@ async function pasAtualizar(id, patch, histAcao) {
     });
     Object.assign(s, patch);
     s.historico = [...(Array.isArray(s.historico) ? s.historico : []), hist];
+    // Lança sozinho no financeiro assim que a passagem é marcada como
+    // comprada — sem isso o Saldo Devedor só cresceria via botão "Sincronizar".
+    if (patch.status === 'comprada' && Number(s.valorFinal) > 0 && typeof _syncFinanceiroLancar === 'function') {
+      _syncFinanceiroLancar({
+        pedidoRef: s.codigo, pedidoId: id,
+        fornecedor: s.fornecedor?.nome || '', fornecedorId: '',
+        classificacao: 'Passagem', destinatario: s.passageiro || '',
+        valor: Number(s.valorFinal), pago: '', modulo: 'passagens', dataRef: Date.now(),
+      }).catch(e => console.warn('sync financeiro (passagem):', e));
+    }
     showToast('✅ ' + histAcao);
     abrirPasDetalhe(id);
     renderPasSolic();

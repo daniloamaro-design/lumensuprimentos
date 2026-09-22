@@ -845,6 +845,40 @@ function exportMetasExcel() {
 const MESES_PT = ['JANEIRO','FEVEREIRO','MARÇO','ABRIL','MAIO','JUNHO',
                   'JULHO','AGOSTO','SETEMBRO','OUTUBRO','NOVEMBRO','DEZEMBRO'];
 
+// Lança (ou atualiza) UM registro em compras_financeiro no exato momento em
+// que um pedido/passagem/frete é confirmado — pra o Saldo Devedor crescer
+// sozinho, sem precisar dos botões "Sincronizar" (que continuam existindo
+// só pra cobrir casos antigos/perdidos). Idempotente por pedidoRef: se já
+// existe lançamento pra essa referência, não duplica — só promove pra pago
+// se for esse o caso (ex.: frtMarcarPago chamando de novo depois de já
+// criado). Nunca lança exceção pro chamador — é sempre best-effort, o fluxo
+// principal (salvar o pedido/passagem/frete) não pode travar por isso.
+async function _syncFinanceiroLancar({ pedidoRef, pedidoId, fornecedor, fornecedorId, classificacao, destinatario, valor, pago, modulo, dataRef }) {
+  if (!pedidoRef || !(Number(valor) > 0)) return;
+  try {
+    const existSnap = await db.collection('compras_financeiro').where('pedidoRef','==',pedidoRef).limit(1).get();
+    if (!existSnap.empty) {
+      const doc = existSnap.docs[0];
+      if (pago === 'Sim' && doc.data().pago !== 'Sim') {
+        await db.collection('compras_financeiro').doc(doc.id).update({ pago: 'Sim' });
+      }
+      return;
+    }
+    const ref = new Date(dataRef || Date.now());
+    await db.collection('compras_financeiro').add({
+      fornecedor: fornecedor || '', fornecedorId: fornecedorId || '',
+      classificacao: classificacao || '', destinatario: destinatario || '',
+      mes: MESES_PT[ref.getMonth()], ano: ref.getFullYear(), dataCompraSerial: ref.getTime(),
+      valor: Number(valor), pago: pago || '', pedidoRef, pedidoId: pedidoId || '', modulo,
+      obs: `Lançado automaticamente — ${pedidoRef}`,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+    });
+  } catch (e) {
+    console.warn('_syncFinanceiroLancar falhou (não bloqueia o fluxo principal):', pedidoRef, e);
+  }
+}
+window._syncFinanceiroLancar = _syncFinanceiroLancar;
+
 async function sincronizarSistema() {
   if (!confirm(
     '🔗 SINCRONIZAÇÃO DO SISTEMA\n\n' +

@@ -2142,6 +2142,19 @@ async function saveAttachment() {
   }
 
   await db.collection('orders').doc(orderId).update(update);
+  // Lança sozinho no financeiro assim que a NF tem valor — sem isso o Saldo
+  // Devedor só cresceria quando alguém clicasse em "Sincronizar Pedidos".
+  if (update.nfValor > 0 && typeof _syncFinanceiroLancar === 'function') {
+    const cats = (detailOrderData?.categories || []);
+    _syncFinanceiroLancar({
+      pedidoRef: detailOrderData?.code, pedidoId: orderId,
+      fornecedor: update.fornecedorNome || detailOrderData?.fornecedorNome,
+      fornecedorId: update.fornecedorId || detailOrderData?.fornecedorId,
+      classificacao: cats.map(c => CATEGORIAS[c]?.nome || c).join(', ') || 'Pedido',
+      destinatario: detailOrderData?.house, valor: update.nfValor,
+      pago: '', modulo: 'suprimentos', dataRef: Date.now(),
+    }).catch(e => console.warn('sync financeiro (pedido):', e));
+  }
   // Só sincroniza o painel/detalhe aberto se ainda for o mesmo pedido;
   // se o usuário já trocou de pedido, não mexe no que está na tela agora.
   if (currentDetailOrderId === orderId) {
