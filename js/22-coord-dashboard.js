@@ -434,19 +434,17 @@ async function initCoordSaldo() {
   });
 
   try {
-    const [finSnap, fretesSnap, supSnap] = await Promise.all([
+    const [finSnap, supSnap] = await Promise.all([
       db.collection('compras_financeiro').get(),
-      db.collection('fretes').get(),
       db.collection('suppliers').get(),
     ]);
     const fin = finSnap.docs.map(d => d.data());
-    const fretes = fretesSnap.docs.map(d => d.data());
     const suppliers = supSnap.docs.map(d => d.data());
     const limitesPorFornecedor = _cdMapaLimites(suppliers);
 
     _cdRenderSaldoTabela('coord-saldo-suprimentos', _cdAgregarFinanceiro(fin, 'suprimentos', suppliers), limitesPorFornecedor);
     _cdRenderSaldoTabela('coord-saldo-passagens', _cdAgregarFinanceiro(fin, 'passagens', suppliers), limitesPorFornecedor);
-    _cdRenderSaldoTabela('coord-saldo-fretes', _cdAgregarFretes(fretes, suppliers), limitesPorFornecedor);
+    _cdRenderSaldoTabela('coord-saldo-fretes', _cdAgregarFinanceiro(fin, 'frete', suppliers), limitesPorFornecedor);
   } catch (e) {
     console.error('initCoordSaldo', e);
     ['coord-saldo-suprimentos', 'coord-saldo-passagens', 'coord-saldo-fretes'].forEach(id => {
@@ -518,21 +516,6 @@ function _cdAgregarFinanceiro(fin, modulo, suppliers) {
     if (f.pago === 'Sim') alvo.pago += valor;
   });
   return _cdOrdenarSaldo(porFornecedor);
-}
-
-// Fretes cancelados não entram (não houve serviço, não gera dívida).
-// valorPago já é parcial-aware (o mesmo campo usado no restante do módulo).
-function _cdAgregarFretes(fretes, suppliers) {
-  const porFreteiro = {};
-  fretes.forEach(f => {
-    if (f.status === 'cancelado') return;
-    const nomeExibicao = _cdNomeResolvido(f.freteiroNome, suppliers);
-    const chave = _cdChaveFornecedor(nomeExibicao);
-    const alvo = porFreteiro[chave] || (porFreteiro[chave] = { nome: nomeExibicao, pedido: 0, pago: 0 });
-    alvo.pedido += Number(f.valor) || 0;
-    alvo.pago += Number(f.valorPago) || 0;
-  });
-  return _cdOrdenarSaldo(porFreteiro);
 }
 
 function _cdOrdenarSaldo(porFornecedor) {
@@ -673,7 +656,7 @@ function coordConcLerArquivo(file) {
       const header = (rows[0] || []).map(h => String(h).trim().toLowerCase());
       const idx = nome => header.indexOf(nome.toLowerCase());
       const iCnpj = idx('Identificador do fornecedor'), iNome = idx('Nome do fornecedor'),
-            iVenc = idx('Data de vencimento'), iDescricao = idx('Descrição'),
+            iVenc = idx('Data de vencimento'), iComp = idx('Data de competência'), iDescricao = idx('Descrição'),
             iValorAberto = idx('Valor total da parcela em aberto (R$)') > -1 ? idx('Valor total da parcela em aberto (R$)') : idx('Valor da parcela em aberto (R$)');
       if (iNome === -1 || iValorAberto === -1) { showToast('❌ Não reconheci as colunas — confira se é a planilha "Visão Contas a Pagar".'); return; }
 
@@ -681,7 +664,7 @@ function coordConcLerArquivo(file) {
         .filter(r => r.some(c => String(c).trim() !== ''))
         .map(r => ({
           cnpj: r[iCnpj] || '', nomePlanilha: r[iNome] || '',
-          vencimento: r[iVenc] || '', descricao: r[iDescricao] || '',
+          vencimento: r[iVenc] || '', competencia: r[iComp] || '', descricao: r[iDescricao] || '',
           valor: parseFloat(String(r[iValorAberto]).replace(',', '.')) || 0,
         }))
         .filter(l => l.valor > 0.005 && l.nomePlanilha);
@@ -744,7 +727,10 @@ async function coordConcProcessar() {
     grupo.linhas.forEach(l => {
       const i = restante.findIndex(f => Math.abs((Number(f.valor) || 0) - l.valor) < 0.01);
       if (i > -1) restante.splice(i, 1);
-      else soNaPlanilha.push({ fornecedor: grupo.supplier.nome, descricao: l.descricao, valor: l.valor, vencimento: l.vencimento });
+      else soNaPlanilha.push({
+        fornecedor: grupo.supplier.nome, fornecedorId: grupo.supplier.id, tipos: grupo.supplier.tipos || [],
+        descricao: l.descricao, valor: l.valor, vencimento: l.vencimento, competencia: l.competencia,
+      });
     });
     restante.forEach(f => propostosPagar.push({ id: f.id, fornecedor: grupo.supplier.nome, descricao: f.destinatario || f.pedidoRef || '—', valor: Number(f.valor) || 0, vencimento: f.vencimentoStr || '—' }));
   });
@@ -877,7 +863,58 @@ function _cdRenderSoNaPlanilha(linhas) {
       <td style="text-align:right;">${_cd.BRL(l.valor)}</td>
       <td>${frtEsc(l.vencimento)}</td>
     </tr>`).join('') + `<tr><td colspan="4" style="padding:0;">${paginacaoHTML(pagObjNaosist, 'coordConcNaosistemaGoToPage')}</td></tr>`;
+  document.getElementById('coord-conc-naosistema-total').textContent =
+    `${linhas.length} lançamento(s) · Total: ${_cd.BRL(linhas.reduce((s,l) => s + l.valor, 0))}`;
 }
+
+// Converte "dd/mm/yyyy" (string da planilha) em Date; null se vazio/inválido.
+function _cdParseDataBR(s) {
+  const m = String(s || '').match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  return m ? new Date(+m[3], +m[2]-1, +m[1]) : null;
+}
+
+// Lança como pendente ("em aberto") todo item que está na planilha do
+// financeiro mas ainda não tinha lançamento correspondente no sistema — sem
+// isso o Saldo Devedor ficava sistematicamente pra menos (só refletia o que
+// alguém sincronizou/lançou manualmente antes). O módulo (suprimentos/
+// passagens/fretes) é inferido do cadastro do fornecedor (campo Tipo).
+async function coordConcCriarSoNaPlanilha() {
+  const linhas = _coordConc.soNaPlanilha;
+  if (!linhas.length) return;
+  if (!confirm(`Lançar ${linhas.length} item(ns) como pendente, totalizando ${_cd.BRL(linhas.reduce((s,l)=>s+l.valor,0))}?\n\nIsso NÃO marca nada como pago — só registra o que a planilha diz que ainda está em aberto.`)) return;
+
+  const btn = document.getElementById('coord-conc-btn-lancar');
+  if (btn) { btn.disabled = true; btn.textContent = 'Lançando…'; }
+  let ok = 0, erro = 0;
+  for (const l of linhas) {
+    try {
+      const tipos = l.tipos || [];
+      const modulo = tipos.includes('passagens') ? 'passagens' : tipos.includes('frete') ? 'frete' : 'suprimentos';
+      const classificacao = modulo === 'passagens' ? 'Passagem' : modulo === 'frete' ? 'Frete' : (l.descricao || 'Compra');
+      const dataComp = _cdParseDataBR(l.competencia) || _cdParseDataBR(l.vencimento) || new Date();
+      await db.collection('compras_financeiro').add({
+        fornecedor: l.fornecedor,
+        fornecedorId: l.fornecedorId || '',
+        classificacao,
+        mes: MESES_PT[dataComp.getMonth()],
+        ano: dataComp.getFullYear(),
+        dataCompraSerial: dataComp.getTime(),
+        vencimentoStr: l.vencimento || '',
+        valor: l.valor,
+        pago: '',
+        modulo,
+        obs: `Lançado a partir da Conciliação Financeira — ${l.descricao || l.fornecedor}`,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+      });
+      ok++;
+    } catch (e) { console.error('coordConcCriarSoNaPlanilha', l, e); erro++; }
+  }
+  if (btn) { btn.disabled = false; btn.textContent = 'Lançar todos como pendentes'; }
+  showToast(erro ? `⚠️ ${ok} lançado(s), ${erro} com erro (veja o console).` : `✅ ${ok} lançamento(s) criado(s)!`);
+  _coordConc.soNaPlanilha = [];
+  document.getElementById('coord-conc-card-naosistema').style.display = 'none';
+}
+window.coordConcCriarSoNaPlanilha = coordConcCriarSoNaPlanilha;
 
 async function coordConcAplicar() {
   const marcados = Array.from(document.querySelectorAll('.coord-conc-check:checked')).map(c => _coordConc.propostosPagar[Number(c.dataset.i)]);

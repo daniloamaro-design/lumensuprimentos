@@ -2801,8 +2801,9 @@
           <button class="cat-tab" id="coord-saldo-tab-passagens" onclick="coordSaldoSetTab('passagens')">✈️ Passagens</button>
           <button class="cat-tab" id="coord-saldo-tab-fretes" onclick="coordSaldoSetTab('fretes')">🚛 Fretes</button>
         </div>
-        <div style="display:flex;gap:8px;">
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
           <button class="btn btn-outline" onclick="sincronizarPassagensFinanceiro().then(initCoordSaldo)">🔗 Sincronizar Passagens</button>
+          <button class="btn btn-outline" onclick="sincronizarFretesFinanceiro().then(initCoordSaldo)">🔗 Sincronizar Fretes</button>
           <button class="btn btn-secondary" onclick="initCoordSaldo()">🔄 Atualizar</button>
         </div>
       </div>
@@ -2891,14 +2892,18 @@
 
     <div class="card" id="coord-conc-card-naosistema" style="display:none;">
       <div class="card-header">
-        <div class="card-header-title">ℹ️ Na planilha, não encontrado no sistema</div>
-        <div class="card-header-sub">Só informativo — não cria lançamento automaticamente</div>
+        <div class="card-header-title">➕ Na planilha, sem lançamento no sistema</div>
+        <div class="card-header-sub">Esses valores estão "em aberto" na planilha do financeiro mas não têm lançamento correspondente aqui — lance como pendente pra fechar o saldo devedor desses fornecedores</div>
       </div>
       <div class="table-wrap">
         <table class="fin-table">
           <thead><tr><th>Fornecedor</th><th>Descrição</th><th style="text-align:right;">Valor</th><th>Vencimento</th></tr></thead>
           <tbody id="coord-conc-naosistema-tbody"></tbody>
         </table>
+      </div>
+      <div style="padding:14px 18px;display:flex;justify-content:space-between;align-items:center;">
+        <span id="coord-conc-naosistema-total" style="font-size:13px;color:var(--text-muted);"></span>
+        <button class="btn btn-primary" id="coord-conc-btn-lancar" onclick="coordConcCriarSoNaPlanilha()">Lançar todos como pendentes</button>
       </div>
     </div>
   </div>
@@ -3643,7 +3648,7 @@
 <script src="js/16-chat-ia.js?v=2"></script>
 <script src="js/17-metas-wrappers.js?v=2"></script>
 <script src="js/cidades-brasil.js?v=1"></script>
-<script src="js/18-erp.js?v=48"></script>
+<script src="js/18-erp.js?v=49"></script>
 <script src="js/19-dashboard-diretoria.js?v=9"></script>
 <script src="js/20-percapita-diretoria.js?v=2"></script>
 <!-- CHAT IA FLUTUANTE -->
@@ -3731,7 +3736,7 @@
 
 <script src="js/variedades.js?v=4"></script>
 <script src="js/21-inventario.js?v=2"></script>
-<script src="js/22-coord-dashboard.js?v=10"></script>
+<script src="js/22-coord-dashboard.js?v=11"></script>
 <script src="js/23-importar-precos-nf.js?v=1"></script>
 <script src="js/24-guia-atualizacoes.js?v=1"></script>
 

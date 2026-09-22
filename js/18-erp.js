@@ -357,6 +357,77 @@ async function frtPagExportarPlanilha() {
 }
 window.frtPagExportarPlanilha = frtPagExportarPlanilha;
 
+// ═══════════════════════════════════════════════════════════════
+// 🔗 SINCRONIZAÇÃO FRETES → FINANCEIRO
+// Mesmo padrão de sincronizarSistema() (pedidos) e sincronizarPassagensFinanceiro()
+// — Fretes tinha seu próprio cálculo de saldo devedor direto de fretes.valor/
+// valorPago, diferente dos outros dois módulos, o que impedia o Saldo Devedor
+// de cruzar tudo de forma consistente. Unifica em compras_financeiro também.
+// Dedupe por pedidoRef (código do frete).
+// ═══════════════════════════════════════════════════════════════
+async function sincronizarFretesFinanceiro() {
+  if (!confirm(
+    '🔗 SINCRONIZAÇÃO FRETES → FINANCEIRO\n\n' +
+    'Isso vai criar registros financeiros para todo frete com freteiro e valor definidos que ainda não tem lançamento.\n\n' +
+    'Deseja continuar?'
+  )) return;
+
+  showToast('⏳ Sincronizando fretes, aguarde...');
+  let criados = 0, ignorados = 0;
+
+  try {
+    const [frtSnap, finSnap, supSnap] = await Promise.all([
+      db.collection('fretes').get(),
+      db.collection('compras_financeiro').where('modulo','==','frete').get(),
+      db.collection('suppliers').get(),
+    ]);
+
+    const jaLancados = new Set(finSnap.docs.map(d => d.data().pedidoRef).filter(Boolean));
+    const supMap = {};
+    supSnap.docs.forEach(d => { const s = d.data(); supMap[(s.nome||'').trim().toUpperCase()] = { id: d.id, ...s }; });
+
+    const batch = db.batch();
+    let batchCount = 0;
+
+    for (const doc of frtSnap.docs) {
+      const f = doc.data();
+      if (f.status === 'cancelado' || !f.freteiroNome || !(Number(f.valor) > 0)) { ignorados++; continue; }
+      if (jaLancados.has(f.code)) { ignorados++; continue; }
+
+      const sup = supMap[(f.freteiroNome||'').trim().toUpperCase()];
+      const refDate = f.data ? new Date(f.data + 'T00:00:00') : (f.createdAt?.toDate ? f.createdAt.toDate() : new Date());
+
+      const newRef = db.collection('compras_financeiro').doc();
+      batch.set(newRef, {
+        fornecedor: sup?.nome || f.freteiroNome,
+        fornecedorId: sup?.id || '',
+        classificacao: 'Frete',
+        destinatario: f.destino || '',
+        mes: MESES_PT[refDate.getMonth()],
+        ano: refDate.getFullYear(),
+        dataCompraSerial: refDate.getTime(),
+        valor: Number(f.valor) || 0,
+        pago: f.statusPag === 'pago' ? 'Sim' : '',
+        pedidoRef: f.code,
+        pedidoId: doc.id,
+        modulo: 'frete',
+        obs: `Sincronizado automaticamente — ${f.code}`,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+      });
+      criados++;
+      batchCount++;
+      if (batchCount >= 490) { await batch.commit(); batchCount = 0; }
+    }
+    if (batchCount > 0) await batch.commit();
+
+    showToast(`✅ Sincronização concluída! ${criados} frete(s) lançado(s), ${ignorados} já estavam/sem dados.`);
+  } catch(e) {
+    console.error('sincronizarFretesFinanceiro error:', e);
+    showToast('❌ Erro na sincronização: ' + e.message);
+  }
+}
+window.sincronizarFretesFinanceiro = sincronizarFretesFinanceiro;
+
 async function frtPagMarcarSolicitados() {
   const ids = [..._frtPagSelecionados];
   if (!ids.length) return;
