@@ -79,6 +79,11 @@
     orders:           { nfFileURL: 'nf_file_url', boletoFileURL: 'boleto_file_url' },
     movements:        { leituraIA: 'leitura_ia' },
     houses:           { name: 'nome' },  // a tela "Casas e Pessoas" usa 'name'; coluna real é 'nome'
+    // valorNF/lancadoHYB: siglas com 2+ maiúsculas seguidas (NF, HYB) —
+    // a conversão genérica separa cada letra ("valor_n_f", "lancado_h_y_b"),
+    // que não bate com a coluna real (import antigo da planilha "Visão
+    // Contas a Pagar" já usa "valor_nf"/"lancado_hyb").
+    compras_financeiro: { valorNF: 'valor_nf', lancadoHYB: 'lancado_hyb' },
   };
   const aliasDe = (col) => ALIAS[tabelaDe(col)] || {};
   // campo do app → coluna do banco (where/orderBy). Aceita FieldPath.documentId().

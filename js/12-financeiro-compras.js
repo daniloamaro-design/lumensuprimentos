@@ -484,8 +484,9 @@ async function finImportarNoFirestore() {
 
   try {
     // 1. Busca todas as chaves já existentes no Firestore
-    const snapExist = await db.collection('compras_financeiro')
-      .select('chaveUnica').get();
+    // (o shim não suporta .select() pra limitar colunas — traz a linha
+    // inteira mesmo, só o campo chaveUnica importa aqui)
+    const snapExist = await db.collection('compras_financeiro').get();
     const chavesExistentes = new Set(
       snapExist.docs.map(d => d.data().chaveUnica).filter(Boolean)
     );

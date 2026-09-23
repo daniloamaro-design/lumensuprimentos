@@ -1001,7 +1001,6 @@ async function sincronizarSistema() {
         obs:             `Sincronizado automaticamente — ${cod}`,
         lancadoSP:       false,
         createdAt:       firebase.firestore.FieldValue.serverTimestamp(),
-        syncedAt:        firebase.firestore.FieldValue.serverTimestamp(),
       });
 
       criados++;
