@@ -564,8 +564,11 @@ async function coordSaldoMarcarFornecedorPago(tbodyId, fornecedorNome) {
   if (!confirm(`Marcar TODO o saldo de "${fornecedorNome}" como pago?\n\n${abertos.length} lançamento(s), totalizando ${_cd.BRL(total)}.`)) return;
   let ok = 0, erro = 0;
   for (const f of abertos) {
-    try { await db.collection('compras_financeiro').doc(f.id).update({ pago: 'Sim' }); ok++; }
-    catch (e) { console.error('coordSaldoMarcarFornecedorPago', f, e); erro++; }
+    try {
+      await db.collection('compras_financeiro').doc(f.id).update({ pago: 'Sim' });
+      await _syncFinanceiroParaOrigem(f, 'Sim');
+      ok++;
+    } catch (e) { console.error('coordSaldoMarcarFornecedorPago', f, e); erro++; }
   }
   showToast(erro ? `⚠️ ${ok} marcado(s), ${erro} com erro.` : `✅ ${ok} lançamento(s) marcado(s) como pago.`);
   if (typeof initCoordSaldo === 'function' && document.getElementById('coord-saldo-suprimentos')) initCoordSaldo();
@@ -776,7 +779,7 @@ async function coordConcProcessar() {
         descricao: l.descricao, valor: l.valor, vencimento: l.vencimento, competencia: l.competencia,
       });
     });
-    restante.forEach(f => propostosPagar.push({ id: f.id, fornecedor: grupo.supplier.nome, descricao: f.destinatario || f.pedidoRef || '—', valor: Number(f.valor) || 0, vencimento: f.vencimentoStr || '—' }));
+    restante.forEach(f => propostosPagar.push({ id: f.id, fornecedor: grupo.supplier.nome, descricao: f.destinatario || f.pedidoRef || '—', valor: Number(f.valor) || 0, vencimento: f.vencimentoStr || '—', modulo: f.modulo, pedidoId: f.pedidoId }));
   });
 
   _coordConc.propostosPagar = propostosPagar;
@@ -971,6 +974,7 @@ async function coordConcAplicar() {
   for (const l of marcados) {
     try {
       await db.collection('compras_financeiro').doc(l.id).update({ pago: 'Sim' });
+      await _syncFinanceiroParaOrigem(l, 'Sim'); // propaga pro frete, quando for o caso
       ok++;
     } catch (e) { console.error('coordConcAplicar', l, e); erro++; }
   }

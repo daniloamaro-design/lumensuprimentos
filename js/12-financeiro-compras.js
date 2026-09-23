@@ -17,13 +17,6 @@ const FMT_FIN = v => 'R$ ' + (parseFloat(v)||0).toLocaleString('pt-BR',{minimumF
 // Normaliza toda LEITURA por aqui — a escrita continua canônica ('Sim'/'').
 const FIN_PAGO = v => v === 'Sim' || v === 'Pago';
 
-// Fretes tem financeiro próprio (tabela 'fretes', não entra em compras_financeiro).
-// Carrega e converte cada frete numa "linha" no mesmo formato de finDados
-// (fornecedor/classificacao/destinatario/mes/ano/valor/pago/modulo…), pra
-// aparecer de verdade na tabela/gráficos/exportação quando o filtro Módulo
-// = Frete for usado — não só no card "Consolidado por Módulo".
-let finFretesResumo = { total: 0, pago: 0, qtd: 0 };
-let finFretesLinhas = [];
 const _FIN_MESES_UP = ['JANEIRO','FEVEREIRO','MARÇO','ABRIL','MAIO','JUNHO','JULHO','AGOSTO','SETEMBRO','OUTUBRO','NOVEMBRO','DEZEMBRO'];
 function _finDataBR(v) {
   if (!v) return '';
@@ -31,40 +24,6 @@ function _finDataBR(v) {
   const m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
   return m ? `${m[3]}/${m[2]}/${m[1]}` : '';
 }
-async function finCarregarResumoFretes() {
-  try {
-    const snap = await db.collection('fretes').get();
-    const r = { total: 0, pago: 0, qtd: 0 };
-    const linhas = [];
-    snap.docs.forEach(d => {
-      const f = d.data();
-      const val = Number(f.valor) || 0;
-      r.total += val; r.qtd += 1;
-      if (f.statusPag === 'pago') r.pago += val;
-
-      const dataStr = String(f.data || f.createdAt || '');
-      const m = dataStr.match(/^(\d{4})-(\d{2})/);
-      linhas.push({
-        id: d.id,
-        modulo: 'frete',
-        fornecedor: f.freteiroNome || '— (sem freteiro)',
-        classificacao: 'Frete',
-        destinatario: [f.origem, f.destino].filter(Boolean).join(' → ') || '—',
-        mes: m ? _FIN_MESES_UP[parseInt(m[2], 10) - 1] : '',
-        ano: m ? m[1] : '',
-        dataCompraStr: _finDataBR(f.data || f.createdAt),
-        vencimentoStr: '—',
-        diasPrazo: '',
-        valor: val,
-        pago: f.statusPag === 'pago' ? 'Sim' : '',
-        lancadoSP: '',
-      });
-    });
-    finFretesResumo = r;
-    finFretesLinhas = linhas;
-  } catch (e) { console.error('finCarregarResumoFretes:', e); }
-}
-
 const FIN_CLASS_MAP = {
   'Proteína': 'Alimentação - Proteínas - Casas',
   'Proteina': 'Alimentação - Proteínas - Casas',
@@ -95,7 +54,6 @@ async function initFinanceiroCompras() {
     try { const snap = await db.collection('suppliers').orderBy('nome').get(); suppliersCache = snap.docs.map(d => ({ id: d.id, ...d.data() })); }
     catch (e) { console.error('suppliers (limite de crédito):', e); }
   }
-  await finCarregarResumoFretes();
   await finCarregarDados();
   await finCarregarNFs();
   pagInicializar();
@@ -152,9 +110,12 @@ function finSetTab(tab, btn) {
 async function finCarregarDados() {
   try {
     const snap = await db.collection('compras_financeiro').orderBy('dataCompraSerial','asc').get();
-    // Fretes entra junto (linhas já no mesmo formato, ver finCarregarResumoFretes) —
-    // assim o filtro Módulo=Frete passa a valer pra tabela/gráficos/exportação também.
-    finDados = snap.docs.map(d => ({ id: d.id, ...d.data() })).concat(finFretesLinhas);
+    // Fretes já entra aqui direto (sincronizado por sincronizarFretesFinanceiro/
+    // frtSincronizarFinanceiro em compras_financeiro, modulo='frete') — não
+    // precisa mais de uma view paralela lida direto de 'fretes': isso duplicava
+    // cada frete (a linha sincronizada de verdade + uma linha fantasma cujo id
+    // não existia em compras_financeiro, então marcar pago nela não fazia nada).
+    finDados = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     // Precisa dos fornecedores carregados ANTES de popular/filtrar por nome
     // resolvido — sem isso "Grandes Viagens" e "GRANDES VIAGENS TURISMO LTDA"
     // aparecem como opções (e filtros) separados, mesmo já sendo o mesmo
@@ -1366,22 +1327,21 @@ async function pagMarcarSelecionados(pagar) {
     // batch de compras_financeiro (um id inexistente lá derrubaria o batch
     // inteiro). Separa e atualiza cada tabela do seu jeito.
     const batch = db.batch();
-    const fretesParaAtualizar = [];
+    const regsSelecionados = [];
     pagSelecionados.forEach(id => {
       const reg = finDados.find(d => d.id === id);
-      if (reg && reg.modulo === 'frete') { fretesParaAtualizar.push(reg); return; }
+      if (!reg) return;
+      regsSelecionados.push(reg);
       batch.update(db.collection('compras_financeiro').doc(id), {
         pago:    novoStatus,
         pagoEm:  pagar ? firebase.firestore.FieldValue.serverTimestamp() : null,
       });
     });
     await batch.commit();
-    for (const reg of fretesParaAtualizar) {
-      await db.collection('fretes').doc(reg.id).update({
-        statusPag: pagar ? 'pago' : 'pendente',
-        valorPago: pagar ? (Number(reg.valor) || 0) : 0,
-        updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-      });
+    // Frete também mostra o próprio status de pagamento nas telas do módulo
+    // Fretes — propaga pra lá além de gravar aqui (ver _syncFinanceiroParaOrigem).
+    for (const reg of regsSelecionados) {
+      await _syncFinanceiroParaOrigem(reg, novoStatus, pagar ? Number(reg.valor) || 0 : 0);
     }
     pagSelecionados.forEach(id => {
       const reg = finDados.find(d => d.id === id);
@@ -1410,7 +1370,6 @@ async function finTogglePago(id, pagar) {
   const novoStatus = pagar ? 'Sim' : '';
   const reg = finDados.find(d => d.id === id);
   if (!reg) return;
-  const ehFrete = reg.modulo === 'frete';
 
   // Feedback imediato
   reg.pago = novoStatus;
@@ -1419,19 +1378,13 @@ async function finTogglePago(id, pagar) {
   finAplicarFiltros();
 
   try {
-    if (ehFrete) {
-      // Frete tem financeiro próprio (tabela 'fretes'), campos diferentes.
-      await db.collection('fretes').doc(id).update({
-        statusPag: pagar ? 'pago' : 'pendente',
-        valorPago: pagar ? (Number(reg.valor) || 0) : 0,
-        updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-      });
-    } else {
-      await db.collection('compras_financeiro').doc(id).update({
-        pago:   novoStatus,
-        pagoEm: pagar ? firebase.firestore.FieldValue.serverTimestamp() : null,
-      });
-    }
+    await db.collection('compras_financeiro').doc(id).update({
+      pago:   novoStatus,
+      pagoEm: pagar ? firebase.firestore.FieldValue.serverTimestamp() : null,
+    });
+    // Frete também mostra o próprio status de pagamento no módulo Fretes —
+    // propaga pra lá também (sem efeito pra Suprimentos/Passagens).
+    await _syncFinanceiroParaOrigem(reg, novoStatus, pagar ? Number(reg.valor) || 0 : 0);
     showToast(pagar ? '✅ Marcado como pago!' : '↩️ Marcado como pendente!');
     // Atualiza badge
     const badge = document.getElementById('fin-badge-pendentes');

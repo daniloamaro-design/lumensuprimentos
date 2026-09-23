@@ -885,6 +885,32 @@ async function _syncFinanceiroLancar({ pedidoRef, pedidoId, fornecedor, forneced
 }
 window._syncFinanceiroLancar = _syncFinanceiroLancar;
 
+// Sentido inverso de _syncFinanceiroLancar: quando um lançamento é marcado
+// pago (ou tem o valor parcial alterado) DENTRO do Financeiro — Pagamentos,
+// Conciliação Financeira ou Saldo Devedor —, propaga pro registro de origem.
+// Só Fretes precisa disso: é o único módulo que também mostra o próprio
+// status de pagamento nas suas telas (statusPag/valorPago do frete). Pedidos
+// e passagens não têm status de pagamento próprio — compras_financeiro já é
+// a fonte única pra eles, nada a propagar de volta.
+async function _syncFinanceiroParaOrigem(reg, pago, valorPago) {
+  if (!reg || reg.modulo !== 'frete' || !reg.pedidoId) return;
+  try {
+    const novoValorPago = pago === 'Sim' ? (Number(reg.valor) || 0) : (Number(valorPago) || 0);
+    await db.collection('fretes').doc(reg.pedidoId).update({
+      statusPag: pago === 'Sim' ? 'pago' : 'pendente',
+      valorPago: novoValorPago,
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+    });
+    if (typeof _fretesCache !== 'undefined') {
+      const f = _fretesCache.find(x => x.id === reg.pedidoId);
+      if (f) { f.statusPag = pago === 'Sim' ? 'pago' : 'pendente'; f.valorPago = novoValorPago; }
+    }
+  } catch (e) {
+    console.warn('_syncFinanceiroParaOrigem falhou (não bloqueia o fluxo principal):', reg.pedidoId, e);
+  }
+}
+window._syncFinanceiroParaOrigem = _syncFinanceiroParaOrigem;
+
 async function sincronizarSistema() {
   if (!confirm(
     '🔗 SINCRONIZAÇÃO DO SISTEMA\n\n' +
