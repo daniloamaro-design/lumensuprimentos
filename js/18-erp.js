@@ -114,10 +114,16 @@ function frtMesDaData(v) { // 'YYYY-MM' a partir do campo data/created_at do fre
   const m = String(v).match(/^(\d{4})-(\d{2})/);
   return m ? `${m[1]}-${m[2]}` : '';
 }
-function frtBadgePag(sp) {
-  const map = { pago: ['✅ Pago', 'var(--ok,#16a34a)'], pendente: ['⏳ Pendente', 'var(--warn,#d97706)'], parcial: ['◑ Parcial', 'var(--lumen)'], cancelado: ['❌ Cancelado', '#DC2626'] };
-  const [txt, cor] = map[sp] || ['—', 'var(--text-muted)'];
-  return `<span style="font-weight:600;color:${cor};">${txt}</span>`;
+// "Parcial" não é um status à parte — é "pendente" com valorPago > 0. Sem
+// terceiro estado, só a anotação de quanto já foi pago (mais simples de
+// filtrar e de somar no saldo devedor). 'parcial' no map fica só por
+// compatibilidade com dado antigo que porventura ainda tenha esse valor.
+function frtBadgePag(sp, valorPago, valor) {
+  if (sp === 'pago') return '<span style="font-weight:600;color:var(--ok,#16a34a);">✅ Pago</span>';
+  if (sp === 'cancelado') return '<span style="font-weight:600;color:#DC2626;">❌ Cancelado</span>';
+  const vp = Number(valorPago) || 0;
+  if (vp > 0) return `<span style="font-weight:600;color:var(--lumen);">◑ Pendente — ${frtBRL(vp)} de ${frtBRL(valor)} pago</span>`;
+  return '<span style="font-weight:600;color:var(--warn,#d97706);">⏳ Pendente</span>';
 }
 // Situação do frete (fluxo: solicitado → [aguardando_conferencia] → transporte → entregue; ou cancelado)
 function frtStatusBadge(s) {
@@ -178,6 +184,9 @@ function renderFrtLista() {
 
   const sort = document.getElementById('frt-sort')?.value || 'data-desc';
   const listaSemSituacao = _fretesCache.filter(f => {
+    // Cancelado nunca entra num filtro de pagamento (não há dívida real a
+    // cobrar) — mesmo se algum dado antigo ficar com status_pag desalinhado.
+    if (fpag && fpag !== 'cancelado' && f.status === 'cancelado') return false;
     if (fpag && (f.statusPag || '') !== fpag) return false;
     if (ffret && (f.freteiroNome || '') !== ffret) return false;
     if (fmes && frtMesDaData(f.data || f.createdAt) !== fmes) return false;
@@ -214,7 +223,10 @@ function renderFrtLista() {
   // KPIs (exclui cancelados dos totais financeiros)
   const listaFin = lista.filter(f => f.status !== 'cancelado');
   const total = listaFin.reduce((s, f) => s + (Number(f.valor) || 0), 0);
-  const pago = listaFin.filter(f => f.statusPag === 'pago').reduce((s, f) => s + (Number(f.valor) || 0), 0);
+  // Pagamento parcial conta o que já foi pago (valorPago), não zero — senão
+  // o "Pendente" do topo ficava maior que o real assim que alguém pagasse
+  // só uma parte do frete.
+  const pago = listaFin.reduce((s, f) => s + (f.statusPag === 'pago' ? (Number(f.valor) || 0) : (Number(f.valorPago) || 0)), 0);
   const pend = total - pago;
   document.getElementById('frt-kpi-qtd').textContent = lista.length;
   document.getElementById('frt-kpi-total').textContent = frtBRL(total);
@@ -235,7 +247,7 @@ function renderFrtLista() {
       <td>${frtEsc(f.freteiroNome || '—')}</td>
       <td style="max-width:280px;">${frtEsc(f.origem || '—')} <span style="color:var(--text-muted);">→</span> ${frtEsc(f.destino || '—')}</td>
       <td style="text-align:right;">${f.valor > 0 ? frtBRL(f.valor) : '<span style="color:var(--warn);font-size:12px;">a informar</span>'}</td>
-      <td>${frtStatusBadge(f.status)}<br><span style="font-size:11px;">${frtBadgePag(f.statusPag)}</span></td>
+      <td>${frtStatusBadge(f.status)}<br><span style="font-size:11px;">${frtBadgePag(f.statusPag, f.valorPago, f.valor)}</span></td>
       <td style="text-align:right;white-space:nowrap;">
         <button class="btn btn-outline btn-sm" onclick="abrirFreteDetalhe('${f.id}')">Ver</button>
         ${f.statusPag !== 'pago' && f.status !== 'cancelado' ? `<button class="btn btn-secondary btn-sm" onclick="frtMarcarPago('${f.id}')">Marcar pago</button>` : ''}
@@ -539,7 +551,7 @@ function abrirFreteDetalhe(id) {
       ${linha('Data', frtDataBR(f.data || f.createdAt))}
       ${linha('Freteiro', frtEsc(f.freteiroNome || '— (a definir)'))}
       ${linha('Valor', f.valor > 0 ? frtBRL(f.valor) : '<span style="color:var(--warn);">— (a informar)</span>')}
-      ${linha('Pagamento', frtBadgePag(f.statusPag) + (Number(f.valorPago) ? ` (${frtBRL(f.valorPago)})` : ''))}
+      ${linha('Pagamento', frtBadgePag(f.statusPag, f.valorPago, f.valor))}
       ${linha('Previsão de entrega', f.previsaoEntrega ? frtDataBR(f.previsaoEntrega) + (f.previsaoEstimada ? ' <span style="color:var(--text-muted);font-size:11px;">(estimada)</span>' : '') : '— (não informada)')}
     </div>
     ${linhaCumprimento}
@@ -571,7 +583,7 @@ function frtSincronizarFinanceiro(id) {
     pedidoRef: f.code, pedidoId: id,
     fornecedor: f.freteiroNome, fornecedorId: f.freteiroId || '',
     classificacao: 'Frete', destinatario: f.destino || '',
-    valor: Number(f.valor), pago: f.statusPag === 'pago' ? 'Sim' : '',
+    valor: Number(f.valor), pago: f.statusPag === 'pago' ? 'Sim' : '', valorPago: Number(f.valorPago) || 0,
     modulo: 'frete', dataRef: f.data ? new Date(f.data + 'T00:00:00').getTime() : Date.now(),
   }).catch(e => console.warn('sync financeiro (frete):', e));
 }
@@ -953,20 +965,37 @@ window.abrirAvaliacaoFrete = abrirAvaliacaoFrete;
 window.frtSetEstrela = frtSetEstrela;
 window.salvarAvaliacaoFrete = salvarAvaliacaoFrete;
 
+// Aceita pagamento total ou parcial — sem um terceiro status "Parcial"
+// separado: enquanto não quitar 100%, o frete continua "pendente", só que
+// com o valor já pago acumulado (valorPago). O badge mostra esse progresso.
 async function frtMarcarPago(id, fecharModalDepois) {
   const f = _fretesCache.find(x => x.id === id);
   if (!f) return;
-  if (!confirm(`Marcar o frete ${f.code || ''} como PAGO (${frtBRL(f.valor)})?`)) return;
+  const valorTotal = Number(f.valor) || 0;
+  const jaPago = Number(f.valorPago) || 0;
+  const faltante = Math.max(0, valorTotal - jaPago);
+  const digitado = prompt(
+    `Valor pago agora (frete ${f.code || ''})${jaPago > 0 ? `\nJá pago: ${frtBRL(jaPago)} de ${frtBRL(valorTotal)} — falta ${frtBRL(faltante)}` : `\nValor do frete: ${frtBRL(valorTotal)}`}`,
+    faltante.toFixed(2)
+  );
+  if (digitado == null) return; // cancelou o prompt
+  const valorAgora = Number(String(digitado).replace(',', '.'));
+  if (!(valorAgora > 0)) return showToast('⚠️ Informe um valor válido.');
+
+  const novoValorPago = Math.min(valorTotal, jaPago + valorAgora);
+  const quitado = novoValorPago >= valorTotal - 0.005;
   try {
     await db.collection('fretes').doc(id).update({
-      statusPag: 'pago',
-      valorPago: Number(f.valor) || 0,
+      statusPag: quitado ? 'pago' : 'pendente',
+      valorPago: novoValorPago,
       updatedBy: (typeof currentUserData !== 'undefined' && currentUserData?.name) || null,
       updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
     });
-    f.statusPag = 'pago'; f.valorPago = Number(f.valor) || 0;
+    f.statusPag = quitado ? 'pago' : 'pendente'; f.valorPago = novoValorPago;
     frtSincronizarFinanceiro(id);
-    showToast('✅ Frete marcado como pago.');
+    showToast(quitado
+      ? '✅ Frete marcado como pago.'
+      : `✅ Pagamento parcial registrado: ${frtBRL(novoValorPago)} de ${frtBRL(valorTotal)}.`);
     if (fecharModalDepois) closeModal('modal-frete-detalhe');
     renderFrtLista();
   } catch (e) { console.error(e); showToast('❌ Erro ao atualizar: ' + e.message); }

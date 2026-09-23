@@ -853,15 +853,20 @@ const MESES_PT = ['JANEIRO','FEVEREIRO','MARÇO','ABRIL','MAIO','JUNHO',
 // se for esse o caso (ex.: frtMarcarPago chamando de novo depois de já
 // criado). Nunca lança exceção pro chamador — é sempre best-effort, o fluxo
 // principal (salvar o pedido/passagem/frete) não pode travar por isso.
-async function _syncFinanceiroLancar({ pedidoRef, pedidoId, fornecedor, fornecedorId, classificacao, destinatario, valor, pago, modulo, dataRef }) {
+async function _syncFinanceiroLancar({ pedidoRef, pedidoId, fornecedor, fornecedorId, classificacao, destinatario, valor, pago, valorPago, modulo, dataRef }) {
   if (!pedidoRef || !(Number(valor) > 0)) return;
   try {
     const existSnap = await db.collection('compras_financeiro').where('pedidoRef','==',pedidoRef).limit(1).get();
     if (!existSnap.empty) {
       const doc = existSnap.docs[0];
-      if (pago === 'Sim' && doc.data().pago !== 'Sim') {
-        await db.collection('compras_financeiro').doc(doc.id).update({ pago: 'Sim' });
-      }
+      const atual = doc.data();
+      const upd = {};
+      if (pago === 'Sim' && atual.pago !== 'Sim') upd.pago = 'Sim';
+      // Pagamento parcial mudou (ex.: frete recebeu mais um pagamento) —
+      // atualiza mesmo sem quitar de vez, senão o saldo devedor fica preso
+      // no valor da primeira sincronização pra sempre.
+      if (pago !== 'Sim' && Number(valorPago || 0) !== Number(atual.valorPago || 0)) upd.valorPago = Number(valorPago) || 0;
+      if (Object.keys(upd).length) await db.collection('compras_financeiro').doc(doc.id).update(upd);
       return;
     }
     const ref = new Date(dataRef || Date.now());
@@ -869,7 +874,8 @@ async function _syncFinanceiroLancar({ pedidoRef, pedidoId, fornecedor, forneced
       fornecedor: fornecedor || '', fornecedorId: fornecedorId || '',
       classificacao: classificacao || '', destinatario: destinatario || '',
       mes: MESES_PT[ref.getMonth()], ano: ref.getFullYear(), dataCompraSerial: ref.getTime(),
-      valor: Number(valor), pago: pago || '', pedidoRef, pedidoId: pedidoId || '', modulo,
+      valor: Number(valor), pago: pago || '', valorPago: Number(valorPago) || 0,
+      pedidoRef, pedidoId: pedidoId || '', modulo,
       obs: `Lançado automaticamente — ${pedidoRef}`,
       createdAt: firebase.firestore.FieldValue.serverTimestamp(),
     });

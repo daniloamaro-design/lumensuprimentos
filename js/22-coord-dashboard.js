@@ -516,7 +516,9 @@ function _cdAgregarFinanceiro(fin, modulo, suppliers) {
     const alvo = porFornecedor[chave] || (porFornecedor[chave] = { nome: nomeExibicao, pedido: 0, pago: 0 });
     const valor = Number(f.valor) || 0;
     alvo.pedido += valor;
-    if (f.pago === 'Sim') alvo.pago += valor;
+    // pago='Sim' é quitação total; valorPago é o parcial (0 pros lançamentos
+    // binários antigos, que não tinham esse campo) — nunca os dois juntos.
+    alvo.pago += f.pago === 'Sim' ? valor : Math.min(valor, Number(f.valorPago) || 0);
   });
   return _cdOrdenarSaldo(porFornecedor);
 }
