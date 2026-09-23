@@ -757,29 +757,42 @@ async function coordConcProcessar() {
   const soNaPlanilha = [];
 
   Object.values(porFornecedor).forEach(grupo => {
-    // Abertos do sistema que resolvem pro MESMO fornecedor (usa o mesmo
-    // resolvedor nos dois lados — cobre o texto livre histórico de
-    // compras_financeiro.fornecedor, que nem sempre bate com o nome do
-    // cadastro, ex.: "SKYLINE TOUR VIAGENS LTDA" → resolve pra "Skyline").
-    const abertosSistema = fin.filter(f => {
-      if (f.pago === 'Sim') return false;
+    // Tudo que resolve pro MESMO fornecedor (usa o mesmo resolvedor dos dois
+    // lados — cobre o texto livre histórico de compras_financeiro.fornecedor,
+    // que nem sempre bate com o nome do cadastro, ex.: "SKYLINE TOUR VIAGENS
+    // LTDA" → resolve pra "Skyline"), pago ou não.
+    const todosSistema = fin.filter(f => {
       if (f.fornecedorId) return f.fornecedorId === grupo.supplier.id;
       const r = _cdResolverFornecedor(f.fornecedor, null, suppliers, resolvidosManual);
       return r && r.id === grupo.supplier.id;
     });
-    // Casamento por valor (dentro do mesmo fornecedor) — data não é chave
-    // rígida (formatos diferentes entre planilha e sistema); o que importa
-    // pro saldo é o valor total baixado, não qual linha específica "é" qual.
-    const restante = abertosSistema.slice();
+    const abertosSistema = todosSistema.filter(f => f.pago !== 'Sim');
+
+    // "Só na planilha" (genuinamente faltando) casa contra TODOS os
+    // lançamentos, pagos incluídos — senão uma linha cujo lançamento já foi
+    // marcado como pago (ex.: planilha antiga sendo reprocessada) parecia
+    // "sumida do sistema" e virava um lançamento NOVO duplicado do que já
+    // existe, só que em aberto de novo. Casamento por valor (dentro do mesmo
+    // fornecedor) — data não é chave rígida (formatos diferentes entre
+    // planilha e sistema); o que importa pro saldo é o valor total baixado.
+    const restanteTodos = todosSistema.slice();
     grupo.linhas.forEach(l => {
-      const i = restante.findIndex(f => Math.abs((Number(f.valor) || 0) - l.valor) < 0.01);
-      if (i > -1) restante.splice(i, 1);
+      const i = restanteTodos.findIndex(f => Math.abs((Number(f.valor) || 0) - l.valor) < 0.01);
+      if (i > -1) restanteTodos.splice(i, 1);
       else soNaPlanilha.push({
         fornecedor: grupo.supplier.nome, fornecedorId: grupo.supplier.id, tipos: grupo.supplier.tipos || [],
         descricao: l.descricao, valor: l.valor, vencimento: l.vencimento, competencia: l.competencia,
       });
     });
-    restante.forEach(f => propostosPagar.push({ id: f.id, fornecedor: grupo.supplier.nome, descricao: f.destinatario || f.pedidoRef || '—', valor: Number(f.valor) || 0, vencimento: f.vencimentoStr || '—', modulo: f.modulo, pedidoId: f.pedidoId }));
+
+    // "Proposto pra pagar" (sumiu da planilha = já foi pago) casa só contra
+    // os ainda EM ABERTO — essa parte não muda.
+    const restanteAbertos = abertosSistema.slice();
+    grupo.linhas.forEach(l => {
+      const i = restanteAbertos.findIndex(f => Math.abs((Number(f.valor) || 0) - l.valor) < 0.01);
+      if (i > -1) restanteAbertos.splice(i, 1);
+    });
+    restanteAbertos.forEach(f => propostosPagar.push({ id: f.id, fornecedor: grupo.supplier.nome, descricao: f.destinatario || f.pedidoRef || '—', valor: Number(f.valor) || 0, vencimento: f.vencimentoStr || '—', modulo: f.modulo, pedidoId: f.pedidoId }));
   });
 
   _coordConc.propostosPagar = propostosPagar;
@@ -920,6 +933,16 @@ function _cdParseDataBR(s) {
   return m ? new Date(+m[3], +m[2]-1, +m[1]) : null;
 }
 
+// A "Descrição" da Visão Contas a Pagar vem tipo "SKYLINE TOUR VIAGENS
+// LTDA - Alexsander Monte de Lima - VISITAR A FAMILIA - Pedido dia
+// 22/07/2026" — o 2º pedaço (depois do nome do fornecedor) é o nome do
+// passageiro/beneficiário. Sem isso a coluna Casa/Destinatário ficava
+// sempre "—" nos lançamentos criados por aqui.
+function _cdExtrairDestinatario(descricao) {
+  const partes = String(descricao || '').split(' - ').map(s => s.trim()).filter(Boolean);
+  return partes.length >= 2 ? partes[1] : (descricao || '');
+}
+
 // Lança como pendente ("em aberto") todo item que está na planilha do
 // financeiro mas ainda não tinha lançamento correspondente no sistema — sem
 // isso o Saldo Devedor ficava sistematicamente pra menos (só refletia o que
@@ -943,6 +966,7 @@ async function coordConcCriarSoNaPlanilha() {
         fornecedor: l.fornecedor,
         fornecedorId: l.fornecedorId || '',
         classificacao,
+        destinatario: _cdExtrairDestinatario(l.descricao),
         mes: MESES_PT[dataComp.getMonth()],
         ano: dataComp.getFullYear(),
         dataCompraSerial: dataComp.getTime(),
