@@ -282,7 +282,7 @@ function finRenderizarTabela(dados) {
       : '<span style="color:var(--text-muted);font-size:11px;">—</span>';
     const rowBg = !isPago && d.vencimentoSerial && d.vencimentoSerial < (Date.now()/86400000 + 25569) ? 'background:rgba(198,40,40,0.07);' : '';
     return `<tr style="${rowBg}">
-      <td style="font-weight:700;">${d.fornecedor||'—'} <button onclick="finAbrirEdicaoLancamento('${d.id}')" title="Editar lançamento" style="background:none;border:none;cursor:pointer;opacity:.55;font-size:12px;padding:0 2px;">✏️</button></td>
+      <td style="font-weight:700;">${d.fornecedor||'—'} <button onclick="finAbrirEdicaoLancamento('${d.id}')" title="Editar lançamento" style="background:var(--surface);border:1px solid var(--border);border-radius:5px;cursor:pointer;font-size:13px;padding:2px 6px;vertical-align:middle;">✏️ Editar</button></td>
       <td><span class="block-badge">${d.classificacao||'—'}</span></td>
       <td>${d.destinatario||'—'}</td>
       <td style="font-size:11px;color:var(--text-muted);">${d.mes||''}/${d.ano||''}</td>
@@ -1331,7 +1331,7 @@ function pagRenderizarTabela() {
 
     return `<tr id="pag-row-${d.id}" style="${rowBg}">
       <td style="padding:8px 12px;"><input type="checkbox" ${checked} onchange="pagToggleCheck('${d.id}',this.checked)"></td>
-      <td style="font-weight:700;white-space:nowrap;">${d.fornecedor||'—'} <button onclick="finAbrirEdicaoLancamento('${d.id}')" title="Editar lançamento" style="background:none;border:none;cursor:pointer;opacity:.55;font-size:12px;padding:0 2px;">✏️</button></td>
+      <td style="font-weight:700;white-space:nowrap;">${d.fornecedor||'—'} <button onclick="finAbrirEdicaoLancamento('${d.id}')" title="Editar lançamento" style="background:var(--surface);border:1px solid var(--border);border-radius:5px;cursor:pointer;font-size:13px;padding:2px 6px;vertical-align:middle;">✏️ Editar</button></td>
       <td><span class="block-badge">${d.classificacao||'—'}</span></td>
       <td style="font-size:12px;">${d.destinatario||'—'}</td>
       <td style="font-size:11px;color:var(--text-muted);white-space:nowrap;">${d.mes||''}/${d.ano||''}</td>
