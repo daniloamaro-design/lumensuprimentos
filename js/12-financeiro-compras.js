@@ -155,6 +155,11 @@ async function finCarregarDados() {
     // Fretes entra junto (linhas já no mesmo formato, ver finCarregarResumoFretes) —
     // assim o filtro Módulo=Frete passa a valer pra tabela/gráficos/exportação também.
     finDados = snap.docs.map(d => ({ id: d.id, ...d.data() })).concat(finFretesLinhas);
+    // Precisa dos fornecedores carregados ANTES de popular/filtrar por nome
+    // resolvido — sem isso "Grandes Viagens" e "GRANDES VIAGENS TURISMO LTDA"
+    // aparecem como opções (e filtros) separados, mesmo já sendo o mesmo
+    // fornecedor no Saldo Devedor.
+    await _caGarantirFornecedores();
     finPopularFiltrosDinamicos();
     finAplicarFiltros();
   } catch(e) {
@@ -178,8 +183,16 @@ match /compras_financeiro/{doc} {<br>
   }
 }
 
+// Nome resolvido (cadastro canônico via CNPJ/apelidos/aliases — mesma lógica
+// do Saldo Devedor, _cdNomeResolvido em js/22-coord-dashboard.js) por trás de
+// cada texto livre gravado em compras_financeiro.fornecedor. Sem isso, cada
+// grafia diferente do mesmo fornecedor vira uma opção de filtro separada.
+function _finNomeResolvido(nomeTexto) {
+  return typeof _cdNomeResolvido === 'function' ? _cdNomeResolvido(nomeTexto, suppliersCache || []) : nomeTexto;
+}
+
 function finPopularFiltrosDinamicos() {
-  const forns = [...new Set(finDados.map(d => d.fornecedor).filter(Boolean))].sort();
+  const forns = [...new Set(finDados.map(d => _finNomeResolvido(d.fornecedor)).filter(Boolean))].sort();
   const casas  = [...new Set(finDados.map(d => d.destinatario).filter(Boolean))].sort();
 
   const selF = document.getElementById('fin-filtro-forn');
@@ -204,7 +217,7 @@ function finFiltrarBase(dados, { semModulo } = {}) {
   return dados.filter(d => {
     if (mes  && d.mes  !== mes)  return false;
     if (ano  && String(d.ano) !== String(ano)) return false;
-    if (forn && d.fornecedor  !== forn)  return false;
+    if (forn && _finNomeResolvido(d.fornecedor) !== forn) return false;
     if (casa && d.destinatario !== casa) return false;
     if (cls  && d.classificacao !== cls)  return false;
     if (pago === 'Sim' && !FIN_PAGO(d.pago)) return false;
@@ -1195,8 +1208,8 @@ let pagSelecionados   = new Set();
 
 // Chamado ao abrir a página (depois de finCarregarDados)
 function pagInicializar() {
-  // Popula filtro de fornecedor
-  const forns = [...new Set(finDados.map(d => d.fornecedor).filter(Boolean))].sort();
+  // Popula filtro de fornecedor (nome resolvido — ver _finNomeResolvido)
+  const forns = [...new Set(finDados.map(d => _finNomeResolvido(d.fornecedor)).filter(Boolean))].sort();
   const selF  = document.getElementById('pag-filtro-forn');
   if (selF) selF.innerHTML = '<option value="">Todos</option>' + forns.map(f => `<option>${f}</option>`).join('');
 
@@ -1253,7 +1266,7 @@ function pagFiltrar() {
   const hoje   = Date.now() / 86400000 + 25569;
 
   pagDadosFiltrados = finDados.filter(d => {
-    if (forn && d.fornecedor !== forn) return false;
+    if (forn && _finNomeResolvido(d.fornecedor) !== forn) return false;
     if (mes  && d.mes !== mes)         return false;
     if (ano  && String(d.ano) !== ano) return false;
     if (status === 'pendente') return !FIN_PAGO(d.pago);
