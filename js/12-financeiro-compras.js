@@ -1637,9 +1637,9 @@ function pagExportarPdfDetalhado(){
 
 // ─────────────────────────────────────────────
 // 💰 SALDO DEVEDOR (aba dentro do Financeiro) — mesma lógica de agregação
-// do Painel do Coordenador (_cdAgregarFinanceiro/_cdAgregarFretes/
-// _cdRenderSaldoTabela, definidas em js/22-coord-dashboard.js), só que
-// escrevendo nos ids fin-saldo-* desta página em vez de coord-saldo-*.
+// do Painel do Coordenador (_cdAgregarFinanceiro/_cdRenderSaldoTabela,
+// definidas em js/22-coord-dashboard.js), só que escrevendo nos ids
+// fin-saldo-* desta página em vez de coord-saldo-*.
 // ─────────────────────────────────────────────
 async function finCarregarSaldoDevedor() {
   ['fin-saldo-suprimentos', 'fin-saldo-passagens', 'fin-saldo-fretes'].forEach(id => {
@@ -1647,18 +1647,19 @@ async function finCarregarSaldoDevedor() {
     if (tb) tb.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:20px;color:var(--text-muted);">Carregando…</td></tr>';
   });
   try {
-    const [finSnap, fretesSnap, supSnap] = await Promise.all([
+    const [finSnap, supSnap] = await Promise.all([
       db.collection('compras_financeiro').get(),
-      db.collection('fretes').get(),
       db.collection('suppliers').get(),
     ]);
-    const fin = finSnap.docs.map(d => d.data());
-    const fretes = fretesSnap.docs.map(d => d.data());
+    const fin = finSnap.docs.map(d => ({ id: d.id, ...d.data() }));
     const suppliers = supSnap.docs.map(d => d.data());
     const limitesPorFornecedor = _cdMapaLimites(suppliers);
+    _cdRegistrarContextoSaldo('fin-saldo-suprimentos', fin, suppliers, 'suprimentos');
+    _cdRegistrarContextoSaldo('fin-saldo-passagens', fin, suppliers, 'passagens');
+    _cdRegistrarContextoSaldo('fin-saldo-fretes', fin, suppliers, 'frete');
     _cdRenderSaldoTabela('fin-saldo-suprimentos', _cdAgregarFinanceiro(fin, 'suprimentos', suppliers), limitesPorFornecedor);
     _cdRenderSaldoTabela('fin-saldo-passagens', _cdAgregarFinanceiro(fin, 'passagens', suppliers), limitesPorFornecedor);
-    _cdRenderSaldoTabela('fin-saldo-fretes', _cdAgregarFretes(fretes, suppliers), limitesPorFornecedor);
+    _cdRenderSaldoTabela('fin-saldo-fretes', _cdAgregarFinanceiro(fin, 'frete', suppliers), limitesPorFornecedor);
   } catch (e) {
     console.error('finCarregarSaldoDevedor', e);
     ['fin-saldo-suprimentos', 'fin-saldo-passagens', 'fin-saldo-fretes'].forEach(id => {

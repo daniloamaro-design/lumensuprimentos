@@ -438,10 +438,13 @@ async function initCoordSaldo() {
       db.collection('compras_financeiro').get(),
       db.collection('suppliers').get(),
     ]);
-    const fin = finSnap.docs.map(d => d.data());
+    const fin = finSnap.docs.map(d => ({ id: d.id, ...d.data() }));
     const suppliers = supSnap.docs.map(d => d.data());
     const limitesPorFornecedor = _cdMapaLimites(suppliers);
 
+    _cdRegistrarContextoSaldo('coord-saldo-suprimentos', fin, suppliers, 'suprimentos');
+    _cdRegistrarContextoSaldo('coord-saldo-passagens', fin, suppliers, 'passagens');
+    _cdRegistrarContextoSaldo('coord-saldo-fretes', fin, suppliers, 'frete');
     _cdRenderSaldoTabela('coord-saldo-suprimentos', _cdAgregarFinanceiro(fin, 'suprimentos', suppliers), limitesPorFornecedor);
     _cdRenderSaldoTabela('coord-saldo-passagens', _cdAgregarFinanceiro(fin, 'passagens', suppliers), limitesPorFornecedor);
     _cdRenderSaldoTabela('coord-saldo-fretes', _cdAgregarFinanceiro(fin, 'frete', suppliers), limitesPorFornecedor);
@@ -533,12 +536,48 @@ function _cdSaldoGoToPage(tbodyId, p) {
 }
 window._cdSaldoGoToPage = _cdSaldoGoToPage;
 
+// tbodyId -> { finRaw (compras_financeiro com id, do carregamento mais
+// recente), suppliers, modulo } — guardado à parte da tabela já agregada
+// pra "Marcar tudo como pago" achar exatamente quais lançamentos crus
+// pertencem àquele fornecedor+módulo na hora do clique, sem re-buscar tudo.
+let _cdSaldoContexto = {};
+function _cdRegistrarContextoSaldo(tbodyId, finRaw, suppliers, modulo) {
+  _cdSaldoContexto[tbodyId] = { finRaw, suppliers, modulo };
+}
+
+// Marca como pago TODO lançamento em aberto de um fornecedor (dentro do
+// módulo daquela tabela) de uma vez — pro caso de o financeiro ter quitado
+// 100% da dívida mas esse fornecedor não aparecer em planilha nenhuma
+// (nada a conciliar, então a Conciliação Financeira não serve pra isso).
+async function coordSaldoMarcarFornecedorPago(tbodyId, fornecedorNome) {
+  const ctx = _cdSaldoContexto[tbodyId];
+  if (!ctx) return;
+  const abertos = ctx.finRaw.filter(f =>
+    (f.modulo || 'suprimentos') === ctx.modulo &&
+    f.pago !== 'Sim' &&
+    _cdNomeResolvido(f.fornecedor, ctx.suppliers) === fornecedorNome
+  );
+  if (!abertos.length) return showToast('Nada em aberto pra esse fornecedor.');
+  const total = abertos.reduce((s, f) => s + (Number(f.valor) || 0), 0);
+  if (!confirm(`Marcar TODO o saldo de "${fornecedorNome}" como pago?\n\n${abertos.length} lançamento(s), totalizando ${_cd.BRL(total)}.`)) return;
+  let ok = 0, erro = 0;
+  for (const f of abertos) {
+    try { await db.collection('compras_financeiro').doc(f.id).update({ pago: 'Sim' }); ok++; }
+    catch (e) { console.error('coordSaldoMarcarFornecedorPago', f, e); erro++; }
+  }
+  showToast(erro ? `⚠️ ${ok} marcado(s), ${erro} com erro.` : `✅ ${ok} lançamento(s) marcado(s) como pago.`);
+  if (typeof initCoordSaldo === 'function' && document.getElementById('coord-saldo-suprimentos')) initCoordSaldo();
+  if (typeof finCarregarSaldoDevedor === 'function' && document.getElementById('fin-saldo-suprimentos')) finCarregarSaldoDevedor();
+}
+window.coordSaldoMarcarFornecedorPago = coordSaldoMarcarFornecedorPago;
+
 function _cdRenderSaldoTabela(tbodyId, linhas, limitesPorFornecedor) {
   const tbody = document.getElementById(tbodyId);
   if (!tbody) return;
   _cdSaldoLinhasCache[tbodyId] = { linhas, limitesPorFornecedor };
+  const temContexto = !!_cdSaldoContexto[tbodyId];
   if (!linhas.length) {
-    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:20px;color:var(--text-muted);">Nenhum lançamento encontrado.</td></tr>';
+    tbody.innerHTML = `<tr><td colspan="${temContexto?7:6}" style="text-align:center;padding:20px;color:var(--text-muted);">Nenhum lançamento encontrado.</td></tr>`;
     return;
   }
   const mapa = limitesPorFornecedor || {};
@@ -549,6 +588,8 @@ function _cdRenderSaldoTabela(tbodyId, linhas, limitesPorFornecedor) {
     // Saldo negativo (pagamos mais do que devemos) não "libera" limite negativo — trava em 0%.
     const pct = limite > 0 ? Math.max(0, l.saldo) / limite * 100 : null;
     const corPct = pct === null ? '' : pct >= 90 ? 'color:var(--danger,#dc2626);' : pct >= 50 ? 'color:#d97706;' : '';
+    const nomeAttr = frtEsc(l.fornecedor).replace(/'/g, '&#39;');
+    const acao = !temContexto ? '' : `<td style="text-align:right;">${(!destaque && l.saldo > 0.005) ? `<button class="btn btn-outline btn-sm" onclick="coordSaldoMarcarFornecedorPago('${tbodyId}','${nomeAttr}')">💰 Marcar tudo pago</button>` : ''}</td>`;
     return `
     <tr${destaque ? ' style="border-top:2px solid var(--border);font-weight:700;"' : ''}>
       <td>${frtEsc(l.fornecedor)}</td>
@@ -557,6 +598,7 @@ function _cdRenderSaldoTabela(tbodyId, linhas, limitesPorFornecedor) {
       <td style="text-align:right;font-weight:${destaque ? 700 : 600};${l.saldo > 0.005 ? 'color:var(--danger,#dc2626);' : ''}">${_cd.BRL(l.saldo)}</td>
       <td style="text-align:right;">${destaque ? '' : (limite > 0 ? _cd.BRL(limite) : '<span style="color:var(--text-muted);">—</span>')}</td>
       <td style="text-align:right;font-weight:600;${corPct}">${destaque ? '' : (pct === null ? '<span style="color:var(--text-muted);">—</span>' : pct.toFixed(0) + '%')}</td>
+      ${acao}
     </tr>`;
   };
   const pagObjCd = paginar(linhas, _cdSaldoPages[tbodyId] || 1);
@@ -567,7 +609,7 @@ function _cdRenderSaldoTabela(tbodyId, linhas, limitesPorFornecedor) {
   const fnName = '_cdGoTo_' + tbodyId.replace(/[^a-zA-Z0-9_]/g, '_');
   window[fnName] = p => _cdSaldoGoToPage(tbodyId, p);
   tbody.innerHTML = pagObjCd.itens.map(l => linha(l, false)).join('')
-    + `<tr><td colspan="6" style="padding:0;">${paginacaoHTML(pagObjCd, fnName)}</td></tr>`
+    + `<tr><td colspan="${temContexto?7:6}" style="padding:0;">${paginacaoHTML(pagObjCd, fnName)}</td></tr>`
     + linha({ fornecedor: 'Total (todos)', ...totais }, true);
 }
 
