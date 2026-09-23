@@ -1183,18 +1183,34 @@ function pagInicializar() {
     badge.style.display = pendentes.length > 0 ? '' : 'none';
   }
 
-  pagAtualizarResumo();
-  pagFiltrar();
+  pagFiltrar(); // já chama pagAtualizarResumo() internamente
+}
+
+// Fornecedor/mês/ano em comum entre os cards de resumo (topo) e a tabela —
+// só a "Situação" (pendente/vencido/pago/todos) varia entre os dois, porque
+// os cards mostram sempre as 3 categorias fixas independente do que estiver
+// selecionado ali.
+function _pagBaseFiltrada() {
+  const forn = document.getElementById('pag-filtro-forn')?.value || '';
+  const mes  = document.getElementById('pag-filtro-mes')?.value  || '';
+  const ano  = document.getElementById('pag-filtro-ano')?.value  || '';
+  return finDados.filter(d => {
+    if (forn && _finNomeResolvido(d.fornecedor) !== forn) return false;
+    if (mes  && d.mes !== mes)         return false;
+    if (ano  && String(d.ano) !== ano) return false;
+    return true;
+  });
 }
 
 function pagAtualizarResumo() {
   const hoje = Date.now() / 86400000 + 25569; // hoje em serial Excel
   const mesAtual = new Date().toLocaleString('pt-BR', { month: 'long' }).toUpperCase();
   const anoAtual = new Date().getFullYear();
+  const base = _pagBaseFiltrada();
 
-  const pendentes = finDados.filter(d => !FIN_PAGO(d.pago));
+  const pendentes = base.filter(d => !FIN_PAGO(d.pago));
   const vencidos  = pendentes.filter(d => d.vencimentoSerial && d.vencimentoSerial < hoje);
-  const pagosMes  = finDados.filter(d => FIN_PAGO(d.pago) &&
+  const pagosMes  = base.filter(d => FIN_PAGO(d.pago) &&
     String(d.mes).toUpperCase() === mesAtual && parseInt(d.ano) === anoAtual);
 
   const el = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };
@@ -1222,15 +1238,9 @@ function pagAtualizarResumo() {
 
 function pagFiltrar() {
   const status = (document.getElementById('pag-filtro-status')?.value) || 'pendente';
-  const forn   = document.getElementById('pag-filtro-forn')?.value || '';
-  const mes    = document.getElementById('pag-filtro-mes')?.value  || '';
-  const ano    = document.getElementById('pag-filtro-ano')?.value  || '';
   const hoje   = Date.now() / 86400000 + 25569;
 
-  pagDadosFiltrados = finDados.filter(d => {
-    if (forn && _finNomeResolvido(d.fornecedor) !== forn) return false;
-    if (mes  && d.mes !== mes)         return false;
-    if (ano  && String(d.ano) !== ano) return false;
+  pagDadosFiltrados = _pagBaseFiltrada().filter(d => {
     if (status === 'pendente') return !FIN_PAGO(d.pago);
     if (status === 'vencido')  return !FIN_PAGO(d.pago) && d.vencimentoSerial && d.vencimentoSerial < hoje;
     if (status === 'pago')     return FIN_PAGO(d.pago);
@@ -1239,6 +1249,10 @@ function pagFiltrar() {
 
   pagSelecionados.clear();
   pagTabPage = 1;
+  // Os cards do topo (Total Pendente/Vencidos/Pago este mês) precisam
+  // reagir ao fornecedor/mês/ano também — sem isso ficavam presos no total
+  // geral mesmo com um fornecedor específico selecionado.
+  pagAtualizarResumo();
   pagRenderizarTabela();
 }
 
