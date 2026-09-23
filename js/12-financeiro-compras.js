@@ -1215,9 +1215,12 @@ function pagAtualizarResumo() {
 
   const el = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };
 
-  el('pag-s-pendente',   FMT_FIN(pendentes.reduce((s,d) => s+(parseFloat(d.valor)||0), 0)));
+  // Desconta pagamento parcial (valorPago) do que falta — senão um
+  // lançamento pago pela metade continuava contando o valor cheio como dívida.
+  const restante = d => Math.max(0, (parseFloat(d.valor)||0) - (parseFloat(d.valorPago)||0));
+  el('pag-s-pendente',   FMT_FIN(pendentes.reduce((s,d) => s+restante(d), 0)));
   el('pag-s-n-pend',     pendentes.length + ' lançamentos');
-  el('pag-s-vencido',    FMT_FIN(vencidos.reduce((s,d) => s+(parseFloat(d.valor)||0), 0)));
+  el('pag-s-vencido',    FMT_FIN(vencidos.reduce((s,d) => s+restante(d), 0)));
   el('pag-s-n-venc',     vencidos.length + ' vencidos');
   el('pag-s-pago-mes',   FMT_FIN(pagosMes.reduce((s,d) => s+(parseFloat(d.valor)||0), 0)));
   el('pag-s-n-pago-mes', pagosMes.length + ' lançamentos');
@@ -1284,6 +1287,7 @@ function pagRenderizarTabela() {
       ? `${d.vencimentoStr}${isVencido ? `<br><span style="color:var(--danger);font-size:10px;font-weight:700;">⚠️ ${diasVenc}d atrasado</span>` : ''}`
       : '—';
 
+    const valorPagoParcial = Number(d.valorPago) || 0;
     const statusBtn = isPago
       ? `<button onclick="finTogglePago('${d.id}',false)"
            style="background:var(--ok);color:#fff;border:none;border-radius:20px;padding:5px 14px;font-size:12px;font-weight:700;cursor:pointer;width:100%;">
@@ -1292,7 +1296,8 @@ function pagRenderizarTabela() {
       : `<button onclick="finTogglePago('${d.id}',true)"
            style="background:${isVencido?'var(--danger)':'var(--warn)'};color:#fff;border:none;border-radius:20px;padding:5px 14px;font-size:12px;font-weight:700;cursor:pointer;width:100%;">
            ${isVencido ? '🔴 Vencido — Pagar' : '⏳ Pendente — Pagar'}
-         </button>`;
+         </button>
+         ${valorPagoParcial > 0 ? `<div style="font-size:10px;color:var(--lumen);margin-top:3px;">${FMT_FIN(valorPagoParcial)} de ${FMT_FIN(d.valor)} pago</div>` : ''}`;
 
     const badgeSP = d.lancadoSP === 'Sim'
       ? '<span style="color:var(--ok);font-weight:700;font-size:12px;">✅ Sim</span>'
@@ -1380,27 +1385,59 @@ async function pagMarcarSelecionados(pagar) {
   }
 }
 
-// Toggle individual — usado no Painel E na aba Pagamentos
+// Toggle individual — usado no Painel E na aba Pagamentos.
+// Pagar (pagar=true) pergunta o valor pago agora — pode ser menor que o
+// total (pagamento parcial): o lançamento continua "em aberto", só que com
+// o valor acumulado marcado, até bater o total e virar "pago" sozinho.
+// Desfazer (pagar=false) sempre volta pra 100% em aberto, zerando o que
+// tiver sido pago (é o botão de "errei, desfaz tudo").
 async function finTogglePago(id, pagar) {
-  const novoStatus = pagar ? 'Sim' : '';
   const reg = finDados.find(d => d.id === id);
   if (!reg) return;
 
+  const pagoAntes = reg.pago;
+  const valorPagoAntes = Number(reg.valorPago) || 0;
+  let novoStatus, novoValorPago;
+
+  if (!pagar) {
+    novoStatus = '';
+    novoValorPago = 0;
+  } else {
+    const valorTotal = Number(reg.valor) || 0;
+    const faltante = Math.max(0, valorTotal - valorPagoAntes);
+    const digitado = prompt(
+      `Valor pago agora${reg.fornecedor ? ` (${reg.fornecedor})` : ''}:` +
+      (valorPagoAntes > 0
+        ? `\nJá pago: ${FMT_FIN(valorPagoAntes)} de ${FMT_FIN(valorTotal)} — falta ${FMT_FIN(faltante)}`
+        : `\nValor total: ${FMT_FIN(valorTotal)}`),
+      faltante.toFixed(2)
+    );
+    if (digitado == null) return; // cancelou o prompt
+    const valorAgora = Number(String(digitado).replace(',', '.'));
+    if (!(valorAgora > 0)) { showToast('⚠️ Informe um valor válido.'); return; }
+    novoValorPago = Math.min(valorTotal, valorPagoAntes + valorAgora);
+    novoStatus = novoValorPago >= valorTotal - 0.005 ? 'Sim' : '';
+  }
+  const quitado = novoStatus === 'Sim';
+
   // Feedback imediato
-  reg.pago = novoStatus;
+  reg.pago = novoStatus; reg.valorPago = novoValorPago;
   pagAtualizarResumo();
   pagFiltrar();
   finAplicarFiltros();
 
   try {
     await db.collection('compras_financeiro').doc(id).update({
-      pago:   novoStatus,
-      pagoEm: pagar ? firebase.firestore.FieldValue.serverTimestamp() : null,
+      pago:      novoStatus,
+      valorPago: novoValorPago,
+      pagoEm:    quitado ? firebase.firestore.FieldValue.serverTimestamp() : null,
     });
     // Frete também mostra o próprio status de pagamento no módulo Fretes —
     // propaga pra lá também (sem efeito pra Suprimentos/Passagens).
-    await _syncFinanceiroParaOrigem(reg, novoStatus, pagar ? Number(reg.valor) || 0 : 0);
-    showToast(pagar ? '✅ Marcado como pago!' : '↩️ Marcado como pendente!');
+    await _syncFinanceiroParaOrigem(reg, novoStatus, novoValorPago);
+    showToast(!pagar ? '↩️ Marcado como pendente!'
+      : quitado ? '✅ Marcado como pago!'
+      : `✅ Pagamento parcial registrado: ${FMT_FIN(novoValorPago)} de ${FMT_FIN(reg.valor)}.`);
     // Atualiza badge
     const badge = document.getElementById('fin-badge-pendentes');
     if (badge) {
@@ -1410,7 +1447,7 @@ async function finTogglePago(id, pagar) {
     }
   } catch(e) {
     // Reverte em caso de erro
-    reg.pago = pagar ? '' : 'Sim';
+    reg.pago = pagoAntes; reg.valorPago = valorPagoAntes;
     pagFiltrar();
     finAplicarFiltros();
     console.error(e);
