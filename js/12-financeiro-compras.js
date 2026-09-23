@@ -1177,7 +1177,13 @@ function pagPopularFiltroFornecedor() {
   const base = modulo ? finDados.filter(d => (d.modulo || 'suprimentos') === modulo) : finDados;
   const forns = [...new Set(base.map(d => _finNomeResolvido(d.fornecedor)).filter(Boolean))].sort();
   const selF = document.getElementById('pag-filtro-forn');
-  if (selF) selF.innerHTML = '<option value="">Todos</option>' + forns.map(f => `<option>${f}</option>`).join('');
+  if (!selF) return;
+  // Reescrever as <option> reseta a seleção pra "Todos" sozinho — preserva
+  // o que estava escolhido (ex.: ao salvar uma edição, que só chama isto
+  // de novo pro nome do fornecedor poder ter mudado).
+  const valorAtual = selF.value;
+  selF.innerHTML = '<option value="">Todos</option>' + forns.map(f => `<option>${f}</option>`).join('');
+  if (valorAtual && forns.includes(valorAtual)) selF.value = valorAtual;
 }
 
 // Trocar a categoria muda o universo de fornecedores válidos — se o
