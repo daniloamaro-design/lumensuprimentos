@@ -1168,12 +1168,33 @@ function finExportarExcel() {
 let pagDadosFiltrados = [];
 let pagSelecionados   = new Set();
 
+// Popula o filtro de Fornecedor só com quem tem lançamento na Categoria
+// selecionada (ou todos, se "Todas") — "escolher a categoria já pega todos
+// os fornecedores daquele setor" sem precisar filtrar fornecedor por
+// fornecedor. Nome resolvido — ver _finNomeResolvido.
+function pagPopularFiltroFornecedor() {
+  const modulo = document.getElementById('pag-filtro-modulo')?.value || '';
+  const base = modulo ? finDados.filter(d => (d.modulo || 'suprimentos') === modulo) : finDados;
+  const forns = [...new Set(base.map(d => _finNomeResolvido(d.fornecedor)).filter(Boolean))].sort();
+  const selF = document.getElementById('pag-filtro-forn');
+  if (selF) selF.innerHTML = '<option value="">Todos</option>' + forns.map(f => `<option>${f}</option>`).join('');
+}
+
+// Trocar a categoria muda o universo de fornecedores válidos — se o
+// fornecedor selecionado não pertence mais à categoria escolhida, volta pra
+// "Todos" em vez de manter um filtro que não bate com nada.
+function pagModuloMudou() {
+  const selF = document.getElementById('pag-filtro-forn');
+  const fornAtual = selF?.value || '';
+  pagPopularFiltroFornecedor();
+  if (fornAtual && selF && ![...selF.options].some(o => o.value === fornAtual)) selF.value = '';
+  pagFiltrar();
+}
+window.pagModuloMudou = pagModuloMudou;
+
 // Chamado ao abrir a página (depois de finCarregarDados)
 function pagInicializar() {
-  // Popula filtro de fornecedor (nome resolvido — ver _finNomeResolvido)
-  const forns = [...new Set(finDados.map(d => _finNomeResolvido(d.fornecedor)).filter(Boolean))].sort();
-  const selF  = document.getElementById('pag-filtro-forn');
-  if (selF) selF.innerHTML = '<option value="">Todos</option>' + forns.map(f => `<option>${f}</option>`).join('');
+  pagPopularFiltroFornecedor();
 
   // Atualiza badge da aba
   const pendentes = finDados.filter(d => !FIN_PAGO(d.pago));
@@ -1191,10 +1212,12 @@ function pagInicializar() {
 // os cards mostram sempre as 3 categorias fixas independente do que estiver
 // selecionado ali.
 function _pagBaseFiltrada() {
+  const modulo = document.getElementById('pag-filtro-modulo')?.value || '';
   const forn = document.getElementById('pag-filtro-forn')?.value || '';
   const mes  = document.getElementById('pag-filtro-mes')?.value  || '';
   const ano  = document.getElementById('pag-filtro-ano')?.value  || '';
   return finDados.filter(d => {
+    if (modulo && (d.modulo || 'suprimentos') !== modulo) return false;
     if (forn && _finNomeResolvido(d.fornecedor) !== forn) return false;
     if (mes  && d.mes !== mes)         return false;
     if (ano  && String(d.ano) !== ano) return false;

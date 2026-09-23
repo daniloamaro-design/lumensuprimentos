@@ -2189,6 +2189,14 @@ document.querySelector('.main-content').insertAdjacentHTML('beforeend', `
               <option value="pago">✅ Pagos</option>
             </select>
           </div>
+          <div class="form-group"><label class="form-label">Categoria</label>
+            <select class="form-select" id="pag-filtro-modulo" onchange="pagModuloMudou()">
+              <option value="">Todas</option>
+              <option value="suprimentos">📦 Suprimentos</option>
+              <option value="passagens">✈️ Passagens</option>
+              <option value="frete">🚚 Fretes</option>
+            </select>
+          </div>
           <div class="form-group"><label class="form-label">Fornecedor</label>
             <select class="form-select" id="pag-filtro-forn" onchange="pagFiltrar()">
               <option value="">Todos</option>
