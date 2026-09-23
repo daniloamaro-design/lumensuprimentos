@@ -1237,14 +1237,14 @@ function pagAtualizarResumo() {
 }
 
 function pagFiltrar() {
-  const status = (document.getElementById('pag-filtro-status')?.value) || 'pendente';
-  const hoje   = Date.now() / 86400000 + 25569;
+  // Só 2 situações: "Em aberto" (pendente + vencido juntos — o card
+  // "Vencidos" no topo já sinaliza quem entre eles está atrasado, não
+  // precisa de um terceiro filtro pra isso) e "Pagos".
+  const status = (document.getElementById('pag-filtro-status')?.value) || 'em_aberto';
 
   pagDadosFiltrados = _pagBaseFiltrada().filter(d => {
-    if (status === 'pendente') return !FIN_PAGO(d.pago);
-    if (status === 'vencido')  return !FIN_PAGO(d.pago) && d.vencimentoSerial && d.vencimentoSerial < hoje;
-    if (status === 'pago')     return FIN_PAGO(d.pago);
-    return true; // todos
+    if (status === 'pago') return FIN_PAGO(d.pago);
+    return !FIN_PAGO(d.pago); // em_aberto
   }).sort((a,b) => (a.vencimentoSerial||0) - (b.vencimentoSerial||0));
 
   pagSelecionados.clear();

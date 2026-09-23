@@ -2185,9 +2185,7 @@ document.querySelector('.main-content').insertAdjacentHTML('beforeend', `
         <div class="fin-filter-bar">
           <div class="form-group" style="min-width:120px;"><label class="form-label">Situação</label>
             <select class="form-select" id="pag-filtro-status" onchange="pagFiltrar()">
-              <option value="pendente">⏳ Pendentes</option>
-              <option value="vencido">🔴 Vencidos</option>
-              <option value="todos">Todos</option>
+              <option value="em_aberto">⏳ Em aberto</option>
               <option value="pago">✅ Pagos</option>
             </select>
           </div>
