@@ -911,6 +911,40 @@ async function _syncFinanceiroParaOrigem(reg, pago, valorPago) {
 }
 window._syncFinanceiroParaOrigem = _syncFinanceiroParaOrigem;
 
+// Quando o VALOR de um lançamento é corrigido dentro do Financeiro (ex.:
+// veio errado de uma planilha/link importado), propaga pro registro de
+// origem — diferente de _syncFinanceiroParaOrigem (que só cuida do status
+// de pagamento e só existe pra Fretes), aqui os 3 módulos têm campo de
+// valor próprio que a tela deles mostra, então os 3 precisam ficar coerentes.
+async function _syncValorParaOrigem(reg, novoValor) {
+  if (!reg || !reg.pedidoId || !(Number(novoValor) > 0)) return;
+  const modulo = reg.modulo || 'suprimentos';
+  try {
+    if (modulo === 'frete') {
+      await db.collection('fretes').doc(reg.pedidoId).update({
+        valor: novoValor, updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+      });
+      if (typeof _fretesCache !== 'undefined') {
+        const f = _fretesCache.find(x => x.id === reg.pedidoId);
+        if (f) f.valor = novoValor;
+      }
+    } else if (modulo === 'passagens') {
+      await db.collection('passagens_solicitacoes').doc(reg.pedidoId).update({ valorFinal: novoValor });
+      if (typeof _pasCache !== 'undefined') {
+        const p = _pasCache.find(x => x.id === reg.pedidoId);
+        if (p) p.valorFinal = novoValor;
+      }
+    } else {
+      await db.collection('orders').doc(reg.pedidoId).update({
+        nfValor: novoValor, updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+      });
+    }
+  } catch (e) {
+    console.warn('_syncValorParaOrigem falhou (não bloqueia o fluxo principal):', modulo, reg.pedidoId, e);
+  }
+}
+window._syncValorParaOrigem = _syncValorParaOrigem;
+
 async function sincronizarSistema() {
   if (!confirm(
     '🔗 SINCRONIZAÇÃO DO SISTEMA\n\n' +

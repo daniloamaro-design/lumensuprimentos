@@ -282,7 +282,7 @@ function finRenderizarTabela(dados) {
       : '<span style="color:var(--text-muted);font-size:11px;">—</span>';
     const rowBg = !isPago && d.vencimentoSerial && d.vencimentoSerial < (Date.now()/86400000 + 25569) ? 'background:rgba(198,40,40,0.07);' : '';
     return `<tr style="${rowBg}">
-      <td style="font-weight:700;">${d.fornecedor||'—'}</td>
+      <td style="font-weight:700;">${d.fornecedor||'—'} <button onclick="finAbrirEdicaoLancamento('${d.id}')" title="Editar lançamento" style="background:none;border:none;cursor:pointer;opacity:.55;font-size:12px;padding:0 2px;">✏️</button></td>
       <td><span class="block-badge">${d.classificacao||'—'}</span></td>
       <td>${d.destinatario||'—'}</td>
       <td style="font-size:11px;color:var(--text-muted);">${d.mes||''}/${d.ano||''}</td>
@@ -1331,7 +1331,7 @@ function pagRenderizarTabela() {
 
     return `<tr id="pag-row-${d.id}" style="${rowBg}">
       <td style="padding:8px 12px;"><input type="checkbox" ${checked} onchange="pagToggleCheck('${d.id}',this.checked)"></td>
-      <td style="font-weight:700;white-space:nowrap;">${d.fornecedor||'—'}</td>
+      <td style="font-weight:700;white-space:nowrap;">${d.fornecedor||'—'} <button onclick="finAbrirEdicaoLancamento('${d.id}')" title="Editar lançamento" style="background:none;border:none;cursor:pointer;opacity:.55;font-size:12px;padding:0 2px;">✏️</button></td>
       <td><span class="block-badge">${d.classificacao||'—'}</span></td>
       <td style="font-size:12px;">${d.destinatario||'—'}</td>
       <td style="font-size:11px;color:var(--text-muted);white-space:nowrap;">${d.mes||''}/${d.ano||''}</td>
@@ -1345,6 +1345,66 @@ function pagRenderizarTabela() {
 }
 function pagTabGoToPage(p) { pagTabPage = p; pagRenderizarTabela(); }
 window.pagTabGoToPage = pagTabGoToPage;
+
+// Corrige um lançamento que veio errado de planilha/link importado (nome,
+// classificação, destinatário, valor, vencimento). Se o valor mudar e o
+// lançamento estiver ligado a um pedido/passagem/frete (pedidoId), o valor
+// também é corrigido lá — ver _syncValorParaOrigem em
+// js/15-fornecedores-metas.js, pra não ficar divergente entre os módulos.
+const _MODULO_LABEL = { frete: 'Fretes', passagens: 'Passagens', suprimentos: 'Suprimentos' };
+function finAbrirEdicaoLancamento(id) {
+  const reg = finDados.find(d => d.id === id);
+  if (!reg) return;
+  document.getElementById('fin-edit-id').value = id;
+  document.getElementById('fin-edit-fornecedor').value = reg.fornecedor || '';
+  document.getElementById('fin-edit-classificacao').value = reg.classificacao || '';
+  document.getElementById('fin-edit-destinatario').value = reg.destinatario || '';
+  document.getElementById('fin-edit-valor').value = reg.valor || '';
+  document.getElementById('fin-edit-vencimento').value = reg.vencimentoStr || '';
+  const aviso = document.getElementById('fin-edit-aviso');
+  const modulo = reg.modulo || 'suprimentos';
+  if (aviso) {
+    aviso.style.display = reg.pedidoId ? '' : 'none';
+    aviso.textContent = reg.pedidoId
+      ? `ℹ️ Se o valor mudar, também será corrigido no registro original (${_MODULO_LABEL[modulo] || modulo}).`
+      : '';
+  }
+  openModal('modal-editar-lancamento');
+}
+window.finAbrirEdicaoLancamento = finAbrirEdicaoLancamento;
+
+async function finSalvarEdicaoLancamento() {
+  const id = document.getElementById('fin-edit-id').value;
+  const reg = finDados.find(d => d.id === id);
+  if (!reg) return;
+
+  const fornecedor    = document.getElementById('fin-edit-fornecedor').value.trim();
+  const classificacao = document.getElementById('fin-edit-classificacao').value.trim();
+  const destinatario  = document.getElementById('fin-edit-destinatario').value.trim();
+  const valor         = Number(document.getElementById('fin-edit-valor').value);
+  const vencimentoStr = document.getElementById('fin-edit-vencimento').value.trim();
+  if (!(valor > 0)) { showToast('⚠️ Informe um valor válido.'); return; }
+
+  const valorAntigo = Number(reg.valor) || 0;
+  const valorMudou  = Math.abs(valor - valorAntigo) > 0.005;
+
+  try {
+    await db.collection('compras_financeiro').doc(id).update({ fornecedor, classificacao, destinatario, valor, vencimentoStr });
+    if (valorMudou) await _syncValorParaOrigem(reg, valor);
+    Object.assign(reg, { fornecedor, classificacao, destinatario, valor, vencimentoStr });
+
+    closeModal('modal-editar-lancamento');
+    pagPopularFiltroFornecedor();
+    pagAtualizarResumo();
+    pagFiltrar();
+    finAplicarFiltros();
+    showToast('✅ Lançamento atualizado!' + (valorMudou && reg.pedidoId ? ' Valor também corrigido no módulo original.' : ''));
+  } catch (e) {
+    console.error(e);
+    showToast('❌ Erro ao salvar: ' + e.message);
+  }
+}
+window.finSalvarEdicaoLancamento = finSalvarEdicaoLancamento;
 
 function pagToggleCheck(id, checked) {
   if (checked) pagSelecionados.add(id);
