@@ -850,8 +850,7 @@ const MESES_PT = ['JANEIRO','FEVEREIRO','MARÇO','ABRIL','MAIO','JUNHO',
 // sozinho, sem precisar dos botões "Sincronizar" (que continuam existindo
 // só pra cobrir casos antigos/perdidos). Idempotente por pedidoRef: se já
 // existe lançamento pra essa referência, não duplica — só promove pra pago
-// se for esse o caso (ex.: frtMarcarPago chamando de novo depois de já
-// criado). Nunca lança exceção pro chamador — é sempre best-effort, o fluxo
+// se for esse o caso. Nunca lança exceção pro chamador — é sempre best-effort, o fluxo
 // principal (salvar o pedido/passagem/frete) não pode travar por isso.
 async function _syncFinanceiroLancar({ pedidoRef, pedidoId, fornecedor, fornecedorId, classificacao, destinatario, valor, pago, valorPago, modulo, dataRef }) {
   if (!pedidoRef || !(Number(valor) > 0)) return;

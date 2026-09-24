@@ -250,7 +250,6 @@ function renderFrtLista() {
       <td>${frtStatusBadge(f.status)}<br><span style="font-size:11px;">${frtBadgePag(f.statusPag, f.valorPago, f.valor)}</span></td>
       <td style="text-align:right;white-space:nowrap;">
         <button class="btn btn-outline btn-sm" onclick="abrirFreteDetalhe('${f.id}')">Ver</button>
-        ${f.statusPag !== 'pago' && f.status !== 'cancelado' ? `<button class="btn btn-secondary btn-sm" onclick="frtMarcarPago('${f.id}')">Marcar pago</button>` : ''}
         ${f.status !== 'cancelado' && f.status !== 'entregue' ? `<button class="btn btn-outline btn-sm" onclick="frtCancelar('${f.id}')">Cancelar</button>` : ''}
       </td>
     </tr>`).join('') + `<tr><td colspan="7" style="padding:0;">${paginacaoHTML(pagObjFrt, 'frtListaGoToPage')}</td></tr>`;
@@ -488,7 +487,6 @@ function abrirFreteDetalhe(id) {
     acoes.push(`<button class="btn btn-primary btn-sm" onclick="abrirConferenciaCarga('${f.id}')">📋 Conferir Carga</button>`);
   if (f.status === 'transporte') acoes.push(`<button class="btn btn-primary btn-sm" onclick="frtMarcarEntregue('${f.id}')">📦 Marcar entregue</button>`);
   if (f.status === 'entregue' && f.etapaStatus !== 'avaliado') acoes.push(`<button class="btn btn-secondary btn-sm" onclick="abrirAvaliacaoFrete('${f.id}')">⭐ Avaliar</button>`);
-  if (f.statusPag !== 'pago' && f.status !== 'cancelado' && !semFreteiro) acoes.push(`<button class="btn btn-secondary btn-sm" onclick="frtMarcarPago('${f.id}', true)">💰 Marcar pago</button>`);
   if (f.status !== 'cancelado' && f.status !== 'entregue') acoes.push(`<button class="btn btn-outline btn-sm" onclick="frtCancelar('${f.id}')">❌ Cancelar</button>`);
 
   // Form de atribuição de freteiro (rota criada sem freteiro)
@@ -965,42 +963,11 @@ window.abrirAvaliacaoFrete = abrirAvaliacaoFrete;
 window.frtSetEstrela = frtSetEstrela;
 window.salvarAvaliacaoFrete = salvarAvaliacaoFrete;
 
-// Aceita pagamento total ou parcial — sem um terceiro status "Parcial"
-// separado: enquanto não quitar 100%, o frete continua "pendente", só que
-// com o valor já pago acumulado (valorPago). O badge mostra esse progresso.
-async function frtMarcarPago(id, fecharModalDepois) {
-  const f = _fretesCache.find(x => x.id === id);
-  if (!f) return;
-  const valorTotal = Number(f.valor) || 0;
-  const jaPago = Number(f.valorPago) || 0;
-  const faltante = Math.max(0, valorTotal - jaPago);
-  const digitado = prompt(
-    `Valor pago agora (frete ${f.code || ''})${jaPago > 0 ? `\nJá pago: ${frtBRL(jaPago)} de ${frtBRL(valorTotal)} — falta ${frtBRL(faltante)}` : `\nValor do frete: ${frtBRL(valorTotal)}`}`,
-    faltante.toFixed(2)
-  );
-  if (digitado == null) return; // cancelou o prompt
-  const valorAgora = Number(String(digitado).replace(',', '.'));
-  if (!(valorAgora > 0)) return showToast('⚠️ Informe um valor válido.');
-
-  const novoValorPago = Math.min(valorTotal, jaPago + valorAgora);
-  const quitado = novoValorPago >= valorTotal - 0.005;
-  try {
-    await db.collection('fretes').doc(id).update({
-      statusPag: quitado ? 'pago' : 'pendente',
-      valorPago: novoValorPago,
-      updatedBy: (typeof currentUserData !== 'undefined' && currentUserData?.name) || null,
-      updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-    });
-    f.statusPag = quitado ? 'pago' : 'pendente'; f.valorPago = novoValorPago;
-    frtSincronizarFinanceiro(id);
-    showToast(quitado
-      ? '✅ Frete marcado como pago.'
-      : `✅ Pagamento parcial registrado: ${frtBRL(novoValorPago)} de ${frtBRL(valorTotal)}.`);
-    if (fecharModalDepois) closeModal('modal-frete-detalhe');
-    renderFrtLista();
-  } catch (e) { console.error(e); showToast('❌ Erro ao atualizar: ' + e.message); }
-}
-window.frtMarcarPago = frtMarcarPago;
+// Confirmação de pagamento (total ou parcial) só acontece no módulo
+// Financeiro agora — ver finTogglePago/pagMarcarSelecionados em
+// js/12-financeiro-compras.js, que já propagam pra cá via
+// _syncFinanceiroParaOrigem (js/15-fornecedores-metas.js). O módulo Fretes
+// só mostra o status (frtBadgePag), sem botão de ação.
 
 // ── Novo frete ──
 async function loadFrtNovoForm() {
