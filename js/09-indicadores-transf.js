@@ -847,7 +847,7 @@ async function confirmarTransferencia() {
   setBtnLoading('btn-confirmar-transf', false);
 }
 
-async function loadTransferencias() {
+async function loadTransferencias(resetPage = true) {
   const tbody    = document.getElementById('transf-tbody');
   const filterCasa = document.getElementById('transf-filter-casa')?.value || '';
 
@@ -861,7 +861,7 @@ async function loadTransferencias() {
   }
 
   transfDocsAll = docs.map(d => ({ id: d.id, ...d.data() }));
-  transfPage = 1;
+  if (resetPage) transfPage = 1;
   transfSelecionadas.clear();
   updateTransfExportBtn();
   renderTransfPage();
@@ -1005,7 +1005,7 @@ async function cancelarTransferencia(docId) {
 
     transfSelecionadas.delete(docId);
     showToast(`✅ Transferência ${t.code} cancelada. Estoque estornado.`);
-    loadTransferencias();
+    loadTransferencias(false);
   } catch(e) {
     console.error(e);
     showToast('Erro ao cancelar: ' + e.message);

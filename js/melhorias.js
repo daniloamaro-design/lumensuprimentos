@@ -468,7 +468,7 @@ async function confirmarRecebimentoTransf(docId) {
     });
     registrarAuditoria('transferencias', docId, 'recebimento_confirmado', 'Recebimento físico confirmado');
     showToast('✅ Recebimento confirmado!');
-    loadTransferencias();
+    loadTransferencias(false);
   } catch(e) { showToast('Erro: ' + e.message); }
 }
 
