@@ -670,71 +670,24 @@ async function frtAtribuirFreteiro(id) {
 }
 window.frtAtribuirFreteiro = frtAtribuirFreteiro;
 
-// ── Rotas: planejar um trajeto, ver no mapa e salvar como frete (sem freteiro) ──
+// ── Novo Frete: ver o trajeto planejado no mapa antes de salvar ──
 function frtVerNoMapaForm() {
-  const o = document.getElementById('frt-rota-origem').value.trim();
-  const d = document.getElementById('frt-rota-destino').value.trim();
+  const o = document.getElementById('frt-n-origem').value.trim();
+  const d = document.getElementById('frt-n-destino').value.trim();
   if (!o || !d) return showToast('⚠️ Informe origem e destino.');
-  const paradas = document.getElementById('frt-rota-paradas').value.split('\n').map(s => s.trim()).filter(Boolean);
+  const paradas = document.getElementById('frt-n-paradas').value.split('\n').map(s => s.trim()).filter(Boolean);
   window.open(rotaGoogleMapsUrl(o, d, paradas), '_blank', 'noopener');
 }
 window.frtVerNoMapaForm = frtVerNoMapaForm;
-
-async function frtSalvarRota() {
-  const origem = document.getElementById('frt-rota-origem').value.trim();
-  const destino = document.getElementById('frt-rota-destino').value.trim();
-  if (!origem || !destino) return showToast('⚠️ Informe origem e destino.');
-  const paradas = document.getElementById('frt-rota-paradas').value.split('\n').map(s => s.trim()).filter(Boolean);
-  const motivo = document.getElementById('frt-rota-motivo').value.trim();
-  const data = new Date().toISOString().slice(0, 10);
-  const ymd = data.replace(/-/g, '');
-  const nome = (typeof currentUserData !== 'undefined' && currentUserData?.name) || null;
-  const btn = document.getElementById('frt-rota-salvar');
-
-  // Transferências selecionadas
-  const transfChecks = document.querySelectorAll('#frt-rota-transf-lista input[type=checkbox]:checked');
-  const transferenciasIds = Array.from(transfChecks).map(c => c.value);
-
-  if (btn) { btn.disabled = true; btn.textContent = 'Salvando…'; }
-  try {
-    if (!_fretesCache.length) { const snap = await db.collection('fretes').get(); _fretesCache = snap.docs.map(x => ({ id: x.id, ...x.data() })); }
-    const seq = _fretesCache.filter(f => (f.dateStr || '') === ymd).length + 1;
-    const code = `LF-${ymd}-${String(seq).padStart(3, '0')}`;
-    await db.collection('fretes').add({
-      code, data, dateStr: ymd, origem, destino, paradas,
-      motivo: motivo || null, freteiroId: '', freteiroNome: '',
-      valor: 0, valorPago: 0, status: 'solicitado', statusPag: 'pendente',
-      etapaStatus: 'rota_criada', formaPag: 'pix', importado: false,
-      transferenciasIds: transferenciasIds.length ? transferenciasIds : [],
-      obs: document.getElementById('frt-rota-obs').value.trim() || null,
-      createdBy: nome,
-      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-      updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-      historico: [{ acao: 'Rota criada e solicitada', etapa: 'rota_criada', por: nome, data: new Date().toISOString() }],
-    });
-    // Vincula as transferências à rota (não mexe em "status": ele já reflete
-    // que o estoque foi movimentado na confirmação; freteCode rastreia a rota)
-    for (const tid of transferenciasIds) {
-      await db.collection('transferencias').doc(tid).update({ freteCode: code });
-    }
-    showToast(`✅ Rota ${code} salva! Atribua um freteiro e faça a conferência de carga antes de liberar o transporte.`);
-    ['frt-rota-origem', 'frt-rota-destino', 'frt-rota-paradas', 'frt-rota-motivo', 'frt-rota-obs'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
-    _fretesCache = [];
-    goPage('frt-lista');
-  } catch (e) {
-    console.error(e); showToast('❌ Erro ao salvar: ' + e.message);
-  } finally {
-    if (btn) { btn.disabled = false; btn.textContent = 'Salvar rota'; }
-  }
-}
-window.frtSalvarRota = frtSalvarRota;
 window.abrirFreteDetalhe = abrirFreteDetalhe;
 
-// ── Carrega transferências pendentes no form de rota ──
+// ── Carrega transferências pendentes no form de Novo Frete (vincular a uma
+// transferência de estoque já confirmada exige conferência de carga antes
+// de liberar o transporte — ver frtAtribuirFreteiro/abrirConferenciaCarga) ──
 let _transfPendentesCache = [];
 async function frtCarregarTransfPendentes() {
-  const wrap = document.getElementById('frt-rota-transf-lista');
-  const empty = document.getElementById('frt-rota-transf-empty');
+  const wrap = document.getElementById('frt-n-transf-lista');
+  const empty = document.getElementById('frt-n-transf-empty');
   if (!wrap) return;
   try {
     const snap = await db.collection('transferencias')
@@ -975,6 +928,7 @@ async function loadFrtNovoForm() {
   if (d && !d.value) d.value = new Date().toISOString().slice(0, 10);
   await popularSelectFreteiros('frt-n-freteiro');
   await popularCasasFrete();
+  await frtCarregarTransfPendentes();
 }
 window.loadFrtNovoForm = loadFrtNovoForm;
 
@@ -1031,19 +985,20 @@ async function salvarNovoFrete() {
   const destino = document.getElementById('frt-n-destino').value.trim();
   const valorRaw = document.getElementById('frt-n-valor').value;
   const valor = valorRaw ? Number(valorRaw) : 0;
-  if (!freteiroId) return showToast('⚠️ Selecione o freteiro.');
   if (!data) return showToast('⚠️ Informe a data.');
   if (!origem || !destino) return showToast('⚠️ Informe origem e destino.');
   if (valorRaw && !(valor > 0)) return showToast('⚠️ Valor inválido.');
-  // Valor pode ficar em branco (freteiro muitas vezes só informa depois) —
-  // dá pra completar no detalhe do frete (frtSalvarValor).
+  // Freteiro é opcional: sem ele, o frete nasce como rota planejada
+  // ("Solicitado") — dá pra atribuir freteiro (e valor) depois, na tela do
+  // frete. Com freteiro, já nasce liberado — a menos que tenha transferência
+  // de estoque vinculada, aí precisa de conferência de carga antes (mesma
+  // regra de frtAtribuirFreteiro, pra não pular a checagem física da carga).
 
   const paradas = document.getElementById('frt-n-paradas').value.split('\n').map(s => s.trim()).filter(Boolean);
   const ymd = data.replace(/-/g, '');
   // código sequencial do dia: LF-AAAAMMDD-NNN
   let seq = 1;
   try {
-    const doDia = _fretesCache.filter(f => (f.dateStr || '') === ymd);
     if (!_fretesCache.length) {
       const snap = await db.collection('fretes').get();
       _fretesCache = snap.docs.map(x => ({ id: x.id, ...x.data() }));
@@ -1051,6 +1006,24 @@ async function salvarNovoFrete() {
     seq = _fretesCache.filter(f => (f.dateStr || '') === ymd).length + 1;
   } catch (e) { /* usa 1 */ }
   const code = `LF-${ymd}-${String(seq).padStart(3, '0')}`;
+
+  const transfChecks = document.querySelectorAll('#frt-n-transf-lista input[type=checkbox]:checked');
+  const transferenciasIds = Array.from(transfChecks).map(c => c.value);
+  const temFreteiro = !!freteiroId;
+  const temTransf = transferenciasIds.length > 0;
+  const nome = (typeof currentUserData !== 'undefined' && currentUserData?.name) || null;
+
+  let status, etapaStatus, histAcao;
+  if (!temFreteiro) {
+    status = 'solicitado'; etapaStatus = 'rota_criada';
+    histAcao = 'Rota criada e solicitada';
+  } else if (temTransf) {
+    status = 'aguardando_conferencia'; etapaStatus = 'aguardando_conferencia';
+    histAcao = `Frete criado com freteiro ${freteiroNome} — aguardando conferência de carga`;
+  } else {
+    status = 'transporte'; etapaStatus = 'transporte';
+    histAcao = 'Frete criado — liberado para transporte';
+  }
 
   const btn = document.getElementById('frt-n-salvar');
   if (btn) { btn.disabled = true; btn.textContent = 'Salvando…'; }
@@ -1061,14 +1034,22 @@ async function salvarNovoFrete() {
       origem, destino, paradas,
       motivo: document.getElementById('frt-n-motivo').value.trim() || null,
       valor, valorPago: 0,
-      status: 'transporte', statusPag: 'pendente', etapaStatus: 'transporte',
+      status, statusPag: 'pendente', etapaStatus,
       formaPag: document.getElementById('frt-n-forma').value,
+      transferenciasIds: transferenciasIds.length ? transferenciasIds : [],
       obs: document.getElementById('frt-n-obs').value.trim() || null,
       importado: false,
-      createdBy: (typeof currentUserData !== 'undefined' && currentUserData?.name) || null,
+      createdBy: nome,
       createdAt: firebase.firestore.FieldValue.serverTimestamp(),
       updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+      historico: [{ acao: histAcao, etapa: etapaStatus, por: nome, data: new Date().toISOString() }],
     });
+    // Vincula as transferências à rota (não mexe em "status" delas: já
+    // reflete que o estoque foi movimentado na confirmação; freteCode só
+    // rastreia qual rota está carregando cada uma).
+    for (const tid of transferenciasIds) {
+      await db.collection('transferencias').doc(tid).update({ freteCode: code });
+    }
     // Lança sozinho no financeiro se já nasceu com valor (freteiro às vezes só
     // informa depois — nesse caso frtSalvarValor cuida do lançamento).
     if (valor > 0 && typeof _syncFinanceiroLancar === 'function') {
@@ -1079,7 +1060,9 @@ async function salvarNovoFrete() {
         valor, pago: '', modulo: 'frete', dataRef: new Date(data + 'T00:00:00').getTime(),
       }).catch(e => console.warn('sync financeiro (frete novo):', e));
     }
-    showToast(`✅ Frete ${code} criado.`);
+    showToast(temFreteiro
+      ? `✅ Frete ${code} criado.`
+      : `✅ Rota ${code} salva! Atribua um freteiro depois na tela do frete.`);
     // limpa
     ['frt-n-origem', 'frt-n-destino', 'frt-n-paradas', 'frt-n-motivo', 'frt-n-valor', 'frt-n-obs', 'frt-n-previsao'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
     _fretesCache = []; // força recarga
@@ -2290,7 +2273,7 @@ window.salvarPasOrcamento = salvarPasOrcamento;
    ══════════════════════════════════════════════════════════════════════ */
 
 // páginas dos módulos (hoje abertas a todos; o admin restringe na tela)
-const _MOD_PAGES = ['pas-solicitacoes', 'pas-nova', 'pas-detalhe', 'pas-indicadores', 'pas-calendario', 'frt-lista', 'frt-pagamento', 'frt-novo', 'frt-rotas', 'frt-metas', 'frt-indicadores', 'ind-geral', 'plano-acao', 'diretoria-dashboard', 'diretoria-percapita'];
+const _MOD_PAGES = ['pas-solicitacoes', 'pas-nova', 'pas-detalhe', 'pas-indicadores', 'pas-calendario', 'frt-lista', 'frt-pagamento', 'frt-novo', 'frt-metas', 'frt-indicadores', 'ind-geral', 'plano-acao', 'diretoria-dashboard', 'diretoria-percapita'];
 // todas as páginas do Suprimentos (perfis de gestão têm tudo)
 const _SUP_PAGES = ['dashboard', 'users', 'houses', 'manage-houses', 'manage-cities', 'manage-products',
   'manage-cats', 'percapita-financeiro', 'manage-cc', 'all-orders', 'produtividade', 'kanban',
