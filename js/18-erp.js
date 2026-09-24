@@ -692,8 +692,8 @@ async function frtCarregarTransfPendentes() {
   try {
     const snap = await db.collection('transferencias')
       .where('status', '==', 'confirmada').get();
-    // Só entram as que ainda não foram vinculadas a nenhuma rota de frete
-    _transfPendentesCache = snap.docs.map(d => ({ id: d.id, ...d.data() })).filter(t => !t.freteCode);
+    // Só entram as que ainda não foram vinculadas a nenhuma rota de frete e ainda não foram recebidas na casa destino
+    _transfPendentesCache = snap.docs.map(d => ({ id: d.id, ...d.data() })).filter(t => !t.freteCode && !t.recebido);
     if (!_transfPendentesCache.length) {
       if (empty) empty.textContent = 'Nenhuma transferência confirmada pendente de rota.';
       return;
