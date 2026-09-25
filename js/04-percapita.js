@@ -666,7 +666,7 @@ function openAjusteModal() {
   // Popula casas sempre ao abrir (CASAS pode não ter sido carregado quando populateHouseSelects rodou)
   const sel = document.getElementById('ajuste-casa');
   if (sel) {
-    const casas = window.CASAS || [];
+    const casas = typeof CASAS !== 'undefined' ? CASAS : [];
     sel.innerHTML = '<option value="">Selecione...</option>';
     casas.forEach(c => {
       const o = document.createElement('option');

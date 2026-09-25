@@ -13,7 +13,7 @@ async function initPageInventario() {
   const sel = document.getElementById('inv-casa');
   if (sel) {
     sel.innerHTML = '<option value="">Selecione...</option>';
-    (window.CASAS || []).forEach(c => {
+    (typeof CASAS !== 'undefined' ? CASAS : []).forEach(c => {
       const o = document.createElement('option');
       o.value = c; o.textContent = c;
       if (c === (currentUserData?.house || '')) o.selected = true;
