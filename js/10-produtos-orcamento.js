@@ -1459,6 +1459,7 @@ async function loadOrcHistorico() {
             &nbsp;|&nbsp; ${(o.itens||[]).length} produto(s)
           </div>
           <button class="btn btn-outline btn-sm" onclick="orcHistVerDetalhe('${o.id}')">Ver detalhes</button>
+          <button class="btn btn-outline btn-sm" onclick="orcHistBaixarPDF('${o.id}')">⬇️ Baixar PDF</button>
         </div>
       </div>`;
     }).join('') + paginacaoHTML(pagObjOrcHist, 'orcHistGoToPage');
@@ -1522,6 +1523,82 @@ function orcHistVerDetalhe(id) {
   wrap.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
 window.orcHistVerDetalhe = orcHistVerDetalhe;
+
+function orcHistBaixarPDF(id) {
+  const o = _orcHistCache.find(x => x.id === id);
+  if (!o) return;
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+  const blue = [0,56,117]; const gray = [107,114,128]; const green = [26,122,68];
+  const fmt = v => 'R$ ' + Number(v||0).toLocaleString('pt-BR', { minimumFractionDigits:2, maximumFractionDigits:2 });
+  const fmtData = s => s ? new Date(s+'T00:00:00').toLocaleDateString('pt-BR') : '—';
+  const itens = o.itens || [];
+
+  doc.setFillColor(...blue); doc.rect(0,0,210,28,'F');
+  doc.setTextColor(255,255,255);
+  doc.setFontSize(14); doc.setFont('helvetica','bold');
+  doc.text('Obra Lumen — Orçamento Financeiro', 14, 12);
+  doc.setFontSize(8); doc.setFont('helvetica','normal');
+  doc.text(`${o.casa||'—'}${o.bloco ? ' · Bloco '+o.bloco : ''} — ${fmtData(o.de)} a ${fmtData(o.ate)} | ${o.code||''}`, 14, 22);
+
+  let y = 36;
+  doc.setFillColor(240,245,255); doc.rect(10,y-5,190,9,'F');
+  doc.setTextColor(0,0,0); doc.setFont('helvetica','bold'); doc.setFontSize(9);
+  doc.text(`${o.casa||'—'} — ${o.pessoas||0} pessoas | ${o.city||'—'}`, 14, y+1);
+  doc.setTextColor(...blue);
+  doc.text(fmt(o.total), 200, y+1, { align:'right' });
+  y += 12;
+
+  const porCat = {};
+  itens.forEach(l => {
+    const cat = l.cat || '—';
+    if (!porCat[cat]) porCat[cat] = { itens: [], subtotal: 0 };
+    porCat[cat].itens.push(l);
+    porCat[cat].subtotal += Number(l.subtotal || (l.qtd*l.unitPrice) || 0);
+  });
+
+  Object.entries(porCat).forEach(([catNome, dados]) => {
+    if (y > 260) { doc.addPage(); y = 20; }
+    doc.setFillColor(230,238,248); doc.rect(14,y-3,182,6,'F');
+    doc.setTextColor(...blue); doc.setFontSize(7.5); doc.setFont('helvetica','bold');
+    doc.text(catNome, 17, y+1);
+    doc.text(fmt(dados.subtotal), 196, y+1, { align:'right' });
+    y += 7;
+
+    dados.itens.forEach(l => {
+      if (y > 270) { doc.addPage(); y = 20; }
+      const sub = Number(l.subtotal || (l.qtd*l.unitPrice) || 0);
+      doc.setTextColor(50,50,50); doc.setFont('helvetica','normal'); doc.setFontSize(7);
+      const nome = l.nome || l.prodId || '—';
+      const nomeTrunc = nome.length > 36 ? nome.substring(0,36)+'…' : nome;
+      doc.text(nomeTrunc, 20, y);
+      doc.setTextColor(...gray);
+      doc.text(`${l.qtd} ${l.unidade||''}`, 110, y, { align:'right' });
+      if (l.unitPrice > 0) {
+        doc.text(fmt(l.unitPrice), 148, y, { align:'right' });
+        doc.setTextColor(...green);
+        doc.text(fmt(sub), 196, y, { align:'right' });
+      } else {
+        doc.text('—', 196, y, { align:'right' });
+      }
+      y += 5;
+    });
+    y += 2;
+  });
+
+  if (y > 260) { doc.addPage(); y = 20; }
+  y += 4;
+  doc.setFillColor(...blue); doc.rect(10,y,190,8,'F');
+  doc.setTextColor(255,255,255); doc.setFontSize(10); doc.setFont('helvetica','bold');
+  doc.text('TOTAL GERAL:', 14, y+6);
+  doc.text(fmt(o.total), 200, y+6, { align:'right' });
+
+  doc.setTextColor(...gray); doc.setFontSize(7);
+  doc.text('Suprimentos Obra Lumen — lumenserfeliz.org', 14, 290);
+  doc.save(`LM-Orcamento-${o.code||o.id}.pdf`);
+  showToast('✅ PDF exportado!');
+}
+window.orcHistBaixarPDF = orcHistBaixarPDF;
 
 // ─────────────────────────────────────────────
 // 🎁  DONATION TOGGLE
