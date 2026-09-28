@@ -110,15 +110,10 @@ const ADMIN_EMAIL = "daniloamaro@lumenserfeliz.org";
 // 📦  DADOS DO SISTEMA (dinâmicos — carregados do Firebase)
 // ─────────────────────────────────────────────
 
-// Listas dinâmicas — preenchidas ao carregar o app
-let CASAS = [
-  'Dom Bosco','São Francisco','Fraternitas','São Gabriel',
-  'Três Pastorinhos','Santa Dulce - CE',
-  'Espírito Santo','Bom Samaritano','Filho Pródigo',
-  'Coração Sagrado','Sítio Belém','Santa Dulce - SSA',
-  'Fazenda Natal - SSA','Recanto Solidário - SSA',
-  'Dom Helder - PE','Bom Jesus - SP'
-];
+// Listas dinâmicas — preenchidas ao carregar o app.
+// Sem casas hardcoded aqui: todas vêm da tabela houses (loadDynamicData),
+// com o nome oficial de cada uma (evita duplicar casa com nome antigo/curto).
+let CASAS = [];
 
 let CIDADES = [
   'Fortaleza - CE',
@@ -129,25 +124,8 @@ let CIDADES = [
   'Paulo Afonso - BA'
 ];
 
-// Mapeamento casa → cidade (dinâmico)
-let CASAS_CIDADES = {
-  'Dom Bosco':              'Fortaleza - CE',
-  'São Francisco':          'Fortaleza - CE',
-  'Fraternitas':            'Fortaleza - CE',
-  'São Gabriel':            'Fortaleza - CE',
-  'Três Pastorinhos':       'Fortaleza - CE',
-  'Santa Dulce - CE':       'Fortaleza - CE',
-  'Espírito Santo':         'Fortaleza - CE',
-  'Bom Samaritano':         'Fortaleza - CE',
-  'Filho Pródigo':          'Fortaleza - CE',
-  'Coração Sagrado':        'Fortaleza - CE',
-  'Sítio Belém':            'Fortaleza - CE',
-  'Santa Dulce - SSA':      'Salvador - BA',
-  'Fazenda Natal - SSA':    'Simões Filho - BA',
-  'Recanto Solidário - SSA':'Paulo Afonso - BA',
-  'Dom Helder - PE':        'Jaboatão dos Guararapes - PE',
-  'Bom Jesus - SP':         'São Carlos - SP',
-};
+// Mapeamento casa → cidade (dinâmico, preenchido a partir de houses.cidade em loadDynamicData)
+let CASAS_CIDADES = {};
 
 // Carrega casas e cidades extras do Firebase e mescla com os padrões
 async function loadDynamicData() {

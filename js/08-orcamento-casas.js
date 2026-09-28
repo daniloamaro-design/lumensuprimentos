@@ -828,16 +828,6 @@ async function loadManageHouses() {
   CASAS_BLOCOS = {};
   housesSnap.docs.forEach(d => { const h = d.data(); customIds[h.nome] = d.id; if (h.bloco) CASAS_BLOCOS[h.nome] = h.bloco; });
 
-  // Names of default houses (hardcoded list)
-  const CASAS_PADRAO_NOMES = new Set([
-    'Dom Bosco','São Francisco','Fraternitas','São Gabriel',
-    'Três Pastorinhos','Santa Dulce - CE',
-    'Espírito Santo','Bom Samaritano','Filho Pródigo',
-    'Coração Sagrado','Sítio Belém','Santa Dulce - SSA',
-    'Fazenda Natal - SSA','Recanto Solidário - SSA',
-    'Dom Helder - PE','Bom Jesus - SP'
-  ]);
-
   const blocoOptions = `<option value="">—</option>${[1,2,3,4,5,6,7,8,9,10].map(i=>`<option value="${i}">Bloco ${i}</option>`).join('')}`;
 
   el.innerHTML = `<div class="table-wrap"><table>
@@ -852,10 +842,7 @@ async function loadManageHouses() {
     ${CASAS.map(casa => {
       const hid     = casa.replace(/[^a-zA-Z0-9]/g,'_');
       const cidade  = CASAS_CIDADES[casa] || '—';
-      const isPadrao= CASAS_PADRAO_NOMES.has(casa);
-      const isCustom= !isPadrao;
       const docId   = customIds[casa] || '';   // id da linha em houses
-      const tipo    = isPadrao ? 'padrao' : 'custom';
       return `<tr>
         <td><strong>${casa}</strong></td>
         <td class="text-muted text-sm">${cidade}</td>
@@ -864,10 +851,10 @@ async function loadManageHouses() {
             ${blocoOptions}
           </select>
         </td>
-        <td>${isPadrao ? '<span class="badge badge-gray">Padrão</span>' : '<span class="badge badge-info">Manual</span>'}</td>
+        <td><span class="badge badge-info">Manual</span></td>
         <td style="display:flex;gap:5px;flex-wrap:wrap;">
-          <button class="btn btn-secondary btn-sm" onclick="openEditHouse('${casa.replace(/'/g,"\\'")}','${docId}','${tipo}')">✏️ Editar</button>
-          <button class="btn btn-danger btn-sm" onclick="deleteHouse('${docId}','${casa.replace(/'/g,"\\'")}','${tipo}')">Remover</button>
+          <button class="btn btn-secondary btn-sm" onclick="openEditHouse('${casa.replace(/'/g,"\\'")}','${docId}','custom')">✏️ Editar</button>
+          <button class="btn btn-danger btn-sm" onclick="deleteHouse('${docId}','${casa.replace(/'/g,"\\'")}','custom')">Remover</button>
         </td>
       </tr>`;
     }).join('')}
