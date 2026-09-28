@@ -887,22 +887,30 @@ window._syncFinanceiroLancar = _syncFinanceiroLancar;
 // Sentido inverso de _syncFinanceiroLancar: quando um lançamento é marcado
 // pago (ou tem o valor parcial alterado) DENTRO do Financeiro — Pagamentos,
 // Conciliação Financeira ou Saldo Devedor —, propaga pro registro de origem.
-// Só Fretes precisa disso: é o único módulo que também mostra o próprio
-// status de pagamento nas suas telas (statusPag/valorPago do frete). Pedidos
-// e passagens não têm status de pagamento próprio — compras_financeiro já é
-// a fonte única pra eles, nada a propagar de volta.
+// Só Fretes e Segurança precisam disso: são os únicos módulos que também
+// mostram o próprio status de pagamento nas suas telas (statusPag/valorPago
+// do frete; status contratado/concluido da solicitação de segurança).
+// Pedidos e passagens não têm status de pagamento próprio — compras_financeiro
+// já é a fonte única pra eles, nada a propagar de volta.
 async function _syncFinanceiroParaOrigem(reg, pago, valorPago) {
-  if (!reg || reg.modulo !== 'frete' || !reg.pedidoId) return;
+  if (!reg || !reg.pedidoId) return;
+  if (reg.modulo !== 'frete' && reg.modulo !== 'seguranca') return;
   try {
     const novoValorPago = pago === 'Sim' ? (Number(reg.valor) || 0) : (Number(valorPago) || 0);
-    await db.collection('fretes').doc(reg.pedidoId).update({
-      statusPag: pago === 'Sim' ? 'pago' : 'pendente',
-      valorPago: novoValorPago,
-      updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-    });
-    if (typeof _fretesCache !== 'undefined') {
-      const f = _fretesCache.find(x => x.id === reg.pedidoId);
-      if (f) { f.statusPag = pago === 'Sim' ? 'pago' : 'pendente'; f.valorPago = novoValorPago; }
+    if (reg.modulo === 'frete') {
+      await db.collection('fretes').doc(reg.pedidoId).update({
+        statusPag: pago === 'Sim' ? 'pago' : 'pendente',
+        valorPago: novoValorPago,
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+      });
+      if (typeof _fretesCache !== 'undefined') {
+        const f = _fretesCache.find(x => x.id === reg.pedidoId);
+        if (f) { f.statusPag = pago === 'Sim' ? 'pago' : 'pendente'; f.valorPago = novoValorPago; }
+      }
+    } else if (reg.modulo === 'seguranca') {
+      await db.collection('seguranca_solicitacoes').doc(reg.pedidoId).update({
+        status: pago === 'Sim' ? 'concluido' : 'contratado',
+      });
     }
   } catch (e) {
     console.warn('_syncFinanceiroParaOrigem falhou (não bloqueia o fluxo principal):', reg.pedidoId, e);
@@ -913,8 +921,9 @@ window._syncFinanceiroParaOrigem = _syncFinanceiroParaOrigem;
 // Quando o VALOR de um lançamento é corrigido dentro do Financeiro (ex.:
 // veio errado de uma planilha/link importado), propaga pro registro de
 // origem — diferente de _syncFinanceiroParaOrigem (que só cuida do status
-// de pagamento e só existe pra Fretes), aqui os 3 módulos têm campo de
-// valor próprio que a tela deles mostra, então os 3 precisam ficar coerentes.
+// de pagamento), aqui os módulos com campo de valor próprio na tela deles
+// (frete, passagens, seguranca; suprimentos cai no else/orders) precisam
+// ficar coerentes.
 async function _syncValorParaOrigem(reg, novoValor) {
   if (!reg || !reg.pedidoId || !(Number(novoValor) > 0)) return;
   const modulo = reg.modulo || 'suprimentos';
@@ -932,6 +941,12 @@ async function _syncValorParaOrigem(reg, novoValor) {
       if (typeof _pasCache !== 'undefined') {
         const p = _pasCache.find(x => x.id === reg.pedidoId);
         if (p) p.valorFinal = novoValor;
+      }
+    } else if (modulo === 'seguranca') {
+      await db.collection('seguranca_solicitacoes').doc(reg.pedidoId).update({ valor: novoValor });
+      if (typeof _segCache !== 'undefined') {
+        const s = _segCache.find(x => x.id === reg.pedidoId);
+        if (s) s.valor = novoValor;
       }
     } else {
       await db.collection('orders').doc(reg.pedidoId).update({

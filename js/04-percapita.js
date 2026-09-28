@@ -530,6 +530,8 @@ function goPage(page) {
   if (page === 'orc-historico-fin') setTimeout(loadOrcHistorico, 50);
   if (page === 'frt-metas') setTimeout(loadFrtMetas, 50);
   if (page === 'frt-indicadores') setTimeout(loadFrtIndicadores, 50);
+  // Módulo Segurança
+  if (page === 'seg-lista') setTimeout(segCarregarLista, 50);
   // Módulo Passagens (U3)
   if (page === 'pas-solicitacoes') setTimeout(loadPasSolic, 50);
   if (page === 'pas-nova') setTimeout(loadPasNovaForm, 50);

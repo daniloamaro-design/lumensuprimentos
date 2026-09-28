@@ -2281,7 +2281,7 @@ const _SUP_PAGES = ['dashboard', 'users', 'houses', 'manage-houses', 'manage-cit
   'fornecedores-cadastro', 'fornecedores-consulta', 'my-orders', 'prices', 'percapita', 'calc-real', 'previsao', 'rotina-estoque',
   'cardapio-diario', 'financeiro-compras', 'indicadores', 'irmaos', 'ind-fornecedores', 'metas',
   'var-solicitacoes', 'var-orcamento', 'var-proposta', 'var-historico', 'var-setores', 'solicitar-ajuste',
-  'pas-orcamento'];
+  'pas-orcamento', 'seg-lista'];
 const _TODAS_PAGES = [..._SUP_PAGES, ..._MOD_PAGES];
 
 // Matriz padrão = espelha o comportamento atual (js/04-percapita.js antigo)

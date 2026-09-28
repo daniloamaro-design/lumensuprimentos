@@ -111,6 +111,11 @@
           🛒 Nova Solicitação
         </button>
       </div>
+      <div style="margin-top:10px;">
+        <button class="btn" onclick="showForm('guest-seguranca')" style="width:100%;background:#E6F6F7;color:#2B9FA8;border:1.5px solid #2B9FA8;font-size:13px;padding:10px 8px;">
+          🛡️ Solicitar Segurança
+        </button>
+      </div>
     </div>
   </div>
 
@@ -143,6 +148,22 @@
       <input type="text" id="guest-order-name" class="form-input" placeholder="Digite seu nome completo" autocomplete="name">
     </div>
     <button class="btn btn-primary" onclick="enterGuestMode('new-order')">Continuar para Solicitação</button>
+    <div class="auth-switch" style="margin-top:16px;"><a onclick="showForm('login')">← Voltar ao login</a></div>
+  </div>
+
+  <!-- GUEST SEGURANÇA FORM -->
+  <div id="form-guest-seguranca" class="auth-box hidden">
+    <div style="text-align:center;margin-bottom:20px;">
+      <div style="font-size:40px;margin-bottom:8px;">🛡️</div>
+      <h2 style="font-size:20px;font-weight:700;color:#2B9FA8;margin:0 0 4px 0;">Solicitar Segurança</h2>
+      <p style="font-size:13px;color:#888;margin:0;">Peça segurança pra um evento ou encontro sem precisar fazer login</p>
+    </div>
+    <div id="guest-seguranca-alert" class="alert alert-danger"></div>
+    <div class="form-group">
+      <label class="form-label">Seu Nome *</label>
+      <input type="text" id="guest-seguranca-name" class="form-input" placeholder="Digite seu nome completo" autocomplete="name">
+    </div>
+    <button class="btn btn-primary" onclick="enterGuestMode('seguranca')">Continuar para Solicitação</button>
     <div class="auth-switch" style="margin-top:16px;"><a onclick="showForm('login')">← Voltar ao login</a></div>
   </div>
 
@@ -314,6 +335,7 @@
       <button class="modulo-btn ativo" data-mod="suprimentos" onclick="selecionarModulo('suprimentos')" title="Suprimentos">📦 Suprimentos</button>
       <button class="modulo-btn" data-mod="passagens" onclick="selecionarModulo('passagens')" title="Passagens">✈️ Passagens</button>
       <button class="modulo-btn" data-mod="frete" onclick="selecionarModulo('frete')" title="Fretes">🚚 Fretes</button>
+      <button class="modulo-btn" data-mod="seguranca" onclick="selecionarModulo('seguranca')" title="Segurança">🛡️ Segurança</button>
       <button class="modulo-btn" data-mod="financeiro" onclick="selecionarModulo('financeiro')" title="Financeiro">💰 Financeiro</button>
       <button class="modulo-btn" data-mod="diretoria" onclick="selecionarModulo('diretoria')" title="Diretoria">🏛️ Diretoria</button>
       <button class="modulo-btn" data-mod="fornecedores" onclick="selecionarModulo('fornecedores')" title="Fornecedores">🏢 Fornecedores</button>
@@ -721,6 +743,15 @@
       <button class="sidebar-item" data-page="frt-indicadores" onclick="goPageMobile('frt-indicadores')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="5" height="18" rx="1"/><rect x="10" y="8" width="5" height="13" rx="1"/><rect x="17" y="5" width="5" height="16" rx="1"/></svg>
         Painel do Frete
+      </button>
+    </div>
+
+    <!-- ════════ MÓDULO SEGURANÇA ════════ -->
+    <div class="sidebar-section" data-modulo="seguranca" id="sidebar-seguranca">
+      <div class="sidebar-section-title">Segurança</div>
+      <button class="sidebar-item" data-page="seg-lista" onclick="goPageMobile('seg-lista')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        Solicitações
       </button>
     </div>
   </nav>
@@ -1259,6 +1290,71 @@
           <div id="guest-var-lista-confirmacao" style="margin-bottom:20px;"></div>
           <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;">
             <button class="btn btn-primary" onclick="guestVarNovaSolicitacao()">+ Nova Solicitação</button>
+            <button class="btn btn-outline" onclick="exitGuestMode()">Sair</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PAGE: GUEST SEGURANÇA (solicitação de segurança sem login) -->
+    <div class="page" id="page-guest-seguranca">
+      <div style="max-width:560px;margin:40px auto;">
+        <div id="guest-seg-form-wrap">
+          <div style="text-align:center;margin-bottom:20px;">
+            <div style="font-size:40px;margin-bottom:8px;">🛡️</div>
+            <h2 style="font-size:20px;font-weight:700;color:var(--lumen);margin:0 0 6px 0;">Solicitação de Segurança</h2>
+            <p style="font-size:13px;color:var(--text-muted);margin:0;">Preencha os dados do evento/encontro.</p>
+          </div>
+          <div id="guest-seg-alert" class="alert alert-danger" style="display:none;"></div>
+          <div class="form-group">
+            <label class="form-label">Evento / Encontro *</label>
+            <input type="text" id="seg-evento" class="form-input" placeholder="Ex: Encontro de Casais, Vigília, Missa de Domingo...">
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;">
+            <div class="form-group">
+              <label class="form-label">Data *</label>
+              <input type="date" id="seg-data" class="form-input">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Horário Início</label>
+              <input type="time" id="seg-horario-inicio" class="form-input">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Horário Fim</label>
+              <input type="time" id="seg-horario-fim" class="form-input">
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Local *</label>
+            <input type="text" id="seg-local" class="form-input" placeholder="Endereço ou nome do local">
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+            <div class="form-group">
+              <label class="form-label">Casa / Unidade</label>
+              <select class="form-select" id="seg-casa"><option value="">Selecione...</option></select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Qtd. de Seguranças *</label>
+              <input type="number" id="seg-qtd" class="form-input" min="1" value="1">
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Seu Contato (telefone)</label>
+            <input type="text" id="seg-contato" class="form-input" placeholder="(00) 00000-0000">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Observações</label>
+            <textarea id="seg-obs" class="form-input" rows="3" placeholder="Informações adicionais úteis pra segurança do evento"></textarea>
+          </div>
+          <button class="btn btn-primary" style="width:100%;" id="btn-seg-enviar" onclick="segEnviarSolicitacao()">Enviar Solicitação</button>
+        </div>
+        <div id="guest-seg-confirmacao" style="display:none;text-align:center;">
+          <div style="font-size:48px;margin-bottom:8px;">✅</div>
+          <h2 style="font-size:20px;font-weight:700;color:var(--lumen);margin:0 0 6px 0;">Solicitação enviada!</h2>
+          <p style="font-size:13px;color:var(--text-muted);margin:0 0 4px 0;">Guarde o código abaixo pra acompanhar.</p>
+          <div style="font-size:18px;font-weight:800;color:var(--lumen);margin:10px 0 24px 0;" id="guest-seg-codigo"></div>
+          <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;">
+            <button class="btn btn-primary" onclick="segNovaSolicitacao()">+ Nova Solicitação</button>
             <button class="btn btn-outline" onclick="exitGuestMode()">Sair</button>
           </div>
         </div>
@@ -2654,6 +2750,26 @@
     <div id="frt-ind-conteudo"><div class="loading-state"><div class="spinner spinner-dark"></div>Carregando...</div></div>
   </div>
 
+  <!-- PAGE: Segurança — lista de solicitações -->
+  <div class="page" id="page-seg-lista">
+    <div class="page-header" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+      <div>
+        <h1 class="page-title">🛡️ Solicitações de Segurança</h1>
+        <div class="page-sub">Pedidos de segurança pra eventos e encontros — link público sem login em "Acesso Rápido"</div>
+      </div>
+      <select class="form-select" id="seg-filtro-status" style="width:200px;" onchange="segFiltrar()">
+        <option value="">Todos os status</option>
+        <option value="pendente">Pendente</option>
+        <option value="aprovado">Aprovado</option>
+        <option value="recusado">Recusado</option>
+        <option value="contratado">Contratado</option>
+        <option value="concluido">Concluído</option>
+        <option value="cancelado">Cancelado</option>
+      </select>
+    </div>
+    <div id="seg-lista-wrap"><div class="loading-state"><div class="spinner spinner-dark"></div>Carregando...</div></div>
+  </div>
+
   <!-- PAGE: Indicadores de Passagens -->
   <div class="page" id="page-pas-indicadores">
     <div class="page-header"><h1 class="page-title">✈️ Indicadores de Passagens</h1></div>
@@ -3053,6 +3169,23 @@
     </div>
   </div>
 
+  <!-- MODAL: Contratar segurança (Segurança) -->
+  <div class="modal-overlay hidden" id="modal-seg-contratar">
+    <div class="modal" style="max-width:440px;width:100%;">
+      <div class="modal-header">
+        <div class="modal-title">🛡️ Contratar Segurança</div>
+        <button class="modal-close" onclick="segFecharContratar()">×</button>
+      </div>
+      <div class="modal-body" style="padding:20px;display:flex;flex-direction:column;gap:14px;">
+        <div style="font-weight:600;font-size:13px;color:var(--text-muted);" id="seg-contratar-label"></div>
+        <div><label class="form-label">Fornecedor (tipo Segurança)</label><select class="form-select" id="seg-contratar-fornecedor"></select></div>
+        <div><label class="form-label">Valor (R$)</label><input class="form-input" type="number" step="0.01" min="0" id="seg-contratar-valor"></div>
+        <div style="font-size:12px;color:var(--text-muted);">O pagamento em si é confirmado no módulo Financeiro (Categoria: Segurança), não aqui.</div>
+        <div style="text-align:right;"><button class="btn btn-primary" id="btn-seg-salvar-contratacao" onclick="segSalvarContratacao()">Salvar</button></div>
+      </div>
+    </div>
+  </div>
+
 <!-- ═══════════════ PAGE: FORNECEDORES ═══════════════ -->
 <!-- (injected inside #app-screen, rendered via goPage) -->
 
@@ -3082,7 +3215,7 @@
 </div>
 
 <!-- FORNECEDORES / COMPARATIVO / pages are in the main content area -->
-<script src="js/paginas-html.js?v=20"></script>
+<script src="js/paginas-html.js?v=21"></script>
 
 <!-- ════════ MODAL: REGISTRAR TRANSFERÊNCIA FINANCEIRA ════════ -->
 <div class="modal-overlay hidden" id="modal-transf-financeira">
@@ -3628,24 +3761,24 @@
      SCRIPTS
      ════════════════════════════════════════════════════════════ -->
 <script src="js/01-core.js?v=9"></script>
-<script src="js/02-auth.js?v=7"></script>
+<script src="js/02-auth.js?v=8"></script>
 <script src="js/03-navegacao.js?v=2"></script>
-<script src="js/04-percapita.js?v=20"></script>
+<script src="js/04-percapita.js?v=21"></script>
 <script src="js/05-cadastros.js?v=3"></script>
 <script src="js/06-pedidos.js?v=25"></script>
 <script src="js/07-estoque-ia-form.js?v=6"></script>
 <script src="js/08-orcamento-casas.js?v=9"></script>
 <script src="js/09-indicadores-transf.js?v=6"></script>
-<script src="js/10-produtos-orcamento.js?v=13"></script>
+<script src="js/10-produtos-orcamento.js?v=14"></script>
 <script src="js/11-fornecedores-pendentes.js?v=8"></script>
 <script src="js/12-financeiro-compras.js?v=21"></script>
 <script src="js/13-ia-avancada.js?v=2"></script>
 <script src="js/14-gestao.js?v=4"></script>
-<script src="js/15-fornecedores-metas.js?v=9"></script>
+<script src="js/15-fornecedores-metas.js?v=10"></script>
 <script src="js/16-chat-ia.js?v=2"></script>
 <script src="js/17-metas-wrappers.js?v=2"></script>
 <script src="js/cidades-brasil.js?v=1"></script>
-<script src="js/18-erp.js?v=54"></script>
+<script src="js/18-erp.js?v=55"></script>
 <script src="js/19-dashboard-diretoria.js?v=9"></script>
 <script src="js/20-percapita-diretoria.js?v=2"></script>
 <!-- CHAT IA FLUTUANTE -->
@@ -3736,6 +3869,7 @@
 <script src="js/22-coord-dashboard.js?v=15"></script>
 <script src="js/23-importar-precos-nf.js?v=1"></script>
 <script src="js/24-guia-atualizacoes.js?v=1"></script>
+<script src="js/25-seguranca.js?v=1"></script>
 
 <!-- MODAL: NOVA SOLICITAÇÃO DE VARIEDADES -->
 <div class="modal-overlay hidden" id="modal-nova-var">

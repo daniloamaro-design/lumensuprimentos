@@ -157,6 +157,10 @@ document.querySelector('.main-content').insertAdjacentHTML('beforeend', `
             <input type="checkbox" id="sup-tipo-frete" value="frete" onchange="updateTipoStyle('frete')" style="accent-color:var(--lumen);width:16px;height:16px;">
             🚚 Fretes
           </label>
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;font-weight:500;padding:8px 14px;border:1.5px solid var(--border);border-radius:8px;background:var(--surface);transition:all 0.15s;" id="tipo-check-seguranca">
+            <input type="checkbox" id="sup-tipo-seguranca" value="seguranca" onchange="updateTipoStyle('seguranca')" style="accent-color:var(--lumen);width:16px;height:16px;">
+            🛡️ Segurança
+          </label>
         </div>
       </div>
       <!-- Linha 4: categorias como checkboxes + obs -->
@@ -2195,6 +2199,7 @@ document.querySelector('.main-content').insertAdjacentHTML('beforeend', `
               <option value="suprimentos">📦 Suprimentos</option>
               <option value="passagens">✈️ Passagens</option>
               <option value="frete">🚚 Fretes</option>
+              <option value="seguranca">🛡️ Segurança</option>
             </select>
           </div>
           <div class="form-group"><label class="form-label">Fornecedor</label>

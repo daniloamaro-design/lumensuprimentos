@@ -1728,7 +1728,7 @@ async function abrirFornecedorModal(id) {
   const pct       = limite > 0 ? (utilizado / limite * 100) : 0;
   const barClass  = pct >= 90 ? 'danger' : pct >= 50 ? 'warn' : 'safe';
   const cats      = (s.categorias || []).map(c => CATEGORIAS[c]?.icon + ' ' + CATEGORIAS[c]?.nome).join(', ') || '—';
-  const tipoLabel = { produtos: '📦 Suprimentos', passagens: '✈️ Passagens', frete: '🚚 Fretes' };
+  const tipoLabel = { produtos: '📦 Suprimentos', passagens: '✈️ Passagens', frete: '🚚 Fretes', seguranca: '🛡️ Segurança' };
   const tipos     = (s.tipos || []).map(t => tipoLabel[t] || t).join(', ') || '—';
   const tel       = s.contato || s.telefone || '';
 
@@ -1910,7 +1910,7 @@ async function saveSupplier() {
   const apelidos      = document.getElementById('sup-apelidos').value.split(',').map(s => s.trim()).filter(Boolean);
   const categorias    = ['cereal','higiene','proteina','missa_sf','lanches_csl']
     .filter(c => document.getElementById('sup-cat-' + c)?.checked);
-  const tipos         = ['produtos','passagens','frete']
+  const tipos         = ['produtos','passagens','frete','seguranca']
     .filter(t => document.getElementById('sup-tipo-' + t)?.checked);
 
   if (!nome) { showToast('Informe o nome do fornecedor!'); return; }
@@ -1967,7 +1967,7 @@ function editSupplier(id) {
     const chk = document.getElementById('sup-cat-' + c);
     if (chk) { chk.checked = (s.categorias || []).includes(c); updateCatStyle(c); }
   });
-  ['produtos','passagens','frete'].forEach(t => {
+  ['produtos','passagens','frete','seguranca'].forEach(t => {
     const chk = document.getElementById('sup-tipo-' + t);
     if (chk) { chk.checked = (s.tipos || []).includes(t); updateTipoStyle(t); }
   });
@@ -1988,7 +1988,7 @@ function cancelEditSupplier() {
     const chk = document.getElementById('sup-cat-' + c);
     if (chk) { chk.checked = false; updateCatStyle(c); }
   });
-  ['produtos','passagens','frete'].forEach(t => {
+  ['produtos','passagens','frete','seguranca'].forEach(t => {
     const chk = document.getElementById('sup-tipo-' + t);
     if (chk) { chk.checked = false; updateTipoStyle(t); }
   });

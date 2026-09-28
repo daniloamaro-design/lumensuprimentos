@@ -114,7 +114,7 @@ function logoutApp() {
 }
 
 function showForm(name) {
-  ['login','register','pending','reset','guest-movement','guest-order'].forEach(f => {
+  ['login','register','pending','reset','guest-movement','guest-order','guest-seguranca'].forEach(f => {
     document.getElementById(`form-${f}`).classList.toggle('hidden', f !== name);
   });
   // Limpa alertas e campos ao trocar de tela
@@ -131,9 +131,16 @@ function showAuthScreen(form) {
   showForm(form);
 }
 
+const GUEST_MODE_FORMS = {
+  movement:   { nameFieldId: 'guest-movement-name',  alertId: 'guest-movement-alert',  formId: 'guest-movement' },
+  'new-order':{ nameFieldId: 'guest-order-name',      alertId: 'guest-order-alert',      formId: 'guest-order' },
+  seguranca:  { nameFieldId: 'guest-seguranca-name',  alertId: 'guest-seguranca-alert',  formId: 'guest-seguranca' },
+};
+
 async function enterGuestMode(page) {
-  const nameFieldId = page === 'movement' ? 'guest-movement-name' : 'guest-order-name';
-  const alertId     = page === 'movement' ? 'guest-movement-alert' : 'guest-order-alert';
+  const cfg = GUEST_MODE_FORMS[page] || GUEST_MODE_FORMS['new-order'];
+  const nameFieldId = cfg.nameFieldId;
+  const alertId     = cfg.alertId;
   const name = document.getElementById(nameFieldId).value.trim();
   if (!name) {
     showAlert(alertId, 'Por favor, informe seu nome.', 'danger');
@@ -143,7 +150,7 @@ async function enterGuestMode(page) {
   // Autentica de verdade (anônimo) antes de liberar a tela — sem isso, request.auth
   // fica null no Firestore e QUALQUER gravação (inclusive o contador de código
   // sequencial) cai em "permission-denied", sempre, pra todo mundo nesse modo.
-  const btnConfirm = document.querySelector(`#form-${page === 'movement' ? 'guest-movement' : 'guest-order'} button.btn-primary`);
+  const btnConfirm = document.querySelector(`#form-${cfg.formId} button.btn-primary`);
   if (btnConfirm) { btnConfirm.disabled = true; btnConfirm.textContent = 'Entrando...'; }
   try {
     await auth.signInAnonymously();
@@ -167,7 +174,8 @@ async function enterGuestMode(page) {
   document.getElementById('app-screen').style.display  = 'block';
   // Configura topbar para modo visitante
   document.getElementById('topbar-user').textContent = name + ' (Visitante)';
-  document.getElementById('topbar-page-title').textContent = page === 'movement' ? 'Entrada / Saída' : 'Nova Solicitação de Variedades';
+  const TITULOS_GUEST = { movement: 'Entrada / Saída', 'new-order': 'Nova Solicitação de Variedades', seguranca: 'Solicitação de Segurança' };
+  document.getElementById('topbar-page-title').textContent = TITULOS_GUEST[page] || 'Nova Solicitação de Variedades';
   // Esconde sidebar e mostra apenas a página solicitada
   document.getElementById('sidebar').style.display = 'none';
   document.getElementById('sidebar-overlay').style.display = 'none';
@@ -179,11 +187,20 @@ async function enterGuestMode(page) {
   if (logoutBtn) logoutBtn.textContent = 'Sair';
   // Ativa a página
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-  const targetPage = page === 'movement' ? 'page-movement' : 'page-guest-var';
+  const PAGINAS_GUEST = { movement: 'page-movement', 'new-order': 'page-guest-var', seguranca: 'page-guest-seguranca' };
+  const targetPage = PAGINAS_GUEST[page] || 'page-guest-var';
   const el = document.getElementById(targetPage);
   if (el) el.classList.add('active');
   if (page === 'movement') setMovCat('cereal');
   if (page === 'new-order') abrirModalNovaVar();
+  if (page === 'seguranca') {
+    // Casas não vêm carregadas nesse modo (showApp/loadDynamicData não rodam
+    // pra sessão anônima) — carrega só o necessário pro select de casa.
+    loadDynamicData().then(() => {
+      const sel = document.getElementById('seg-casa');
+      if (sel) sel.innerHTML = '<option value="">Selecione...</option>' + CASAS.map(c => `<option value="${c}">${c}</option>`).join('');
+    });
+  }
 }
 
 function exitGuestMode() {
