@@ -114,6 +114,15 @@ window.segNovaSolicitacao = segNovaSolicitacao;
 let _segCache = [];
 let segPage = 1;
 
+const SEG_COLUNAS = ['Código','Tipo','Data','Horário','Local','Endereço','Casa/Unidade','Qtd. Seguranças','Menores?','Solicitante','Contato','Grupo','Serviço','Observações','Status','Fornecedor','Valor','Ações'];
+
+function segTabelaVazia(mensagem) {
+  return `<div class="table-wrap" style="overflow-x:auto;"><table>
+    <thead><tr>${SEG_COLUNAS.map(c => `<th>${c}</th>`).join('')}</tr></thead>
+    <tbody><tr><td colspan="${SEG_COLUNAS.length}" class="text-muted" style="text-align:center;padding:24px;">${mensagem}</td></tr></tbody>
+  </table></div>`;
+}
+
 async function segCarregarLista() {
   const wrap = document.getElementById('seg-lista-wrap');
   if (!wrap) return;
@@ -126,7 +135,7 @@ async function segCarregarLista() {
     const lista = filtro ? _segCache.filter(s => s.status === filtro) : _segCache;
 
     if (!lista.length) {
-      wrap.innerHTML = '<div style="color:var(--text-muted);font-size:13px;padding:32px;text-align:center;">Nenhuma solicitação encontrada.</div>';
+      wrap.innerHTML = segTabelaVazia('Nenhuma solicitação encontrada.');
       return;
     }
 
@@ -142,7 +151,7 @@ async function segCarregarLista() {
     const fmt = v => 'R$ ' + Number(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
     const pag = paginar(lista, segPage);
-    wrap.innerHTML = pag.itens.map(s => {
+    const linhas = pag.itens.map(s => {
       const st = statusMap[s.status] || { label: s.status, cor: 'var(--text-muted)' };
       const acoes = [];
       if (s.status === 'pendente') {
@@ -153,29 +162,38 @@ async function segCarregarLista() {
         acoes.push(`<button class="btn btn-primary btn-sm" onclick="segAbrirContratar('${s.id}')">🛡️ Contratar</button>`);
       }
       if (s.status === 'contratado' || s.status === 'concluido') {
-        acoes.push(`<button class="btn btn-outline btn-sm" onclick="segAbrirContratar('${s.id}')">✏️ Editar contratação</button>`);
+        acoes.push(`<button class="btn btn-outline btn-sm" onclick="segAbrirContratar('${s.id}')">✏️ Editar</button>`);
       }
       if (!['cancelado','concluido'].includes(s.status)) {
         acoes.push(`<button class="btn btn-outline btn-sm" onclick="segCancelar('${s.id}')">Cancelar</button>`);
       }
-      return `
-        <div class="card" style="margin-bottom:10px;padding:14px 16px;">
-          <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px;">
-            <div>
-              <div style="font-weight:700;font-size:14px;">${s.evento || '—'} <span style="font-weight:400;font-size:12px;color:var(--text-muted);">${s.codigo || ''}</span></div>
-              <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">${fmtData(s.dataEvento)}${s.horarioInicio ? ' · ' + s.horarioInicio + (s.horarioFim ? '–' + s.horarioFim : '') : ''} &nbsp;|&nbsp; ${s.local || '—'}${s.endereco ? ' · ' + s.endereco : ''} ${s.casa ? '· ' + s.casa : ''}</div>
-              <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">👤 ${s.solicitanteNome || '—'} ${s.solicitanteContato ? '· ' + s.solicitanteContato : ''} ${s.grupo ? '· Grupo: ' + s.grupo : ''} ${s.servico ? '· Serviço: ' + s.servico : ''}</div>
-              <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">🛡️ ${s.qtdSegurancas || 1} segurança(s) ${s.temMenores ? ' &nbsp;|&nbsp; 🧒 Terá menores de idade' : ''}</div>
-              ${s.obs ? `<div style="font-size:12px;color:var(--text-muted);margin-top:4px;">📝 ${s.obs}</div>` : ''}
-              ${s.fornecedorNome ? `<div style="font-size:12px;margin-top:4px;">🏢 ${s.fornecedorNome} — <strong>${fmt(s.valor)}</strong></div>` : ''}
-            </div>
-            <div style="text-align:right;">
-              <div style="font-size:12px;font-weight:700;color:${st.cor};">${st.label}</div>
-            </div>
-          </div>
-          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:10px;">${acoes.join('')}</div>
-        </div>`;
-    }).join('') + paginacaoHTML(pag, 'segGoToPage');
+      const horario = s.horarioInicio ? s.horarioInicio + (s.horarioFim ? '–' + s.horarioFim : '') : '—';
+      return `<tr>
+        <td style="white-space:nowrap;">${s.codigo || '—'}</td>
+        <td>${s.evento || '—'}</td>
+        <td style="white-space:nowrap;">${fmtData(s.dataEvento)}</td>
+        <td style="white-space:nowrap;">${horario}</td>
+        <td>${s.local || '—'}</td>
+        <td>${s.endereco || '—'}</td>
+        <td>${s.casa || '—'}</td>
+        <td style="text-align:center;">${s.qtdSegurancas || 1}</td>
+        <td style="text-align:center;">${s.temMenores ? '🧒 Sim' : 'Não'}</td>
+        <td>${s.solicitanteNome || '—'}</td>
+        <td style="white-space:nowrap;">${s.solicitanteContato || '—'}</td>
+        <td>${s.grupo || '—'}</td>
+        <td>${s.servico || '—'}</td>
+        <td>${s.obs || '—'}</td>
+        <td style="white-space:nowrap;color:${st.cor};font-weight:600;">${st.label}</td>
+        <td>${s.fornecedorNome || '—'}</td>
+        <td style="white-space:nowrap;">${s.fornecedorNome ? fmt(s.valor) : '—'}</td>
+        <td style="white-space:nowrap;"><div style="display:flex;gap:6px;flex-wrap:wrap;">${acoes.join('')}</div></td>
+      </tr>`;
+    }).join('');
+
+    wrap.innerHTML = `<div class="table-wrap" style="overflow-x:auto;"><table>
+      <thead><tr>${SEG_COLUNAS.map(c => `<th>${c}</th>`).join('')}</tr></thead>
+      <tbody>${linhas}</tbody>
+    </table></div>` + paginacaoHTML(pag, 'segGoToPage');
   } catch (e) {
     wrap.innerHTML = `<div style="color:var(--danger);padding:20px;text-align:center;">Erro: ${e.message}</div>`;
   }
