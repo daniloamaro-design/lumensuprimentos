@@ -1043,7 +1043,11 @@ async function sincronizarSistema() {
         dataCompraSerial: refDate.getTime(),
         vencimentoStr,
         valor:           valor || 0,
-        pago:            o.status === 'concluido' ? 'Sim' : '',
+        // 'concluido' é status de ENTREGA do pedido (itens recebidos), não de
+        // pagamento da fatura — nunca inferir pago='Sim' daqui. Fatura só é
+        // paga quando alguém confirma isso de fato no Financeiro (pago_em
+        // fica preenchido só nesse caso; nenhuma linha criada aqui tem).
+        pago:            '',
         pedidoRef:       cod,
         pedidoId:        doc.id,
         obs:             `Sincronizado automaticamente — ${cod}`,
