@@ -831,7 +831,7 @@ async function loadManageHouses() {
   // Names of default houses (hardcoded list)
   const CASAS_PADRAO_NOMES = new Set([
     'Dom Bosco','São Francisco','Fraternitas','São Gabriel',
-    'Três Pastorinhos','Santa Dulce - CE','N. S. Lourdes',
+    'Três Pastorinhos','Santa Dulce - CE',
     'Espírito Santo','Bom Samaritano','Filho Pródigo',
     'Coração Sagrado','Sítio Belém','Santa Dulce - SSA',
     'Fazenda Natal - SSA','Recanto Solidário - SSA',

@@ -113,7 +113,7 @@ const ADMIN_EMAIL = "daniloamaro@lumenserfeliz.org";
 // Listas dinâmicas — preenchidas ao carregar o app
 let CASAS = [
   'Dom Bosco','São Francisco','Fraternitas','São Gabriel',
-  'Três Pastorinhos','Santa Dulce - CE','N. S. Lourdes',
+  'Três Pastorinhos','Santa Dulce - CE',
   'Espírito Santo','Bom Samaritano','Filho Pródigo',
   'Coração Sagrado','Sítio Belém','Santa Dulce - SSA',
   'Fazenda Natal - SSA','Recanto Solidário - SSA',
@@ -137,7 +137,6 @@ let CASAS_CIDADES = {
   'São Gabriel':            'Fortaleza - CE',
   'Três Pastorinhos':       'Fortaleza - CE',
   'Santa Dulce - CE':       'Fortaleza - CE',
-  'N. S. Lourdes':          'Fortaleza - CE',
   'Espírito Santo':         'Fortaleza - CE',
   'Bom Samaritano':         'Fortaleza - CE',
   'Filho Pródigo':          'Fortaleza - CE',
