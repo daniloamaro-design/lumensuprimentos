@@ -21,7 +21,16 @@ auth.onAuthStateChanged(async (user) => {
   try {
     let snap = await db.collection('users').doc(user.uid).get();
     if (!snap.exists) {
-      if (user.isAnonymous) { showAuthScreen('pending'); return; }
+      if (user.isAnonymous) {
+        // Sessão de convidado (Entrada/Saída, Nova Solicitação, Segurança —
+        // enterGuestMode) já monta a própria UI pra esse mesmo signInAnonymously().
+        // Sem esse check, esse listener assíncrono chega depois e derruba a tela
+        // de volta pra "aguardando aprovação", já que todo anônimo sem linha em
+        // 'users' cai nesse ramo por padrão.
+        if (guestMode) return;
+        showAuthScreen('pending');
+        return;
+      }
       // Primeiro login via provedor social (Google etc.) — não passou pelo
       // formulário de cadastro, então não existe linha em 'users' ainda.
       // Cria o registro automaticamente (mesmo fluxo de aprovação do
