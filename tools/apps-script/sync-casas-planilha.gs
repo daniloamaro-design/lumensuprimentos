@@ -22,7 +22,7 @@
  *             pública usada no site.)
  * 4. Na barra de funções do editor, selecione "criarTriggerSincronizacaoCasas"
  *    e clique em ▶ Executar uma vez (autoriza o script e já instala o
- *    gatilho automático a cada 30 minutos).
+ *    gatilho automático, 1x por dia às 6h da manhã).
  * 5. Pra rodar manualmente e conferir o resultado, selecione a função
  *    "sincronizarCasasComSistema" e execute — o log fica em Execuções.
  */
@@ -117,11 +117,11 @@ function normalizar(s) {
   return s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
 }
 
-/** Execute esta função UMA vez pra instalar o gatilho automático (a cada 30min). */
+/** Execute esta função UMA vez pra instalar o gatilho automático (1x/dia). */
 function criarTriggerSincronizacaoCasas() {
   ScriptApp.getProjectTriggers().forEach(function(t) {
     if (t.getHandlerFunction() === 'sincronizarCasasComSistema') ScriptApp.deleteTrigger(t);
   });
-  ScriptApp.newTrigger('sincronizarCasasComSistema').timeBased().everyMinutes(30).create();
-  Logger.log('Gatilho instalado: sincronizarCasasComSistema a cada 30 minutos.');
+  ScriptApp.newTrigger('sincronizarCasasComSistema').timeBased().everyDays(1).atHour(6).create();
+  Logger.log('Gatilho instalado: sincronizarCasasComSistema 1x por dia, às 6h.');
 }
