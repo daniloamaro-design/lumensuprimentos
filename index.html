@@ -2757,15 +2757,18 @@
         <h1 class="page-title">🛡️ Solicitações de Segurança</h1>
         <div class="page-sub">Pedidos de segurança pra eventos e encontros — link público sem login em "Acesso Rápido"</div>
       </div>
-      <select class="form-select" id="seg-filtro-status" style="width:200px;" onchange="segFiltrar()">
-        <option value="">Todos os status</option>
-        <option value="pendente">Pendente</option>
-        <option value="aprovado">Aprovado</option>
-        <option value="recusado">Recusado</option>
-        <option value="contratado">Contratado</option>
-        <option value="concluido">Concluído</option>
-        <option value="cancelado">Cancelado</option>
-      </select>
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+        <select class="form-select" id="seg-filtro-status" style="width:200px;" onchange="segFiltrar()">
+          <option value="">Todos os status</option>
+          <option value="pendente">Pendente</option>
+          <option value="aprovado">Aprovado</option>
+          <option value="recusado">Recusado</option>
+          <option value="contratado">Contratado</option>
+          <option value="concluido">Concluído</option>
+          <option value="cancelado">Cancelado</option>
+        </select>
+        <button class="btn btn-primary" onclick="segAbrirCriar()">+ Criar Solicitação</button>
+      </div>
     </div>
     <div id="seg-lista-wrap"><div class="loading-state"><div class="spinner spinner-dark"></div>Carregando...</div></div>
   </div>
@@ -3165,6 +3168,32 @@
         <div><label class="form-label">Vencimento (dd/mm/aaaa)</label><input class="form-input" id="fin-edit-vencimento" placeholder="dd/mm/aaaa"></div>
         <div id="fin-edit-aviso" style="font-size:12px;color:var(--text-muted);display:none;"></div>
         <div style="text-align:right;"><button class="btn btn-primary" onclick="finSalvarEdicaoLancamento()">Salvar</button></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: Criar solicitação de segurança (uso interno, Segurança) -->
+  <div class="modal-overlay hidden" id="modal-seg-criar">
+    <div class="modal" style="max-width:520px;width:100%;">
+      <div class="modal-header">
+        <div class="modal-title">🛡️ Criar Solicitação de Segurança</div>
+        <button class="modal-close" onclick="segFecharCriar()">×</button>
+      </div>
+      <div class="modal-body" style="padding:20px;display:flex;flex-direction:column;gap:14px;">
+        <div><label class="form-label">Evento / Encontro *</label><input class="form-input" id="seg-c-evento" placeholder="Ex: Encontro de Casais, Vigília, Missa de Domingo..."></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;">
+          <div><label class="form-label">Data *</label><input class="form-input" type="date" id="seg-c-data"></div>
+          <div><label class="form-label">Horário Início</label><input class="form-input" type="time" id="seg-c-horario-inicio"></div>
+          <div><label class="form-label">Horário Fim</label><input class="form-input" type="time" id="seg-c-horario-fim"></div>
+        </div>
+        <div><label class="form-label">Local *</label><input class="form-input" id="seg-c-local" placeholder="Endereço ou nome do local"></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+          <div><label class="form-label">Casa / Unidade</label><select class="form-select" id="seg-c-casa"><option value="">Selecione...</option></select></div>
+          <div><label class="form-label">Qtd. de Seguranças *</label><input class="form-input" type="number" min="1" value="1" id="seg-c-qtd"></div>
+        </div>
+        <div><label class="form-label">Contato</label><input class="form-input" id="seg-c-contato" placeholder="(00) 00000-0000"></div>
+        <div><label class="form-label">Observações</label><textarea class="form-input" rows="3" id="seg-c-obs" placeholder="Informações adicionais úteis pra segurança do evento"></textarea></div>
+        <div style="text-align:right;"><button class="btn btn-primary" id="btn-seg-salvar-criar" onclick="segSalvarCriacao()">Enviar Solicitação</button></div>
       </div>
     </div>
   </div>
@@ -3869,7 +3898,7 @@
 <script src="js/22-coord-dashboard.js?v=15"></script>
 <script src="js/23-importar-precos-nf.js?v=1"></script>
 <script src="js/24-guia-atualizacoes.js?v=1"></script>
-<script src="js/25-seguranca.js?v=1"></script>
+<script src="js/25-seguranca.js?v=2"></script>
 
 <!-- MODAL: NOVA SOLICITAÇÃO DE VARIEDADES -->
 <div class="modal-overlay hidden" id="modal-nova-var">

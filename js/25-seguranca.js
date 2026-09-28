@@ -168,6 +168,64 @@ async function segCancelar(id) {
 }
 window.segCancelar = segCancelar;
 
+// ── Admin: criar solicitação direto no sistema (sem passar pelo link de convidado) ──
+function segAbrirCriar() {
+  ['seg-c-evento','seg-c-local','seg-c-contato','seg-c-obs'].forEach(id => { document.getElementById(id).value = ''; });
+  document.getElementById('seg-c-data').value = '';
+  document.getElementById('seg-c-horario-inicio').value = '';
+  document.getElementById('seg-c-horario-fim').value = '';
+  document.getElementById('seg-c-qtd').value = 1;
+  const sel = document.getElementById('seg-c-casa');
+  sel.innerHTML = '<option value="">Selecione...</option>' + (typeof CASAS !== 'undefined' ? CASAS : []).map(c => `<option value="${c}">${c}</option>`).join('');
+  document.getElementById('modal-seg-criar').classList.remove('hidden');
+}
+window.segAbrirCriar = segAbrirCriar;
+
+function segFecharCriar() {
+  document.getElementById('modal-seg-criar').classList.add('hidden');
+}
+window.segFecharCriar = segFecharCriar;
+
+async function segSalvarCriacao() {
+  const evento = document.getElementById('seg-c-evento').value.trim();
+  const data   = document.getElementById('seg-c-data').value;
+  const local  = document.getElementById('seg-c-local').value.trim();
+  const qtd    = parseInt(document.getElementById('seg-c-qtd').value) || 0;
+
+  if (!evento || !data || !local || qtd < 1) {
+    showToast('Preencha evento, data, local e quantidade de seguranças (mínimo 1).');
+    return;
+  }
+
+  setBtnLoading('btn-seg-salvar-criar', true);
+  const codigo = segGerarCodigo();
+  try {
+    await db.collection('seguranca_solicitacoes').add({
+      codigo,
+      evento,
+      dataEvento:     data,
+      horarioInicio:  document.getElementById('seg-c-horario-inicio').value || '',
+      horarioFim:     document.getElementById('seg-c-horario-fim').value || '',
+      local,
+      casa:           document.getElementById('seg-c-casa').value || '',
+      qtdSegurancas:  qtd,
+      obs:            document.getElementById('seg-c-obs').value.trim(),
+      solicitanteUid:      currentUser?.uid || '',
+      solicitanteNome:     currentUserData?.name || '',
+      solicitanteContato:  document.getElementById('seg-c-contato').value.trim(),
+      status: 'pendente',
+      criadoEm: firebase.firestore.FieldValue.serverTimestamp(),
+    });
+    showToast(`✅ Solicitação ${codigo} criada!`);
+    segFecharCriar();
+    segCarregarLista();
+  } catch (e) {
+    showToast('Erro ao criar: ' + e.message);
+  }
+  setBtnLoading('btn-seg-salvar-criar', false);
+}
+window.segSalvarCriacao = segSalvarCriacao;
+
 // ── Admin: contratação (fornecedor + valor) ────────────────────────────────
 let _segContratarId = null;
 
