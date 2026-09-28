@@ -7,17 +7,62 @@
 
 function segGerarCodigo() { return 'SEG-' + Math.floor(1000 + Math.random() * 9000); }
 
+// ── Toggles compartilhados pelos 2 formulários (convidado "seg-" e admin "seg-c-") ──
+function segToggleTipoOutro(tipoSelId, wrapId) {
+  document.getElementById(wrapId).style.display = document.getElementById(tipoSelId).value === 'Outro' ? 'block' : 'none';
+}
+window.segToggleTipoOutro = segToggleTipoOutro;
+
+function segToggleCasa(perguntaSelId, wrapId) {
+  document.getElementById(wrapId).style.display = document.getElementById(perguntaSelId).value === 'sim' ? 'block' : 'none';
+}
+window.segToggleCasa = segToggleCasa;
+
+// Lê os campos de um dos 2 formulários (prefixo 'seg-' convidado, 'seg-c-' admin)
+// e valida. Retorna { erro } se faltar algo, ou os dados prontos pra gravar.
+function segLerFormulario(prefixo) {
+  const g = suf => document.getElementById(prefixo + suf);
+  const tipo = g('tipo').value;
+  const tipoOutro = g('tipo-outro').value.trim();
+  const ehCasa = g('eh-casa').value;
+  const casa = ehCasa === 'sim' ? (g('casa').value || '') : '';
+  const local = g('local').value.trim();
+  const endereco = g('endereco').value.trim();
+  const data = g('data').value;
+  const qtd = parseInt(g('qtd').value) || 0;
+  const menores = g('menores').value;
+  const nomeSolicitante = g('nome-solicitante').value.trim();
+  const contato = g('contato').value.trim();
+
+  if (!tipo || (tipo === 'Outro' && !tipoOutro) || !data || !ehCasa || (ehCasa === 'sim' && !casa)
+      || !local || !endereco || qtd < 1 || !menores || !nomeSolicitante || !contato) {
+    return { erro: 'Preencha todos os campos obrigatórios (*).' };
+  }
+
+  return {
+    evento: tipo === 'Outro' ? ('Outro: ' + tipoOutro) : tipo,
+    dataEvento: data,
+    horarioInicio: g('horario-inicio').value || '',
+    horarioFim: g('horario-fim').value || '',
+    local, endereco, casa,
+    qtdSegurancas: qtd,
+    temMenores: menores === 'sim',
+    solicitanteNome: nomeSolicitante,
+    solicitanteContato: contato,
+    grupo: g('grupo').value.trim(),
+    servico: g('servico').value.trim(),
+    obs: g('obs').value.trim(),
+  };
+}
+
 // ── Convidado: envio da solicitação ────────────────────────────────────────
 async function segEnviarSolicitacao() {
-  const evento  = document.getElementById('seg-evento').value.trim();
-  const data    = document.getElementById('seg-data').value;
-  const local   = document.getElementById('seg-local').value.trim();
-  const qtd     = parseInt(document.getElementById('seg-qtd').value) || 0;
   const alertEl = document.getElementById('guest-seg-alert');
   alertEl.style.display = 'none';
 
-  if (!evento || !data || !local || qtd < 1) {
-    alertEl.textContent = 'Preencha evento, data, local e quantidade de seguranças (mínimo 1).';
+  const dados = segLerFormulario('seg-');
+  if (dados.erro) {
+    alertEl.textContent = dados.erro;
     alertEl.style.display = 'block';
     return;
   }
@@ -28,17 +73,8 @@ async function segEnviarSolicitacao() {
   try {
     await db.collection('seguranca_solicitacoes').add({
       codigo,
-      evento,
-      dataEvento:     data,
-      horarioInicio:  document.getElementById('seg-horario-inicio').value || '',
-      horarioFim:     document.getElementById('seg-horario-fim').value || '',
-      local,
-      casa:           document.getElementById('seg-casa').value || '',
-      qtdSegurancas:  qtd,
-      obs:            document.getElementById('seg-obs').value.trim(),
-      solicitanteUid:      currentUser?.uid || '',
-      solicitanteNome:     currentUserData?.name || guestName || '',
-      solicitanteContato:  document.getElementById('seg-contato').value.trim(),
+      ...dados,
+      solicitanteUid: currentUser?.uid || '',
       status: 'pendente',
       criadoEm: firebase.firestore.FieldValue.serverTimestamp(),
     });
@@ -53,13 +89,22 @@ async function segEnviarSolicitacao() {
 }
 window.segEnviarSolicitacao = segEnviarSolicitacao;
 
+function segLimparFormulario(prefixo) {
+  ['tipo-outro','local','endereco','contato','grupo','servico','obs','nome-solicitante'].forEach(id => { document.getElementById(prefixo + id).value = ''; });
+  document.getElementById(prefixo + 'tipo').value = '';
+  document.getElementById(prefixo + 'eh-casa').value = '';
+  document.getElementById(prefixo + 'menores').value = '';
+  document.getElementById(prefixo + 'data').value = '';
+  document.getElementById(prefixo + 'horario-inicio').value = '';
+  document.getElementById(prefixo + 'horario-fim').value = '';
+  document.getElementById(prefixo + 'casa').value = '';
+  document.getElementById(prefixo + 'qtd').value = 1;
+  document.getElementById(prefixo + 'tipo-outro-wrap').style.display = 'none';
+  document.getElementById(prefixo + 'casa-wrap').style.display = 'none';
+}
+
 function segNovaSolicitacao() {
-  ['seg-evento','seg-local','seg-contato','seg-obs'].forEach(id => { document.getElementById(id).value = ''; });
-  document.getElementById('seg-data').value = '';
-  document.getElementById('seg-horario-inicio').value = '';
-  document.getElementById('seg-horario-fim').value = '';
-  document.getElementById('seg-casa').value = '';
-  document.getElementById('seg-qtd').value = 1;
+  segLimparFormulario('seg-');
   document.getElementById('guest-seg-confirmacao').style.display = 'none';
   document.getElementById('guest-seg-form-wrap').style.display = 'block';
 }
@@ -118,8 +163,9 @@ async function segCarregarLista() {
           <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px;">
             <div>
               <div style="font-weight:700;font-size:14px;">${s.evento || '—'} <span style="font-weight:400;font-size:12px;color:var(--text-muted);">${s.codigo || ''}</span></div>
-              <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">${fmtData(s.dataEvento)}${s.horarioInicio ? ' · ' + s.horarioInicio + (s.horarioFim ? '–' + s.horarioFim : '') : ''} &nbsp;|&nbsp; ${s.local || '—'} ${s.casa ? '· ' + s.casa : ''}</div>
-              <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">👤 ${s.solicitanteNome || '—'} ${s.solicitanteContato ? '· ' + s.solicitanteContato : ''} &nbsp;|&nbsp; 🛡️ ${s.qtdSegurancas || 1} segurança(s)</div>
+              <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">${fmtData(s.dataEvento)}${s.horarioInicio ? ' · ' + s.horarioInicio + (s.horarioFim ? '–' + s.horarioFim : '') : ''} &nbsp;|&nbsp; ${s.local || '—'}${s.endereco ? ' · ' + s.endereco : ''} ${s.casa ? '· ' + s.casa : ''}</div>
+              <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">👤 ${s.solicitanteNome || '—'} ${s.solicitanteContato ? '· ' + s.solicitanteContato : ''} ${s.grupo ? '· Grupo: ' + s.grupo : ''} ${s.servico ? '· Serviço: ' + s.servico : ''}</div>
+              <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">🛡️ ${s.qtdSegurancas || 1} segurança(s) ${s.temMenores ? ' &nbsp;|&nbsp; 🧒 Terá menores de idade' : ''}</div>
               ${s.obs ? `<div style="font-size:12px;color:var(--text-muted);margin-top:4px;">📝 ${s.obs}</div>` : ''}
               ${s.fornecedorNome ? `<div style="font-size:12px;margin-top:4px;">🏢 ${s.fornecedorNome} — <strong>${fmt(s.valor)}</strong></div>` : ''}
             </div>
@@ -170,11 +216,7 @@ window.segCancelar = segCancelar;
 
 // ── Admin: criar solicitação direto no sistema (sem passar pelo link de convidado) ──
 function segAbrirCriar() {
-  ['seg-c-evento','seg-c-local','seg-c-contato','seg-c-obs'].forEach(id => { document.getElementById(id).value = ''; });
-  document.getElementById('seg-c-data').value = '';
-  document.getElementById('seg-c-horario-inicio').value = '';
-  document.getElementById('seg-c-horario-fim').value = '';
-  document.getElementById('seg-c-qtd').value = 1;
+  segLimparFormulario('seg-c-');
   const sel = document.getElementById('seg-c-casa');
   sel.innerHTML = '<option value="">Selecione...</option>' + (typeof CASAS !== 'undefined' ? CASAS : []).map(c => `<option value="${c}">${c}</option>`).join('');
   document.getElementById('modal-seg-criar').classList.remove('hidden');
@@ -187,32 +229,16 @@ function segFecharCriar() {
 window.segFecharCriar = segFecharCriar;
 
 async function segSalvarCriacao() {
-  const evento = document.getElementById('seg-c-evento').value.trim();
-  const data   = document.getElementById('seg-c-data').value;
-  const local  = document.getElementById('seg-c-local').value.trim();
-  const qtd    = parseInt(document.getElementById('seg-c-qtd').value) || 0;
-
-  if (!evento || !data || !local || qtd < 1) {
-    showToast('Preencha evento, data, local e quantidade de seguranças (mínimo 1).');
-    return;
-  }
+  const dados = segLerFormulario('seg-c-');
+  if (dados.erro) { showToast(dados.erro); return; }
 
   setBtnLoading('btn-seg-salvar-criar', true);
   const codigo = segGerarCodigo();
   try {
     await db.collection('seguranca_solicitacoes').add({
       codigo,
-      evento,
-      dataEvento:     data,
-      horarioInicio:  document.getElementById('seg-c-horario-inicio').value || '',
-      horarioFim:     document.getElementById('seg-c-horario-fim').value || '',
-      local,
-      casa:           document.getElementById('seg-c-casa').value || '',
-      qtdSegurancas:  qtd,
-      obs:            document.getElementById('seg-c-obs').value.trim(),
-      solicitanteUid:      currentUser?.uid || '',
-      solicitanteNome:     currentUserData?.name || '',
-      solicitanteContato:  document.getElementById('seg-c-contato').value.trim(),
+      ...dados,
+      solicitanteUid: currentUser?.uid || '',
       status: 'pendente',
       criadoEm: firebase.firestore.FieldValue.serverTimestamp(),
     });

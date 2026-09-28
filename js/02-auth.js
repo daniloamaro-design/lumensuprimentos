@@ -209,6 +209,8 @@ async function enterGuestMode(page) {
       const sel = document.getElementById('seg-casa');
       if (sel) sel.innerHTML = '<option value="">Selecione...</option>' + CASAS.map(c => `<option value="${c}">${c}</option>`).join('');
     });
+    const nomeEl = document.getElementById('seg-nome-solicitante');
+    if (nomeEl) nomeEl.value = name;
   }
 }
 
