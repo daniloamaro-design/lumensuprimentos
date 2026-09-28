@@ -83,7 +83,7 @@
     // a conversão genérica separa cada letra ("valor_n_f", "lancado_h_y_b"),
     // que não bate com a coluna real (import antigo da planilha "Visão
     // Contas a Pagar" já usa "valor_nf"/"lancado_hyb").
-    compras_financeiro: { valorNF: 'valor_nf', lancadoHYB: 'lancado_hyb' },
+    compras_financeiro: { valorNF: 'valor_nf', lancadoHYB: 'lancado_hyb', lancadoSP: 'lancado_sp' },
   };
   const aliasDe = (col) => ALIAS[tabelaDe(col)] || {};
   // campo do app → coluna do banco (where/orderBy). Aceita FieldPath.documentId().

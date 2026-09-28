@@ -1003,6 +1003,14 @@ async function finExportarNFsContaAzul() {
   await _caGarantirFornecedores();
   const mapaDocs = _caMapaDocs();
 
+  // Status de pagamento real vem de compras_financeiro (o pedido em si só tem
+  // status de ENTREGA — 'concluido' é o pedido entregue, não a fatura paga).
+  const finPorPedido = new Map();
+  (finDados || []).forEach(f => {
+    if (f.pedidoId) finPorPedido.set(f.pedidoId, f);
+    else if (f.pedidoRef) finPorPedido.set(f.pedidoRef, f);
+  });
+
   const header = ['Data de Competência','Data de Vencimento','Data de Pagamento','Valor','Categoria','Descrição','Cliente/Fornecedor','CNPJ/CPF Cliente/Fornecedor','Centro de Custo','Observações'];
   const linhas = [header];
   let semDoc = 0;
@@ -1011,10 +1019,11 @@ async function finExportarNFsContaAzul() {
   dados.forEach(d => {
     if (!(d.nfValor > 0)) { semNF++; return; } // sem NF lançada ainda: não entra no Conta Azul
 
+    const finReg = finPorPedido.get(d.id) || finPorPedido.get(d.code);
     const dtComp = d.createdAt?.toDate ? d.createdAt.toDate() : null;
     const dtVenc = d.boletoVencimento ? new Date(d.boletoVencimento + 'T00:00:00') : dtComp;
-    const pago   = d.status === 'concluido'; // ajuste se "concluido" não corresponder a "pago" no seu fluxo real
-    const dtPag  = pago && d.updatedAt?.toDate ? d.updatedAt.toDate() : '';
+    const pago   = FIN_PAGO(finReg?.pago);
+    const dtPag  = pago && finReg?.pagoEm?.toDate ? finReg.pagoEm.toDate() : '';
 
     const valor  = -Math.abs(parseFloat(d.nfValor) || 0); // saída = negativo
 
@@ -1268,7 +1277,7 @@ function pagAtualizarResumo() {
   }
 }
 
-function pagFiltrar() {
+function pagFiltrar(resetPage = true) {
   // Só 2 situações: "Em aberto" (pendente + vencido juntos — o card
   // "Vencidos" no topo já sinaliza quem entre eles está atrasado, não
   // precisa de um terceiro filtro pra isso) e "Pagos".
@@ -1280,7 +1289,7 @@ function pagFiltrar() {
   }).sort((a,b) => (a.vencimentoSerial||0) - (b.vencimentoSerial||0));
 
   pagSelecionados.clear();
-  pagTabPage = 1;
+  if (resetPage) pagTabPage = 1;
   // Os cards do topo (Total Pendente/Vencidos/Pago este mês) precisam
   // reagir ao fornecedor/mês/ano também — sem isso ficavam presos no total
   // geral mesmo com um fornecedor específico selecionado.
@@ -1402,7 +1411,7 @@ async function finSalvarEdicaoLancamento() {
     closeModal('modal-editar-lancamento');
     pagPopularFiltroFornecedor();
     pagAtualizarResumo();
-    pagFiltrar();
+    pagFiltrar(false);
     finAplicarFiltros();
     showToast('✅ Lançamento atualizado!' + (valorMudou && reg.pedidoId ? ' Valor também corrigido no módulo original.' : ''));
   } catch (e) {
@@ -1458,7 +1467,7 @@ async function pagMarcarSelecionados(pagar) {
     });
     pagSelecionados.clear();
     pagAtualizarResumo();
-    pagFiltrar();
+    pagFiltrar(false);
     finAplicarFiltros(); // atualiza painel também
     showToast(`✅ ${count} lançamento(s) ${label}!`);
     // Atualiza badge da aba
@@ -1512,7 +1521,7 @@ async function finTogglePago(id, pagar) {
   // Feedback imediato
   reg.pago = novoStatus; reg.valorPago = novoValorPago;
   pagAtualizarResumo();
-  pagFiltrar();
+  pagFiltrar(false);
   finAplicarFiltros();
 
   try {
@@ -1537,7 +1546,7 @@ async function finTogglePago(id, pagar) {
   } catch(e) {
     // Reverte em caso de erro
     reg.pago = pagoAntes; reg.valorPago = valorPagoAntes;
-    pagFiltrar();
+    pagFiltrar(false);
     finAplicarFiltros();
     console.error(e);
     showToast('❌ Erro ao salvar: ' + e.message);
@@ -1548,13 +1557,13 @@ async function finToggleSP(id) {
   const reg = finDados.find(d => d.id === id);
   if (!reg) return;
   reg.lancadoSP = reg.lancadoSP === 'Sim' ? '' : 'Sim';
-  pagFiltrar();
+  pagFiltrar(false);
   try {
     await db.collection('compras_financeiro').doc(id).update({ lancadoSP: reg.lancadoSP });
     showToast(reg.lancadoSP === 'Sim' ? '✅ Marcado como lançado SP!' : '↩️ SP desmarcado!');
   } catch(e) {
     reg.lancadoSP = reg.lancadoSP === 'Sim' ? '' : 'Sim'; // reverte
-    pagFiltrar();
+    pagFiltrar(false);
     showToast('❌ Erro ao salvar: ' + e.message);
   }
 }

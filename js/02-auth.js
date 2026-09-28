@@ -200,7 +200,18 @@ async function enterGuestMode(page) {
   const targetPage = PAGINAS_GUEST[page] || 'page-guest-var';
   const el = document.getElementById(targetPage);
   if (el) el.classList.add('active');
-  if (page === 'movement') setMovCat('cereal');
+  if (page === 'movement') {
+    setMovCat('cereal');
+    // Casas não vêm carregadas nesse modo (showApp/populateHouseSelects não
+    // rodam pra sessão anônima) — sem isso #mov-house ficava sem nenhuma
+    // opção e o convidado não conseguia informar a casa da movimentação.
+    loadDynamicData().then(() => {
+      const sel = document.getElementById('mov-house');
+      if (sel) sel.innerHTML = '<option value="">Selecione...</option>' + CASAS.map(c => `<option value="${c}">${c}</option>`).join('');
+    });
+    const md = document.getElementById('mov-date');
+    if (md && !md.value) md.value = new Date().toISOString().slice(0,10);
+  }
   if (page === 'new-order') abrirModalNovaVar();
   if (page === 'seguranca') {
     // Casas não vêm carregadas nesse modo (showApp/loadDynamicData não rodam
