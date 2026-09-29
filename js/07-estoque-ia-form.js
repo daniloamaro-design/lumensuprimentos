@@ -757,7 +757,12 @@ async function svOpenHouse(casa) {
   _svAllRows = [];
 
   document.getElementById('sv-detail-tbody').innerHTML = rows.map(r => {
-    const stock = Math.max(r.e - r.s, 0);
+    const stockReal = r.e - r.s;
+    // Dias/saúde continuam usando o estoque sem negativo (não faz sentido
+    // "dias restantes" negativo) — mas a COLUNA de estoque mostra o valor
+    // real, pra um saldo negativo (sinal de erro de lançamento/duplicata)
+    // ficar visível em vez de aparecer escondido como "0".
+    const stock = Math.max(stockReal, 0);
 
     // Proteína usa cálculo compartilhado (todos os tipos somados)
     let days, daily;
@@ -789,7 +794,7 @@ async function svOpenHouse(casa) {
       <td><span style="font-size:12px;background:var(--lumen-lt,#E6F6F7);color:var(--lumen);padding:2px 8px;border-radius:99px;">${catIcon} ${catNome}</span></td>
       <td style="text-align:right;color:var(--ok);font-weight:600">+${r.e % 1 === 0 ? r.e : r.e.toFixed(2)} ${r.unidade}</td>
       <td style="text-align:right;color:var(--danger);font-weight:600">−${r.s % 1 === 0 ? r.s : r.s.toFixed(2)} ${r.unidade}</td>
-      <td style="text-align:right;font-weight:700">${stock % 1 === 0 ? stock : stock.toFixed(2)} ${r.unidade}</td>
+      <td style="text-align:right;font-weight:700;${stockReal < 0 ? 'color:var(--danger);' : ''}">${stockReal < 0 ? '⚠️ ' : ''}${stockReal % 1 === 0 ? stockReal : stockReal.toFixed(2)} ${r.unidade}</td>
       <td style="text-align:right">
         <div style="display:inline-flex;align-items:center;gap:6px;">
           <div style="width:50px;height:5px;background:var(--border);border-radius:99px;overflow:hidden;">
