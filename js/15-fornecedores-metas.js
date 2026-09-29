@@ -870,6 +870,13 @@ async function _syncFinanceiroLancar({ pedidoRef, pedidoId, fornecedor, forneced
       // Financeiro ficava preso no valor da 1ª sincronização pra sempre,
       // mesmo o pedido já mostrando o valor certo.
       if (Number(valor) > 0 && Number(valor) !== Number(atual.valor)) upd.valor = Number(valor);
+      // Mesma lógica pro fornecedor: se o 1º lançamento foi criado antes do
+      // fornecedor estar definido no pedido (fornecedor ficava ''), o
+      // lançamento nunca mais aparecia nos filtros por fornecedor do
+      // Financeiro — mesmo o pedido já mostrando o fornecedor certo.
+      if (fornecedor && fornecedor !== atual.fornecedor) upd.fornecedor = fornecedor;
+      if (fornecedorId && fornecedorId !== atual.fornecedorId) upd.fornecedorId = fornecedorId;
+      if (destinatario && destinatario !== atual.destinatario) upd.destinatario = destinatario;
       if (Object.keys(upd).length) await db.collection('compras_financeiro').doc(doc.id).update(upd);
       return;
     }
