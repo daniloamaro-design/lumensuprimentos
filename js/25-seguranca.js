@@ -29,13 +29,13 @@ function segLerFormulario(prefixo) {
   const local = g('local').value.trim();
   const endereco = g('endereco').value.trim();
   const data = g('data').value;
-  const qtd = parseInt(g('qtd').value) || 0;
+  const qtdPessoas = parseInt(g('qtd-pessoas').value) || 0;
   const menores = g('menores').value;
   const nomeSolicitante = g('nome-solicitante').value.trim();
   const contato = g('contato').value.trim();
 
-  if (!tipo || (tipo === 'Outro' && !tipoOutro) || !data || !ehCasa || (ehCasa === 'sim' && !casa)
-      || !local || !endereco || qtd < 1 || !menores || !nomeSolicitante || !contato) {
+  if (!nomeSolicitante || !contato || !tipo || (tipo === 'Outro' && !tipoOutro) || !data || qtdPessoas < 1
+      || !ehCasa || (ehCasa === 'sim' && !casa) || !local || !endereco || !menores) {
     return { erro: 'Preencha todos os campos obrigatórios (*).' };
   }
 
@@ -45,7 +45,7 @@ function segLerFormulario(prefixo) {
     horarioInicio: g('horario-inicio').value || '',
     horarioFim: g('horario-fim').value || '',
     local, endereco, casa,
-    qtdSegurancas: qtd,
+    qtdPessoas,
     temMenores: menores === 'sim',
     solicitanteNome: nomeSolicitante,
     solicitanteContato: contato,
@@ -56,6 +56,8 @@ function segLerFormulario(prefixo) {
 }
 
 // ── Convidado: envio da solicitação ────────────────────────────────────────
+let _segUltimaSolicitacao = null; // guarda os dados enviados, pra montar a mensagem do WhatsApp
+
 async function segEnviarSolicitacao() {
   const alertEl = document.getElementById('guest-seg-alert');
   alertEl.style.display = 'none';
@@ -78,6 +80,7 @@ async function segEnviarSolicitacao() {
       status: 'pendente',
       criadoEm: firebase.firestore.FieldValue.serverTimestamp(),
     });
+    _segUltimaSolicitacao = { ...dados, codigo };
     document.getElementById('guest-seg-form-wrap').style.display = 'none';
     document.getElementById('guest-seg-confirmacao').style.display = 'block';
     document.getElementById('guest-seg-codigo').textContent = codigo;
@@ -89,6 +92,29 @@ async function segEnviarSolicitacao() {
 }
 window.segEnviarSolicitacao = segEnviarSolicitacao;
 
+// Número fixo pra quem recebe o aviso de nova solicitação de segurança.
+const SEG_WHATSAPP_NUMERO = '5585992074073';
+
+function segAvisarWhatsApp() {
+  const d = _segUltimaSolicitacao;
+  if (!d) return;
+  const horario = d.horarioInicio ? `${d.horarioInicio}${d.horarioFim ? '–' + d.horarioFim : ''}` : '—';
+  const dataFmt = d.dataEvento ? new Date(d.dataEvento + 'T00:00:00').toLocaleDateString('pt-BR') : '—';
+  const linhas = [
+    '🛡️ *Nova solicitação de segurança*',
+    `Nome: ${d.solicitanteNome || '—'}`,
+    `Contato (WhatsApp): ${d.solicitanteContato || '—'}`,
+    `Tipo de solicitação: ${d.evento || '—'}`,
+    `Data/Horário: ${dataFmt} · ${horario}`,
+    `Quantidade de pessoas: ${d.qtdPessoas || '—'}`,
+    `Local: ${d.local || '—'}`,
+    `Endereço: ${d.endereco || '—'}`,
+  ];
+  const texto = encodeURIComponent(linhas.join('\n'));
+  window.open(`https://wa.me/${SEG_WHATSAPP_NUMERO}?text=${texto}`, '_blank');
+}
+window.segAvisarWhatsApp = segAvisarWhatsApp;
+
 function segLimparFormulario(prefixo) {
   ['tipo-outro','local','endereco','contato','grupo','servico','obs','nome-solicitante'].forEach(id => { document.getElementById(prefixo + id).value = ''; });
   document.getElementById(prefixo + 'tipo').value = '';
@@ -98,7 +124,7 @@ function segLimparFormulario(prefixo) {
   document.getElementById(prefixo + 'horario-inicio').value = '';
   document.getElementById(prefixo + 'horario-fim').value = '';
   document.getElementById(prefixo + 'casa').value = '';
-  document.getElementById(prefixo + 'qtd').value = 1;
+  document.getElementById(prefixo + 'qtd-pessoas').value = '';
   document.getElementById(prefixo + 'tipo-outro-wrap').style.display = 'none';
   document.getElementById(prefixo + 'casa-wrap').style.display = 'none';
 }
@@ -114,7 +140,7 @@ window.segNovaSolicitacao = segNovaSolicitacao;
 let _segCache = [];
 let segPage = 1;
 
-const SEG_COLUNAS = ['Código','Tipo','Data','Horário','Local','Endereço','Casa/Unidade','Qtd. Seguranças','Menores?','Solicitante','Contato','Grupo','Serviço','Observações','Status','Fornecedor','Valor','Ações'];
+const SEG_COLUNAS = ['Código','Tipo','Data','Horário','Local','Endereço','Casa/Unidade','Qtd. Pessoas','Menores?','Solicitante','Contato','Grupo','Serviço','Observações','Status','Fornecedor','Valor','Ações'];
 
 function segTabelaVazia(mensagem) {
   return `<div class="table-wrap" style="overflow-x:auto;"><table>
@@ -176,7 +202,7 @@ async function segCarregarLista() {
         <td>${s.local || '—'}</td>
         <td>${s.endereco || '—'}</td>
         <td>${s.casa || '—'}</td>
-        <td style="text-align:center;">${s.qtdSegurancas || 1}</td>
+        <td style="text-align:center;">${s.qtdPessoas || '—'}</td>
         <td style="text-align:center;">${s.temMenores ? '🧒 Sim' : 'Não'}</td>
         <td>${s.solicitanteNome || '—'}</td>
         <td style="white-space:nowrap;">${s.solicitanteContato || '—'}</td>

@@ -1307,6 +1307,22 @@
           </div>
           <div id="guest-seg-alert" class="alert alert-danger" style="display:none;"></div>
           <div class="form-group">
+            <label class="form-label">Nome *</label>
+            <input type="text" id="seg-nome-solicitante" class="form-input" placeholder="Nome completo">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Contato (WhatsApp) *</label>
+            <input type="text" id="seg-contato" class="form-input" placeholder="WhatsApp com DDD">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Grupo que frequenta</label>
+            <input type="text" id="seg-grupo" class="form-input" placeholder="Grupo que frequenta">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Serviço na comunidade</label>
+            <input type="text" id="seg-servico" class="form-input" placeholder="Serviço na comunidade">
+          </div>
+          <div class="form-group">
             <label class="form-label">Tipo de Solicitação *</label>
             <select class="form-select" id="seg-tipo" onchange="segToggleTipoOutro('seg-tipo','seg-tipo-outro-wrap')">
               <option value="">Selecione...</option>
@@ -1335,6 +1351,10 @@
             </div>
           </div>
           <div class="form-group">
+            <label class="form-label">Quantidade de pessoas no evento/grupo/retiro? *</label>
+            <input type="number" id="seg-qtd-pessoas" class="form-input" min="1" placeholder="Quantidade de pessoas">
+          </div>
+          <div class="form-group">
             <label class="form-label">O evento é em alguma casa ou centro social do Lumen? *</label>
             <select class="form-select" id="seg-eh-casa" onchange="segToggleCasa('seg-eh-casa','seg-casa-wrap')">
               <option value="">Selecione...</option>
@@ -1355,32 +1375,12 @@
             <input type="text" id="seg-endereco" class="form-input" placeholder="Endereço completo">
           </div>
           <div class="form-group">
-            <label class="form-label">Qtd. de Seguranças *</label>
-            <input type="number" id="seg-qtd" class="form-input" min="1" value="1">
-          </div>
-          <div class="form-group">
             <label class="form-label">Vai ter menores de idade no evento? *</label>
             <select class="form-select" id="seg-menores">
               <option value="">Selecione...</option>
               <option value="sim">Sim</option>
               <option value="nao">Não</option>
             </select>
-          </div>
-          <div class="form-group">
-            <label class="form-label">Nome de quem está solicitando *</label>
-            <input type="text" id="seg-nome-solicitante" class="form-input" placeholder="Nome completo">
-          </div>
-          <div class="form-group">
-            <label class="form-label">Contato (WhatsApp) *</label>
-            <input type="text" id="seg-contato" class="form-input" placeholder="WhatsApp com DDD">
-          </div>
-          <div class="form-group">
-            <label class="form-label">Grupo</label>
-            <input type="text" id="seg-grupo" class="form-input" placeholder="Grupo de quem está solicitando">
-          </div>
-          <div class="form-group">
-            <label class="form-label">Serviço</label>
-            <input type="text" id="seg-servico" class="form-input" placeholder="Serviço de quem está solicitando">
           </div>
           <div class="form-group">
             <label class="form-label">Observações</label>
@@ -1394,6 +1394,7 @@
           <p style="font-size:13px;color:var(--text-muted);margin:0 0 4px 0;">Guarde o código abaixo pra acompanhar.</p>
           <div style="font-size:18px;font-weight:800;color:var(--lumen);margin:10px 0 24px 0;" id="guest-seg-codigo"></div>
           <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;">
+            <button class="btn btn-primary" style="background:#25D366;border-color:#25D366;" onclick="segAvisarWhatsApp()">📲 Avisar por WhatsApp</button>
             <button class="btn btn-primary" onclick="segNovaSolicitacao()">+ Nova Solicitação</button>
             <button class="btn btn-outline" onclick="exitGuestMode()">Sair</button>
           </div>
@@ -3220,6 +3221,10 @@
         <button class="modal-close" onclick="segFecharCriar()">×</button>
       </div>
       <div class="modal-body" style="padding:20px;display:flex;flex-direction:column;gap:14px;">
+        <div><label class="form-label">Nome *</label><input class="form-input" id="seg-c-nome-solicitante" placeholder="Nome completo"></div>
+        <div><label class="form-label">Contato (WhatsApp) *</label><input class="form-input" id="seg-c-contato" placeholder="WhatsApp com DDD"></div>
+        <div><label class="form-label">Grupo que frequenta</label><input class="form-input" id="seg-c-grupo" placeholder="Grupo que frequenta"></div>
+        <div><label class="form-label">Serviço na comunidade</label><input class="form-input" id="seg-c-servico" placeholder="Serviço na comunidade"></div>
         <div><label class="form-label">Tipo de Solicitação *</label>
           <select class="form-select" id="seg-c-tipo" onchange="segToggleTipoOutro('seg-c-tipo','seg-c-tipo-outro-wrap')">
             <option value="">Selecione...</option>
@@ -3235,6 +3240,7 @@
           <div><label class="form-label">Horário Início</label><input class="form-input" type="time" id="seg-c-horario-inicio"></div>
           <div><label class="form-label">Horário Fim</label><input class="form-input" type="time" id="seg-c-horario-fim"></div>
         </div>
+        <div><label class="form-label">Quantidade de pessoas no evento/grupo/retiro? *</label><input class="form-input" type="number" min="1" id="seg-c-qtd-pessoas" placeholder="Quantidade de pessoas"></div>
         <div><label class="form-label">O evento é em alguma casa ou centro social do Lumen? *</label>
           <select class="form-select" id="seg-c-eh-casa" onchange="segToggleCasa('seg-c-eh-casa','seg-c-casa-wrap')">
             <option value="">Selecione...</option>
@@ -3245,7 +3251,6 @@
         <div id="seg-c-casa-wrap" style="display:none;"><label class="form-label">Casa / Unidade</label><select class="form-select" id="seg-c-casa"><option value="">Selecione...</option></select></div>
         <div><label class="form-label">Local *</label><input class="form-input" id="seg-c-local" placeholder="Nome do local"></div>
         <div><label class="form-label">Endereço *</label><input class="form-input" id="seg-c-endereco" placeholder="Endereço completo"></div>
-        <div><label class="form-label">Qtd. de Seguranças *</label><input class="form-input" type="number" min="1" value="1" id="seg-c-qtd"></div>
         <div><label class="form-label">Vai ter menores de idade no evento? *</label>
           <select class="form-select" id="seg-c-menores">
             <option value="">Selecione...</option>
@@ -3253,10 +3258,6 @@
             <option value="nao">Não</option>
           </select>
         </div>
-        <div><label class="form-label">Nome de quem está solicitando *</label><input class="form-input" id="seg-c-nome-solicitante" placeholder="Nome completo"></div>
-        <div><label class="form-label">Contato (WhatsApp) *</label><input class="form-input" id="seg-c-contato" placeholder="WhatsApp com DDD"></div>
-        <div><label class="form-label">Grupo</label><input class="form-input" id="seg-c-grupo" placeholder="Grupo de quem está solicitando"></div>
-        <div><label class="form-label">Serviço</label><input class="form-input" id="seg-c-servico" placeholder="Serviço de quem está solicitando"></div>
         <div><label class="form-label">Observações</label><textarea class="form-input" rows="3" id="seg-c-obs" placeholder="Informações adicionais úteis pra segurança do evento"></textarea></div>
         <div style="text-align:right;"><button class="btn btn-primary" id="btn-seg-salvar-criar" onclick="segSalvarCriacao()">Enviar Solicitação</button></div>
       </div>
@@ -3963,7 +3964,7 @@
 <script src="js/22-coord-dashboard.js?v=15"></script>
 <script src="js/23-importar-precos-nf.js?v=1"></script>
 <script src="js/24-guia-atualizacoes.js?v=1"></script>
-<script src="js/25-seguranca.js?v=4"></script>
+<script src="js/25-seguranca.js?v=5"></script>
 
 <!-- MODAL: NOVA SOLICITAÇÃO DE VARIEDADES -->
 <div class="modal-overlay hidden" id="modal-nova-var">
