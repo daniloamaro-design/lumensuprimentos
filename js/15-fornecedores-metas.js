@@ -865,6 +865,11 @@ async function _syncFinanceiroLancar({ pedidoRef, pedidoId, fornecedor, forneced
       // atualiza mesmo sem quitar de vez, senão o saldo devedor fica preso
       // no valor da primeira sincronização pra sempre.
       if (pago !== 'Sim' && Number(valorPago || 0) !== Number(atual.valorPago || 0)) upd.valorPago = Number(valorPago) || 0;
+      // Valor corrigido na origem depois do lançamento inicial (ex.: NF
+      // anexada com valor diferente do orçado na cotação) — sem isso o
+      // Financeiro ficava preso no valor da 1ª sincronização pra sempre,
+      // mesmo o pedido já mostrando o valor certo.
+      if (Number(valor) > 0 && Number(valor) !== Number(atual.valor)) upd.valor = Number(valor);
       if (Object.keys(upd).length) await db.collection('compras_financeiro').doc(doc.id).update(upd);
       return;
     }
