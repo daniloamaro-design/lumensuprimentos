@@ -2083,6 +2083,7 @@ async function saveAttachment() {
   setBtnLoading('btn-save-attach', true);
   const nfNumero   = document.getElementById('attach-nf-num').value.trim();
   const nfValor    = document.getElementById('attach-nf-valor').value;
+  const nfValorPrincipal = parseFloat(nfValor) || 0; // só a NF principal, sem somar as complementares — usado pra sincronizar o Financeiro NF a NF
   const boletoVenc = document.getElementById('attach-boleto-venc').value;
   const attachObs  = document.getElementById('attach-obs').value;
   const supSel         = document.getElementById('attach-supplier');
@@ -2162,16 +2163,37 @@ async function saveAttachment() {
   await db.collection('orders').doc(orderId).update(update);
   // Lança sozinho no financeiro assim que a NF tem valor — sem isso o Saldo
   // Devedor só cresceria quando alguém clicasse em "Sincronizar Pedidos".
-  if (update.nfValor > 0 && typeof _syncFinanceiroLancar === 'function') {
+  // Cada NF (principal + complementares) vira o PRÓPRIO lançamento no
+  // Financeiro — antes entrava tudo somado num lançamento só, e não dava
+  // pra conferir/pagar nota por nota como o pedido realmente recebeu.
+  if (typeof _syncFinanceiroLancar === 'function') {
     const cats = (detailOrderData?.categories || []);
-    _syncFinanceiroLancar({
-      pedidoRef: detailOrderData?.code, pedidoId: orderId,
-      fornecedor: update.fornecedorNome || detailOrderData?.fornecedorNome,
-      fornecedorId: update.fornecedorId || detailOrderData?.fornecedorId,
-      classificacao: cats.map(c => CATEGORIAS[c]?.nome || c).join(', ') || 'Pedido',
-      destinatario: detailOrderData?.house, valor: update.nfValor,
-      pago: '', modulo: 'suprimentos', dataRef: Date.now(),
-    }).catch(e => console.warn('sync financeiro (pedido):', e));
+    const classificacaoBase = cats.map(c => CATEGORIAS[c]?.nome || c).join(', ') || 'Pedido';
+    const fornecedorSync   = update.fornecedorNome || detailOrderData?.fornecedorNome;
+    const fornecedorIdSync = update.fornecedorId   || detailOrderData?.fornecedorId;
+    const destinatarioSync = detailOrderData?.house;
+    const codeBase         = detailOrderData?.code;
+
+    if (nfValorPrincipal > 0) {
+      _syncFinanceiroLancar({
+        pedidoRef: codeBase, pedidoId: orderId,
+        fornecedor: fornecedorSync, fornecedorId: fornecedorIdSync,
+        classificacao: classificacaoBase, destinatario: destinatarioSync,
+        valor: nfValorPrincipal, pago: '', modulo: 'suprimentos', dataRef: Date.now(),
+      }).catch(e => console.warn('sync financeiro (pedido, NF principal):', e));
+    }
+
+    (update.nfExtras || []).forEach((ex, i) => {
+      if (!(ex.valor > 0)) return;
+      _syncFinanceiroLancar({
+        // pedidoRef próprio por NF complementar — precisa ser distinto do
+        // pedidoRef principal pra virar um lançamento separado no Financeiro.
+        pedidoRef: `${codeBase}-NF${i + 2}`, pedidoId: orderId,
+        fornecedor: fornecedorSync, fornecedorId: fornecedorIdSync,
+        classificacao: classificacaoBase, destinatario: destinatarioSync,
+        valor: ex.valor, pago: '', modulo: 'suprimentos', dataRef: Date.now(),
+      }).catch(e => console.warn('sync financeiro (pedido, NF complementar):', e));
+    });
   }
   // Só sincroniza o painel/detalhe aberto se ainda for o mesmo pedido;
   // se o usuário já trocou de pedido, não mexe no que está na tela agora.
