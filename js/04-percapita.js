@@ -963,7 +963,10 @@ async function autorizarInventario(id) {
   const codigosMovimento = [];
 
   // Para cada item divergente, gera uma movimentação individual
+  let processados = 0;
   for (const it of divergentes) {
+    processados++;
+    if (btnOk) btnOk.innerHTML = `<div class="spinner"></div> Processando ${processados}/${divergentes.length}...`;
     const movType  = it.diferenca > 0 ? 'entrada' : 'saida';
     const typeCode = movType === 'entrada' ? 'ENT' : 'SAI';
     const dateStr  = (inv.data || new Date().toISOString().slice(0,10)).replace(/-/g,'');
