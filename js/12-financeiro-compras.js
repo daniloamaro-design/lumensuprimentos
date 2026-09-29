@@ -1298,11 +1298,67 @@ function pagFiltrar(resetPage = true) {
 }
 
 let pagTabPage = 1;
+
+// ── Ordenação da tabela de Lançamentos (clique no cabeçalho da coluna) ──
+let pagSortCol = null;
+let pagSortDir = 'asc'; // 'asc' | 'desc'
+
+function pagOrdenarPor(col) {
+  if (pagSortCol === col) {
+    pagSortDir = pagSortDir === 'asc' ? 'desc' : 'asc';
+  } else {
+    pagSortCol = col;
+    pagSortDir = 'asc';
+  }
+  pagTabPage = 1;
+  pagRenderizarTabela();
+}
+window.pagOrdenarPor = pagOrdenarPor;
+
+function _pagValorOrdenacao(d, col) {
+  switch (col) {
+    case 'fornecedor':     return (d.fornecedor || '').toLowerCase();
+    case 'classificacao':  return (d.classificacao || '').toLowerCase();
+    case 'destinatario':   return (d.destinatario || '').toLowerCase();
+    case 'mesAno': {
+      const idxMes = (MESES_PT || []).findIndex(m => (m || '').toUpperCase() === String(d.mes || '').toUpperCase());
+      return (Number(d.ano) || 0) * 100 + (idxMes >= 0 ? idxMes + 1 : 0);
+    }
+    case 'vencimento':     return d.vencimentoSerial ?? null;
+    case 'valor':          return Number(d.valor) || 0;
+    default:                return null;
+  }
+}
+
+function _pagOrdenarLista(lista) {
+  if (!pagSortCol) return lista;
+  const dir = pagSortDir === 'asc' ? 1 : -1;
+  return [...lista].sort((a, b) => {
+    const va = _pagValorOrdenacao(a, pagSortCol);
+    const vb = _pagValorOrdenacao(b, pagSortCol);
+    // Sem vencimento ("—") sempre vai pro final, não importa a direção
+    if (va == null && vb == null) return 0;
+    if (va == null) return 1;
+    if (vb == null) return -1;
+    if (typeof va === 'string') return va.localeCompare(vb, 'pt-BR') * dir;
+    return (va - vb) * dir;
+  });
+}
+
+function _pagAtualizarSetas() {
+  ['fornecedor','classificacao','destinatario','mesAno','vencimento','valor'].forEach(col => {
+    const el = document.getElementById('pag-sort-' + col);
+    if (!el) return;
+    el.textContent = pagSortCol === col ? (pagSortDir === 'asc' ? ' ▲' : ' ▼') : '';
+  });
+}
+
 function pagRenderizarTabela() {
   const tb  = document.getElementById('pag-tbody');
   const cnt = document.getElementById('pag-table-count');
   if (!tb) return;
   if (cnt) cnt.textContent = pagDadosFiltrados.length + ' registros';
+  _pagAtualizarSetas();
 
   const hoje = Date.now() / 86400000 + 25569;
 
@@ -1311,7 +1367,9 @@ function pagRenderizarTabela() {
     return;
   }
 
-  const pagObjTab = paginar(pagDadosFiltrados, pagTabPage);
+  const listaOrdenada = _pagOrdenarLista(pagDadosFiltrados);
+
+  const pagObjTab = paginar(listaOrdenada, pagTabPage);
   tb.innerHTML = pagObjTab.itens.map(d => {
     const isPago    = FIN_PAGO(d.pago);
     const isVencido = !isPago && d.vencimentoSerial && d.vencimentoSerial < hoje;

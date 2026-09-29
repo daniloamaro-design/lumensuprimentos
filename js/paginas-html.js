@@ -2251,12 +2251,12 @@ document.querySelector('.main-content').insertAdjacentHTML('beforeend', `
             <thead>
               <tr>
                 <th style="width:36px;"><input type="checkbox" id="pag-check-header" onchange="pagSelecionarTodos(this.checked)"></th>
-                <th>Fornecedor</th>
-                <th>Classificação</th>
-                <th>Casa / Destinatário</th>
-                <th>Mês/Ano</th>
-                <th>Vencimento</th>
-                <th style="text-align:right;">Valor</th>
+                <th class="pag-th-sort" onclick="pagOrdenarPor('fornecedor')" style="cursor:pointer;user-select:none;">Fornecedor<span id="pag-sort-fornecedor" class="pag-sort-arrow"></span></th>
+                <th class="pag-th-sort" onclick="pagOrdenarPor('classificacao')" style="cursor:pointer;user-select:none;">Classificação<span id="pag-sort-classificacao" class="pag-sort-arrow"></span></th>
+                <th class="pag-th-sort" onclick="pagOrdenarPor('destinatario')" style="cursor:pointer;user-select:none;">Casa / Destinatário<span id="pag-sort-destinatario" class="pag-sort-arrow"></span></th>
+                <th class="pag-th-sort" onclick="pagOrdenarPor('mesAno')" style="cursor:pointer;user-select:none;">Mês/Ano<span id="pag-sort-mesAno" class="pag-sort-arrow"></span></th>
+                <th class="pag-th-sort" onclick="pagOrdenarPor('vencimento')" style="cursor:pointer;user-select:none;">Vencimento<span id="pag-sort-vencimento" class="pag-sort-arrow"></span></th>
+                <th class="pag-th-sort" onclick="pagOrdenarPor('valor')" style="text-align:right;cursor:pointer;user-select:none;">Valor<span id="pag-sort-valor" class="pag-sort-arrow"></span></th>
                 <th>Obs</th>
                 <th style="text-align:center;">Lançado SP</th>
                 <th style="text-align:center; min-width:180px;">Status Pagamento</th>
