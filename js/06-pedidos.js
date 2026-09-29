@@ -1368,8 +1368,11 @@ async function saveStockEval() {
     // doações são recebidas e redistribuídas. Fixado no nome real da casa.
     const casaEstoque   = CASA_ESTOQUE_CENTRAL;
 
-    // Sempre avança para "andamento" — compras cotará só o que não foi transferido
-    const newStatus = 'andamento';
+    // Avança para "estoque_avaliado" — vira "andamento" (Análise de Orçamento)
+    // só quando Compras de fato começa a cotar (1ª cotação salva, ver
+    // saveQuotation). Antes pulava direto pra "andamento" e a etapa
+    // "Estoque Avaliado" nunca aparecia pro usuário.
+    const newStatus = 'estoque_avaliado';
 
     // Mapa dos itens a comprar
     const purchaseItemsMap = {};
@@ -1881,6 +1884,21 @@ async function saveQuotation() {
     createdBy: currentUserData.name,
     createdAt: firebase.firestore.FieldValue.serverTimestamp()
   });
+
+  // 1ª cotação do pedido: avança de "Estoque Avaliado" pra "Análise de
+  // Orçamento" — só nesse sentido (nunca regride um pedido já liberado
+  // se alguém adicionar uma cotação depois, por qualquer motivo).
+  try {
+    const orderSnap = await db.collection('orders').doc(orderId).get();
+    if (orderSnap.exists && orderSnap.data().status === 'estoque_avaliado') {
+      await db.collection('orders').doc(orderId).update({
+        status: 'andamento',
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+      });
+      loadAllOrders();
+    }
+  } catch(e) { console.warn('Erro ao avançar status do pedido:', e); }
+
   document.getElementById('quot-obs').value = '';
   document.getElementById('quot-valor').value = '';
   showToast('✅ Cotação adicionada!');
