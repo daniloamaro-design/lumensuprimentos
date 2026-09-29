@@ -84,8 +84,8 @@ window.dashdirAtualizarEntregasPrazo = dashdirAtualizarEntregasPrazo;
 // Desvio Orçamentário de Passagens: gasto real do mês (compras_financeiro,
 // modulo=passagens, filtrado por VENCIMENTO — decisão da Diretoria, não
 // data de compra) vs. orçamento mensal cadastrado em Passagens > Orçamento
-// (tabela metas, modulo=passagens, cat_key='geral', meta_mes — o mesmo valor
-// mensal vale pra qualquer mês daquele ano).
+// (tabela passagens_metas, chave 'mes' no formato AAAA-MM, campo 'mensal' —
+// um valor por mês, não um valor único pro ano inteiro).
 async function dashdirAtualizarDesvioPassagens() {
   const valorEl = document.getElementById('dashdir-kpi-desvio-valor');
   const pctEl = document.getElementById('dashdir-kpi-desvio-pct');
@@ -99,11 +99,12 @@ async function dashdirAtualizarDesvioPassagens() {
 
   try {
     const { ano, mes } = dashdirPeriodoAtual(); // mes 0-11
+    const mesStr = `${ano}-${String(mes + 1).padStart(2, '0')}`;
 
-    const { data: metas, error: errMeta } = await window._sb.from('metas').select('meta_mes')
-      .eq('modulo', 'passagens').eq('cat_key', 'geral').eq('ano', ano).maybeSingle();
+    const { data: metas, error: errMeta } = await window._sb.from('passagens_metas').select('mensal')
+      .eq('mes', mesStr).maybeSingle();
     if (errMeta) throw errMeta;
-    const orcamentoMensal = metas ? Number(metas.meta_mes) || 0 : 0;
+    const orcamentoMensal = metas ? Number(metas.mensal) || 0 : 0;
 
     const de = `${ano}-${String(mes + 1).padStart(2, '0')}-01`;
     const proxMes = new Date(ano, mes + 1, 1);

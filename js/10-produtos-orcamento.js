@@ -1817,7 +1817,7 @@ async function _carregarContatosFornecedor() {
   const el = document.getElementById('forn-contatos-lista');
   if (!el) return;
   try {
-    const snap = await db.collection('suppliers').doc(_supModalId).collection('contatos').orderBy('data', 'desc').get();
+    const snap = await db.collection('suppliers_contatos').where('fornecedorId', '==', _supModalId).orderBy('data', 'desc').get();
     const lista = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     if (!lista.length) {
       el.innerHTML = '<div style="text-align:center;color:var(--text-muted);padding:16px;">Nenhum contato registrado ainda.</div>';
@@ -1846,14 +1846,15 @@ async function salvarContatoFornecedor() {
   if (!data) return showToast('⚠️ Informe a data do contato.');
 
   const registro = {
+    fornecedorId: _supModalId,
     data, canal, obs,
     registradoPor: (typeof currentUserData !== 'undefined' && currentUserData?.name) || null,
     criadoEm: firebase.firestore.FieldValue.serverTimestamp(),
   };
 
   try {
-    // Salva no histórico (subcoleção)
-    await db.collection('suppliers').doc(_supModalId).collection('contatos').add(registro);
+    // Salva no histórico (tabela própria — suppliers_contatos)
+    await db.collection('suppliers_contatos').add(registro);
     // Atualiza o campo ultimoContato no documento principal (para exibir no card)
     await db.collection('suppliers').doc(_supModalId).update({ ultimoContato: { data, canal, obs, registradoPor: registro.registradoPor } });
 
