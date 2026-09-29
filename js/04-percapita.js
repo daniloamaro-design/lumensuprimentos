@@ -867,8 +867,8 @@ async function openAjustesAdmin() {
             <div style="font-size:22px;font-weight:900;color:${corAcuracia};">${inv.acuracia?.toFixed(1).replace('.',',')}%</div>
             ${statusAtual === 'pendente' ? `
               <div style="display:flex;gap:6px;">
-                <button class="btn btn-primary btn-sm" onclick="autorizarInventario('${d.id}')">✓ Autorizar</button>
-                <button class="btn btn-danger btn-sm" onclick="recusarInventario('${d.id}')">✕ Recusar</button>
+                <button class="btn btn-primary btn-sm" id="btn-autorizar-inv-${d.id}" onclick="autorizarInventario('${d.id}')">✓ Autorizar</button>
+                <button class="btn btn-danger btn-sm" id="btn-recusar-inv-${d.id}" onclick="recusarInventario('${d.id}')">✕ Recusar</button>
               </div>` : `<span class="badge ${statusAtual==='autorizado'?'badge-ok':'badge-danger'}">${statusMap[statusAtual]||statusAtual}</span>`}
           </div>
         </div>
@@ -938,10 +938,26 @@ async function openAjustesAdmin() {
 
 // ── Autorizar / Recusar Inventário ───────────────────────────────────────
 async function autorizarInventario(id) {
+  // Trava de reentrada: sem isso, cada clique extra durante o processamento
+  // (que é sequencial e pode levar vários segundos com muitos itens
+  // divergentes) disparava a rotina inteira de novo em paralelo — chegou a
+  // gerar 234 movimentações de ajuste pra um inventário com 26 divergências
+  // reais, inflando o estoque em ~9x.
+  const btnOk  = document.getElementById('btn-autorizar-inv-' + id);
+  const btnRec = document.getElementById('btn-recusar-inv-' + id);
+  if (btnOk && btnOk.disabled) return;
+  if (btnOk) setBtnLoading('btn-autorizar-inv-' + id, true);
+  if (btnRec) btnRec.disabled = true;
+
+  const reabilitar = () => {
+    if (btnOk) setBtnLoading('btn-autorizar-inv-' + id, false);
+    if (btnRec) btnRec.disabled = false;
+  };
+
   const snap = await db.collection('inventarios').doc(id).get();
-  if (!snap.exists) { showToast('Inventário não encontrado.'); return; }
+  if (!snap.exists) { showToast('Inventário não encontrado.'); reabilitar(); return; }
   const inv = snap.data();
-  if (inv.status !== 'pendente') { showToast('Este inventário já foi processado.'); return; }
+  if (inv.status !== 'pendente') { showToast('Este inventário já foi processado.'); reabilitar(); return; }
 
   const divergentes = (inv.itens || []).filter(i => Math.abs(i.diferenca) >= 0.01);
   const codigosMovimento = [];
@@ -980,6 +996,7 @@ async function autorizarInventario(id) {
     } catch(e) {
       showToast('Erro ao gerar movimentação para ' + it.prodNome + ': ' + e.message);
       console.error(e);
+      reabilitar();
       return;
     }
   }
@@ -1000,6 +1017,7 @@ async function autorizarInventario(id) {
     loadAjustesBadge();
   } catch(e) {
     showToast('Erro ao autorizar inventário: ' + e.message);
+    reabilitar();
   }
 }
 
