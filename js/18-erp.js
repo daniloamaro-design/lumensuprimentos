@@ -1470,7 +1470,7 @@ async function pasAtualizar(id, patch, histAcao) {
     if (patch.status === 'comprada' && Number(s.valorFinal) > 0 && typeof _syncFinanceiroLancar === 'function') {
       _syncFinanceiroLancar({
         pedidoRef: s.codigo, pedidoId: id,
-        fornecedor: s.fornecedor?.nome || '', fornecedorId: '',
+        fornecedor: s.fornecedor?.nome || '', fornecedorId: s.fornecedor?.id || '',
         classificacao: 'Passagem', destinatario: s.passageiro || '',
         valor: Number(s.valorFinal), pago: '', modulo: 'passagens', dataRef: Date.now(),
       }).catch(e => console.warn('sync financeiro (passagem):', e));
