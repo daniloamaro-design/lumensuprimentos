@@ -282,7 +282,7 @@ function finRenderizarTabela(dados) {
       : '<span style="color:var(--text-muted);font-size:11px;">—</span>';
     const rowBg = !isPago && d.vencimentoSerial && d.vencimentoSerial < (Date.now()/86400000 + 25569) ? 'background:rgba(198,40,40,0.07);' : '';
     return `<tr style="${rowBg}">
-      <td style="font-weight:700;">${d.fornecedor||'—'} <button onclick="finAbrirEdicaoLancamento('${d.id}')" title="Editar lançamento" style="background:var(--surface);border:1px solid var(--border);border-radius:5px;cursor:pointer;font-size:13px;padding:2px 6px;vertical-align:middle;color:#fff;">✏️ Editar</button></td>
+      <td style="font-weight:700;">${d.fornecedor||'—'} <button onclick="finVerOrigem('${d.id}')" title="Ver detalhes do pedido" style="background:var(--surface);border:1px solid var(--border);border-radius:5px;cursor:pointer;font-size:13px;padding:2px 6px;vertical-align:middle;color:#fff;">👁️ Ver</button> <button onclick="finAbrirEdicaoLancamento('${d.id}')" title="Editar lançamento" style="background:var(--surface);border:1px solid var(--border);border-radius:5px;cursor:pointer;font-size:13px;padding:2px 6px;vertical-align:middle;color:#fff;">✏️ Editar</button></td>
       <td><span class="block-badge">${d.classificacao||'—'}</span></td>
       <td>${d.destinatario||'—'}</td>
       <td style="font-size:11px;color:var(--text-muted);">${d.mes||''}/${d.ano||''}</td>
@@ -1404,7 +1404,7 @@ function pagRenderizarTabela() {
 
     return `<tr id="pag-row-${d.id}" style="${rowBg}">
       <td style="padding:8px 12px;"><input type="checkbox" ${checked} onchange="pagToggleCheck('${d.id}',this.checked)"></td>
-      <td style="font-weight:700;white-space:nowrap;">${d.fornecedor||'—'} <button onclick="finAbrirEdicaoLancamento('${d.id}')" title="Editar lançamento" style="background:var(--surface);border:1px solid var(--border);border-radius:5px;cursor:pointer;font-size:13px;padding:2px 6px;vertical-align:middle;color:#fff;">✏️ Editar</button></td>
+      <td style="font-weight:700;white-space:nowrap;">${d.fornecedor||'—'} <button onclick="finVerOrigem('${d.id}')" title="Ver detalhes do pedido" style="background:var(--surface);border:1px solid var(--border);border-radius:5px;cursor:pointer;font-size:13px;padding:2px 6px;vertical-align:middle;color:#fff;">👁️ Ver</button> <button onclick="finAbrirEdicaoLancamento('${d.id}')" title="Editar lançamento" style="background:var(--surface);border:1px solid var(--border);border-radius:5px;cursor:pointer;font-size:13px;padding:2px 6px;vertical-align:middle;color:#fff;">✏️ Editar</button></td>
       <td><span class="block-badge">${d.classificacao||'—'}</span></td>
       <td style="font-size:12px;">${d.destinatario||'—'}</td>
       <td style="font-size:11px;color:var(--text-muted);white-space:nowrap;">${d.mes||''}/${d.ano||''}</td>
@@ -1425,6 +1425,93 @@ window.pagTabGoToPage = pagTabGoToPage;
 // também é corrigido lá — ver _syncValorParaOrigem em
 // js/15-fornecedores-metas.js, pra não ficar divergente entre os módulos.
 const _MODULO_LABEL = { frete: 'Fretes', passagens: 'Passagens', suprimentos: 'Suprimentos' };
+
+// Mostra um resumo do pedido/passagem/frete/solicitação de origem sem sair
+// da tela do Financeiro — busca o doc pelo pedidoId+modulo do lançamento.
+async function finVerOrigem(id) {
+  const reg = finDados.find(d => d.id === id);
+  if (!reg) return;
+  const body = document.getElementById('fin-ver-body');
+  if (!body) return;
+
+  const linha = (rot, val) => `<div style="display:flex;justify-content:space-between;gap:12px;padding:7px 0;border-bottom:1px solid var(--border);font-size:13px;">
+    <span style="color:var(--text-muted);">${rot}</span><span style="font-weight:600;text-align:right;">${val}</span></div>`;
+  const cabecalho = `<div style="margin-bottom:8px;">
+    <div style="font-size:15px;font-weight:700;">${frtEsc(reg.fornecedor || '—')}</div>
+    <div style="font-size:12px;color:var(--text-muted);">${frtEsc(reg.classificacao || '')} · ${FMT_FIN(reg.valor)}</div>
+  </div>`;
+
+  body.innerHTML = cabecalho + '<div style="text-align:center;padding:20px;color:var(--text-muted);">Carregando…</div>';
+  openModal('modal-ver-lancamento');
+
+  if (!reg.pedidoId || !reg.modulo) {
+    body.innerHTML = cabecalho + linha('Pedido de origem', 'Não vinculado (lançamento manual)');
+    return;
+  }
+
+  try {
+    let html = cabecalho;
+    if (reg.modulo === 'suprimentos') {
+      const doc = await db.collection('orders').doc(reg.pedidoId).get();
+      if (!doc.exists) throw new Error('Pedido não encontrado');
+      const o = doc.data();
+      const itensCount = o.items ? Object.keys(o.items).length : 0;
+      html += linha('Código', frtEsc(o.code || '—'))
+            + linha('Casa', frtEsc(o.house || '—'))
+            + linha('Status', getStatusBadge(o.status))
+            + linha('Solicitante', frtEsc(o.requesterName || '—'))
+            + linha('Destinatário', frtEsc(o.recipient || '—'))
+            + linha('Data', frtEsc(o.dateStr || frtDataBR(o.createdAt)))
+            + linha('Itens', itensCount ? `${itensCount} categoria${itensCount>1?'s':''}` : '—')
+            + (o.observations ? linha('Observações', frtEsc(o.observations)) : '');
+    } else if (reg.modulo === 'passagens') {
+      const doc = await db.collection('passagens_solicitacoes').doc(reg.pedidoId).get();
+      if (!doc.exists) throw new Error('Passagem não encontrada');
+      const p = doc.data();
+      const valorFinal = (p.valorFinal && typeof p.valorFinal === 'object') ? p.valorFinal.valor : p.valorFinal;
+      html += linha('Código', frtEsc(p.codigo || '—'))
+            + linha('Passageiro', frtEsc(p.passageiro || '—'))
+            + linha('Status', pasBadge(p.status))
+            + linha('Trecho', `${frtEsc(p.origem || '—')} → ${frtEsc(p.destino || '—')}`)
+            + linha('Ida', frtDataBR(p.saida))
+            + linha('Volta', frtDataBR(p.retorno))
+            + linha('Valor final', frtBRL(valorFinal))
+            + (p.obs ? linha('Observações', frtEsc(p.obs)) : '');
+    } else if (reg.modulo === 'frete') {
+      const doc = await db.collection('fretes').doc(reg.pedidoId).get();
+      if (!doc.exists) throw new Error('Frete não encontrado');
+      const f = doc.data();
+      html += linha('Código', frtEsc(f.code || '—'))
+            + linha('Status', frtStatusBadge(f.status))
+            + linha('Trajeto', `${frtEsc(f.origem || '—')} → ${frtEsc(f.destino || '—')}`)
+            + linha('Freteiro', frtEsc(f.freteiroNome || '—'))
+            + linha('Data', frtDataBR(f.data || f.createdAt))
+            + linha('Previsão de entrega', frtDataBR(f.previsaoEntrega))
+            + linha('Valor', frtBRL(f.valor))
+            + (f.motivo ? linha('Motivo', frtEsc(f.motivo)) : '');
+    } else if (reg.modulo === 'seguranca') {
+      const doc = await db.collection('seguranca_solicitacoes').doc(reg.pedidoId).get();
+      if (!doc.exists) throw new Error('Solicitação não encontrada');
+      const s = doc.data();
+      const horario = s.horarioInicio ? `${s.horarioInicio}${s.horarioFim ? '–' + s.horarioFim : ''}` : '—';
+      html += linha('Código', frtEsc(s.codigo || '—'))
+            + linha('Solicitante', frtEsc(s.solicitanteNome || '—'))
+            + linha('Tipo', frtEsc(s.evento || '—'))
+            + linha('Data/Horário', `${frtDataBR(s.dataEvento)} · ${horario}`)
+            + linha('Quantidade de pessoas', frtEsc(s.qtdPessoas || '—'))
+            + linha('Local', frtEsc(s.local || '—'))
+            + linha('Endereço', frtEsc(s.endereco || '—'))
+            + (s.obs ? linha('Observações', frtEsc(s.obs)) : '');
+    } else {
+      html += linha('Módulo', frtEsc(reg.modulo));
+    }
+    body.innerHTML = html;
+  } catch (e) {
+    console.error('finVerOrigem', e);
+    body.innerHTML = cabecalho + `<div style="color:var(--danger,#dc2626);font-size:13px;padding:8px 0;">Erro ao carregar origem: ${frtEsc(e.message)}</div>`;
+  }
+}
+window.finVerOrigem = finVerOrigem;
 function finAbrirEdicaoLancamento(id) {
   const reg = finDados.find(d => d.id === id);
   if (!reg) return;

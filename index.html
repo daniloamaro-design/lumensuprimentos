@@ -3213,6 +3213,17 @@
     </div>
   </div>
 
+  <!-- MODAL: Ver origem de um lançamento (Financeiro) -->
+  <div class="modal-overlay hidden" id="modal-ver-lancamento">
+    <div class="modal" style="max-width:440px;width:100%;">
+      <div class="modal-header">
+        <div class="modal-title">👁️ Detalhes do pedido</div>
+        <button class="modal-close" onclick="closeModal('modal-ver-lancamento')">×</button>
+      </div>
+      <div class="modal-body" style="padding:20px;" id="fin-ver-body"></div>
+    </div>
+  </div>
+
   <!-- MODAL: Criar solicitação de segurança (uso interno, Segurança) -->
   <div class="modal-overlay hidden" id="modal-seg-criar">
     <div class="modal" style="max-width:520px;width:100%;">
@@ -3866,7 +3877,7 @@
 <script src="js/09-indicadores-transf.js?v=6"></script>
 <script src="js/10-produtos-orcamento.js?v=15"></script>
 <script src="js/11-fornecedores-pendentes.js?v=8"></script>
-<script src="js/12-financeiro-compras.js?v=24"></script>
+<script src="js/12-financeiro-compras.js?v=25"></script>
 <script src="js/13-ia-avancada.js?v=2"></script>
 <script src="js/14-gestao.js?v=4"></script>
 <script src="js/15-fornecedores-metas.js?v=13"></script>
