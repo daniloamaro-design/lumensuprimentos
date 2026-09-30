@@ -1464,6 +1464,10 @@ async function finSalvarEdicaoLancamento() {
   try {
     await db.collection('compras_financeiro').doc(id).update({ fornecedor, classificacao, destinatario, valor, vencimentoStr });
     if (valorMudou) await _syncValorParaOrigem(reg, valor);
+    // Lançamento ainda em aberto: a correção de valor muda o quanto o
+    // fornecedor tem pendente (o pago não entra em "utilizado" — ver
+    // _ajustarLimiteFornecedor).
+    if (valorMudou && !FIN_PAGO(reg.pago)) await _ajustarLimiteFornecedor(reg.fornecedorId, valor - valorAntigo);
     Object.assign(reg, { fornecedor, classificacao, destinatario, valor, vencimentoStr });
 
     closeModal('modal-editar-lancamento');
@@ -1492,6 +1496,23 @@ function pagSelecionarTodos(checked) {
   document.querySelectorAll('#pag-tbody input[type=checkbox]').forEach(cb => cb.checked = checked);
 }
 
+// "Utilizado" (limite de crédito) do fornecedor só crescia — incrementado
+// toda vez que um pedido era lançado (lancarPedidoNoFinanceiro), mas nunca
+// diminuía quando o lançamento era pago. Só corrigia de verdade quando
+// alguém clicava em "Recalcular Limites"/"Sincronizar Pedidos → Financeiro"
+// manualmente — na prática ficava desatualizado na maior parte do tempo.
+// Ajusta o "utilizado" na hora, pelo delta do quanto ficou pendente.
+async function _ajustarLimiteFornecedor(fornecedorId, delta) {
+  if (!fornecedorId || !delta) return;
+  try {
+    await db.collection('suppliers').doc(fornecedorId).update({
+      utilizado: firebase.firestore.FieldValue.increment(delta)
+    });
+  } catch (e) {
+    console.warn('_ajustarLimiteFornecedor falhou (não bloqueia o fluxo principal):', fornecedorId, e);
+  }
+}
+
 async function pagMarcarSelecionados(pagar) {
   if (!pagSelecionados.size) { showToast('Nenhum lançamento selecionado.'); return; }
   const novoStatus = pagar ? 'Sim' : '';
@@ -1518,6 +1539,11 @@ async function pagMarcarSelecionados(pagar) {
     // Fretes — propaga pra lá além de gravar aqui (ver _syncFinanceiroParaOrigem).
     for (const reg of regsSelecionados) {
       await _syncFinanceiroParaOrigem(reg, novoStatus, pagar ? Number(reg.valor) || 0 : 0);
+      const valorTotal = Number(reg.valor) || 0;
+      const valorPagoAntes = Number(reg.valorPago) || 0;
+      const pendenteAntes  = FIN_PAGO(reg.pago) ? 0 : Math.max(0, valorTotal - valorPagoAntes);
+      const pendenteDepois = pagar ? 0 : Math.max(0, valorTotal - valorPagoAntes);
+      await _ajustarLimiteFornecedor(reg.fornecedorId, pendenteDepois - pendenteAntes);
     }
     pagSelecionados.forEach(id => {
       const reg = finDados.find(d => d.id === id);
@@ -1591,6 +1617,10 @@ async function finTogglePago(id, pagar) {
     // Frete também mostra o próprio status de pagamento no módulo Fretes —
     // propaga pra lá também (sem efeito pra Suprimentos/Passagens).
     await _syncFinanceiroParaOrigem(reg, novoStatus, novoValorPago);
+    const valorTotal = Number(reg.valor) || 0;
+    const pendenteAntes  = pagoAntes === 'Sim' ? 0 : Math.max(0, valorTotal - valorPagoAntes);
+    const pendenteDepois = novoStatus === 'Sim' ? 0 : Math.max(0, valorTotal - novoValorPago);
+    await _ajustarLimiteFornecedor(reg.fornecedorId, pendenteDepois - pendenteAntes);
     showToast(!pagar ? '↩️ Marcado como pendente!'
       : quitado ? '✅ Marcado como pago!'
       : `✅ Pagamento parcial registrado: ${FMT_FIN(novoValorPago)} de ${FMT_FIN(reg.valor)}.`);
