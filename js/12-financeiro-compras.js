@@ -47,6 +47,26 @@ function excelDateToStr(serial) {
   return d.toLocaleDateString('pt-BR');
 }
 
+// Padroniza o mês pro mesmo formato usado em todo o sistema (nome completo,
+// maiúsculo — ver _FIN_MESES_UP). Prioriza derivar da data de compra (sempre
+// confiável) em vez do texto da planilha, que já veio em formatos diferentes
+// ("set.", "SETEMBRO", "Setembro") e quebrava o filtro por mês (comparação
+// é exata — "SET." nunca bate com a opção "SETEMBRO" do filtro).
+const _FIN_MES_ABREV = {
+  'JAN':'JANEIRO','JAN.':'JANEIRO', 'FEV':'FEVEREIRO','FEV.':'FEVEREIRO',
+  'MAR':'MARÇO','MAR.':'MARÇO', 'ABR':'ABRIL','ABR.':'ABRIL',
+  'MAI':'MAIO','MAI.':'MAIO', 'JUN':'JUNHO','JUN.':'JUNHO',
+  'JUL':'JULHO','JUL.':'JULHO', 'AGO':'AGOSTO','AGO.':'AGOSTO',
+  'SET':'SETEMBRO','SET.':'SETEMBRO', 'OUT':'OUTUBRO','OUT.':'OUTUBRO',
+  'NOV':'NOVEMBRO','NOV.':'NOVEMBRO', 'DEZ':'DEZEMBRO','DEZ.':'DEZEMBRO',
+};
+function _finNormalizarMes(rawMes, dataSerial) {
+  const d = excelSerialToDate(dataSerial);
+  if (d && !isNaN(d.getTime())) return _FIN_MESES_UP[d.getMonth()];
+  const up = String(rawMes || '').toUpperCase().trim();
+  return _FIN_MES_ABREV[up] || up;
+}
+
 // ── Inicializa a página ────────────────────────────────────
 async function initFinanceiroCompras() {
   finSetTab('painel', document.getElementById('fin-tab-painel'));
@@ -549,7 +569,7 @@ async function finImportarNoFirestore() {
           lancadoHYB:       String(d.lancadoHYB||'').trim(),
           lancadoSP:        String(d.lancadoSP||'').trim(),
           pago:             String(d.pago||'').trim(),
-          mes:              String(d.mes||'').toUpperCase().trim(),
+          mes:              _finNormalizarMes(d.mes, dataSerial),
           ano:              parseInt(d.ano) || new Date().getFullYear(),
           chaveUnica:       d.chaveUnica,
           importadoEm:      firebase.firestore.FieldValue.serverTimestamp(),
