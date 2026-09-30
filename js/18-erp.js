@@ -488,6 +488,9 @@ function abrirFreteDetalhe(id) {
   if (f.status === 'transporte') acoes.push(`<button class="btn btn-primary btn-sm" onclick="frtMarcarEntregue('${f.id}')">📦 Marcar entregue</button>`);
   if (f.status === 'entregue' && f.etapaStatus !== 'avaliado') acoes.push(`<button class="btn btn-secondary btn-sm" onclick="abrirAvaliacaoFrete('${f.id}')">⭐ Avaliar</button>`);
   if (f.status !== 'cancelado' && f.status !== 'entregue') acoes.push(`<button class="btn btn-outline btn-sm" onclick="frtCancelar('${f.id}')">❌ Cancelar</button>`);
+  if (f.status !== 'cancelado') acoes.push(f.reciboRecebido
+    ? `<button class="btn btn-outline btn-sm" onclick="frtToggleRecibo('${f.id}')">↩️ Desfazer confirmação de recibo</button>`
+    : `<button class="btn btn-secondary btn-sm" onclick="frtToggleRecibo('${f.id}')">📄 Confirmar recebimento do recibo</button>`);
 
   // Form de atribuição de freteiro (rota criada sem freteiro)
   const formAtrib = semFreteiro && f.status !== 'cancelado' ? `
@@ -550,6 +553,9 @@ function abrirFreteDetalhe(id) {
       ${linha('Freteiro', frtEsc(f.freteiroNome || '— (a definir)'))}
       ${linha('Valor', f.valor > 0 ? frtBRL(f.valor) : '<span style="color:var(--warn);">— (a informar)</span>')}
       ${linha('Pagamento', frtBadgePag(f.statusPag, f.valorPago, f.valor))}
+      ${linha('Recibo', f.reciboRecebido
+        ? `<span style="color:var(--ok,#059669);font-weight:700;">✅ Recebido${f.reciboRecebidoEm ? ' em ' + frtDataBR(f.reciboRecebidoEm) : ''}</span>`
+        : '<span style="color:var(--warn,#d97706);font-weight:700;">⏳ Pendente</span>')}
       ${linha('Previsão de entrega', f.previsaoEntrega ? frtDataBR(f.previsaoEntrega) + (f.previsaoEstimada ? ' <span style="color:var(--text-muted);font-size:11px;">(estimada)</span>' : '') : '— (não informada)')}
     </div>
     ${linhaCumprimento}
@@ -625,6 +631,28 @@ async function frtSalvarPrevisao(id) {
   } catch (e) { console.error(e); showToast('❌ Erro: ' + e.message); }
 }
 window.frtSalvarPrevisao = frtSalvarPrevisao;
+
+async function frtToggleRecibo(id) {
+  const f = _fretesCache.find(x => x.id === id);
+  if (!f) return;
+  const novo = !f.reciboRecebido;
+  const nome = (typeof currentUserData !== 'undefined' && currentUserData?.name) || null;
+  const reciboRecebidoEm = novo ? new Date().toISOString() : null;
+  try {
+    const hist = { acao: novo ? 'Recibo confirmado' : 'Confirmação de recibo desfeita', por: nome, data: new Date().toISOString() };
+    await db.collection('fretes').doc(id).update({
+      reciboRecebido: novo, reciboRecebidoEm,
+      historico: firebase.firestore.FieldValue.arrayUnion(hist),
+      updatedBy: nome, updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+    });
+    Object.assign(f, { reciboRecebido: novo, reciboRecebidoEm });
+    f.historico = [...(Array.isArray(f.historico) ? f.historico : []), hist];
+    showToast(novo ? '✅ Recibo confirmado.' : 'Confirmação de recibo desfeita.');
+    abrirFreteDetalhe(id);
+    renderFrtLista();
+  } catch (e) { console.error(e); showToast('❌ Erro: ' + e.message); }
+}
+window.frtToggleRecibo = frtToggleRecibo;
 
 // Monta o link de direções do Google Maps a partir dos endereços (sem API)
 function rotaGoogleMapsUrl(origem, destino, paradas) {
