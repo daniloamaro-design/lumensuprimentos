@@ -31,6 +31,7 @@
 // esquema do backup-supabase.yml).
 
 import pg from 'pg';
+import crypto from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -161,6 +162,17 @@ function chaveFinanceiro({ fornecedor, destinatario, dataCompra, valor, mes, ano
   return `${forn}__${dest}__${data}__${val}__${m}__${a}`;
 }
 
+// Mesmo padrão usado em todo o resto do sistema (js/15-fornecedores-metas.js,
+// js/12-financeiro-compras.js: nome completo, maiúsculo). Deriva da data de
+// compra (confiável) em vez do texto cru da coluna "Mês" da planilha ("SET.",
+// "set", etc.) — nunca bate com o padrão usado pelos filtros do Financeiro.
+const MESES_UP = ['JANEIRO','FEVEREIRO','MARÇO','ABRIL','MAIO','JUNHO','JULHO','AGOSTO','SETEMBRO','OUTUBRO','NOVEMBRO','DEZEMBRO'];
+function mesAnoDe(dataISOStr) {
+  if (!dataISOStr) return { mes: null, ano: null };
+  const [y, m] = dataISOStr.split('-').map(Number);
+  return { mes: MESES_UP[m - 1] || null, ano: y || null };
+}
+
 function tipoTransporte(s) {
   const n = norm(s);
   if (n.includes('avi')) return 'aviao';
@@ -269,18 +281,21 @@ function mapearComprada(row) {
 
   let financeiro = null;
   if (valor != null && agencia) {
+    const { mes, ano } = mesAnoDe(dataCompraISO);
     financeiro = {
       fornecedor: agencia,
       destinatario: g(row, 'NOME'),
       dataCompra: dataCompraISO,
       valor,
-      mes: g(row, 'Mês') || null,
-      ano: g(row, 'Ano') || null,
+      mes, ano,
       vencimentoStr: g(row, 'VENCIMENTO') || null,
       pago: g(row, 'PAGO') || null,
       lancadoHyb: g(row, 'HYB') || null,
       lancadoSp: g(row, 'SP') || null,
-      classificacao: 'Transporte - Missionários',
+      // Mesma classificação usada pelo resto do sistema pra passagens (ver
+      // js/18-erp.js pasAtualizar) — "Transporte - Missionários" era um
+      // valor diferente só desta planilha, quebrava o filtro de classificação.
+      classificacao: 'Passagem',
     };
     financeiro.chave = chaveFinanceiro(financeiro);
   }
@@ -321,9 +336,11 @@ async function upsertSolicitacao(db, fornecedores, dados, contadores) {
     planilha_aba: dados.planilhaAba,
   };
 
+  const fornecedorId = dados.fornecedor?.id || null;
+
   if (existentes.length) {
     contadores.atualizadas++;
-    if (DRY_RUN) return;
+    if (DRY_RUN) return { id: existentes[0].id, codigo: existentes[0].codigo, fornecedorId };
     const histEntry = JSON.stringify([{ acao: 'Atualizado pela sincronização da planilha', usuario: 'Sync Planilha', ts: new Date().toISOString() }]);
     await db.query(
       `update passagens_solicitacoes set
@@ -336,24 +353,26 @@ async function upsertSolicitacao(db, fornecedores, dados, contadores) {
        patch.motivo, patch.obs, patch.status, patch.orcamentos, patch.valor_final, patch.fornecedor,
        patch.data_compra, patch.num_bilhete, patch.planilha_aba, histEntry, existentes[0].id]
     );
-    return;
+    return { id: existentes[0].id, codigo: existentes[0].codigo, fornecedorId };
   }
 
   contadores.novas++;
-  if (DRY_RUN) return;
   const codigo = await gerarCodigoUnico(db);
+  if (DRY_RUN) return { id: null, codigo, fornecedorId };
+  const id = crypto.randomUUID();
   const historico = JSON.stringify([{ acao: `Importado da planilha (aba ${dados.planilhaAba})`, usuario: 'Sync Planilha', ts: new Date().toISOString() }]);
   await db.query(
     `insert into passagens_solicitacoes
        (id, codigo, tipo, solicitante, passageiro, origem, destino, saida, retorno, motivo, obs, status,
         orcamentos, valor_final, fornecedor, data_compra, num_bilhete, historico,
         planilha_chave, planilha_aba, origem_planilha, criado_em)
-     values (gen_random_uuid()::text, $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,true,
-             coalesce($20::timestamptz, now()))`,
-    [codigo, patch.tipo, patch.solicitante, patch.passageiro, patch.origem, patch.destino, patch.saida, patch.retorno,
+     values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,true,
+             coalesce($21::timestamptz, now()))`,
+    [id, codigo, patch.tipo, patch.solicitante, patch.passageiro, patch.origem, patch.destino, patch.saida, patch.retorno,
      patch.motivo, patch.obs, patch.status, patch.orcamentos, patch.valor_final, patch.fornecedor,
      patch.data_compra, patch.num_bilhete, historico, dados.chave, dados.planilhaAba, dados.criadoEm]
   );
+  return { id, codigo, fornecedorId };
 }
 
 async function upsertFinanceiro(db, f, contadores) {
@@ -364,11 +383,11 @@ async function upsertFinanceiro(db, f, contadores) {
   if (DRY_RUN) return;
   await db.query(
     `insert into compras_financeiro
-       (id, fornecedor, destinatario, valor, data_compra, data_compra_str, mes, ano, vencimento_str,
-        pago, lancado_hyb, lancado_sp, classificacao, modulo, chave_unica)
-     values (gen_random_uuid()::text, $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,'passagens',$13)`,
-    [f.fornecedor, f.destinatario, f.valor, f.dataCompra, null, f.mes, f.ano, f.vencimentoStr,
-     f.pago, f.lancadoHyb, f.lancadoSp, f.classificacao, f.chave]
+       (id, fornecedor, fornecedor_id, destinatario, valor, data_compra, data_compra_str, mes, ano, vencimento_str,
+        pago, lancado_hyb, lancado_sp, classificacao, modulo, chave_unica, pedido_id, pedido_ref)
+     values (gen_random_uuid()::text, $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,'passagens',$14,$15,$16)`,
+    [f.fornecedor, f.fornecedorId, f.destinatario, f.valor, f.dataCompra, null, f.mes, f.ano, f.vencimentoStr,
+     f.pago, f.lancadoHyb, f.lancadoSp, f.classificacao, f.chave, f.pedidoId, f.pedidoRef]
   );
 }
 
@@ -407,7 +426,12 @@ async function main() {
       if (!mapeado) { ignoradasCompr++; continue; } // fora do corte (histórico já importado)
       const { solicitacao, financeiro } = mapeado;
       if (!solicitacao.passageiro) continue;
-      await upsertSolicitacao(db, fornecedores, solicitacao, contCompr);
+      const salva = await upsertSolicitacao(db, fornecedores, solicitacao, contCompr);
+      if (financeiro && salva) {
+        financeiro.fornecedorId = salva.fornecedorId;
+        financeiro.pedidoId = salva.id;
+        financeiro.pedidoRef = salva.codigo;
+      }
       await upsertFinanceiro(db, financeiro, contFin);
     }
     console.log(`  → ${contCompr.novas} novas, ${contCompr.atualizadas} atualizadas, ${ignoradasCompr} ignoradas (antes do corte de ${CORTE_COMPRADAS}).`);
