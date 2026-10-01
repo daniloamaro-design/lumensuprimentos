@@ -731,9 +731,10 @@ Extraia TODAS as linhas da tabela (todas as páginas) e devolva em JSON, uma por
 - Use o valor numérico da coluna "Em aberto (R$)" pro campo "valor" (ponto como separador decimal, ex.: 545.32 — nunca use vírgula).
 - NÃO inclua linhas cuja "Situação" seja "Pago" ou equivalente a quitado — inclua só o que ainda está em aberto/pendente/atrasado.
 - Não invente, não arredonde, não pule nenhuma linha em aberto, mesmo que pareça repetida.
+- No rodapé/última página geralmente tem "Totais do período" com "Total de registros" e "Valor total das parcelas (R$)" — devolva esses dois números também, exatamente como estão impressos. Se não encontrar essa seção, devolva null nos dois.
 
 Retorne APENAS este JSON, sem texto adicional, sem markdown:
-{"linhas":[{"fornecedor":"...","descricao":"...","vencimento":"dd/mm/aaaa","valor":0.00}]}`;
+{"linhas":[{"fornecedor":"...","descricao":"...","vencimento":"dd/mm/aaaa","valor":0.00}],"totalRegistros":0,"valorTotalParcelas":0.00}`;
 
     const payload = {
       contents: [{ parts: [
@@ -775,6 +776,21 @@ Retorne APENAS este JSON, sem texto adicional, sem markdown:
       .filter(l => l.valor > 0.005 && l.nomePlanilha);
 
     if (!linhas.length) { showToast('⚠️ A IA leu o arquivo, mas nenhuma linha ficou válida (confira o PDF).'); if (status) status.style.display = 'none'; return; }
+
+    // Confere contra o total que o PRÓPRIO relatório imprime no rodapé
+    // ("Totais do período") — sem isso, uma leitura incompleta da IA (ex.:
+    // pulou linhas de um PDF grande) passava batido, e tudo que ela não leu
+    // virava "sumiu da planilha" → proposto pra marcar como pago por engano,
+    // mesmo ainda em aberto de verdade. Nunca mais processa sem bater.
+    const totalReg = Number.isFinite(parsed.totalRegistros) ? parsed.totalRegistros : null;
+    const totalValor = Number.isFinite(parsed.valorTotalParcelas) ? parsed.valorTotalParcelas : null;
+    const somaLida = linhas.reduce((s, l) => s + l.valor, 0);
+    if (totalReg != null && totalReg !== linhas.length) {
+      throw new Error(`O relatório diz ter ${totalReg} registro(s), mas a IA só leu ${linhas.length}. Não vou continuar (isso marcaria coisa em aberto como paga por engano) — tente subir o PDF de novo.`);
+    }
+    if (totalValor != null && Math.abs(totalValor - somaLida) > 0.5) {
+      throw new Error(`O relatório soma ${_cd.BRL(totalValor)} no total, mas a IA só leu ${_cd.BRL(somaLida)}. Não vou continuar — tente subir o PDF de novo.`);
+    }
 
     const suppSnap = await db.collection('suppliers').get();
     _coordConc.suppliers = suppSnap.docs.map(d => ({ id: d.id, ...d.data() }));
