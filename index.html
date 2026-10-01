@@ -2994,9 +2994,10 @@
           ondrop="coordConcHandleDrop(event)">
           <div class="fin-upload-icon">📄</div>
           <div class="fin-upload-title">Clique ou arraste o arquivo aqui</div>
-          <div class="fin-upload-sub">Relatório "Visão Contas a Pagar" do financeiro (.xls/.xlsx) — pode subir mais de um de uma vez, um por um</div>
+          <div class="fin-upload-sub">Relatório "Contas a Pagar" do financeiro (.pdf, .xls ou .xlsx) — pode subir mais de um de uma vez, um por um</div>
         </div>
-        <input type="file" id="coord-conc-file" style="display:none;" accept=".xlsx,.xls" onchange="coordConcLerArquivo(this.files[0])">
+        <input type="file" id="coord-conc-file" style="display:none;" accept=".xlsx,.xls,.pdf" onchange="coordConcHandleArquivo(this.files[0])">
+        <div id="coord-conc-pdf-status" style="display:none;font-size:12px;color:var(--text-muted);margin-top:10px;"></div>
       </div>
     </div>
 
@@ -3972,7 +3973,7 @@
 
 <script src="js/variedades.js?v=4"></script>
 <script src="js/21-inventario.js?v=3"></script>
-<script src="js/22-coord-dashboard.js?v=15"></script>
+<script src="js/22-coord-dashboard.js?v=16"></script>
 <script src="js/23-importar-precos-nf.js?v=1"></script>
 <script src="js/24-guia-atualizacoes.js?v=1"></script>
 <script src="js/25-seguranca.js?v=5"></script>

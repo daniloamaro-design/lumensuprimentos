@@ -680,6 +680,8 @@ async function initCoordConciliacao() {
   });
   const fileInput = document.getElementById('coord-conc-file');
   if (fileInput) fileInput.value = '';
+  const status = document.getElementById('coord-conc-pdf-status');
+  if (status) status.style.display = 'none';
 }
 window.initCoordConciliacao = initCoordConciliacao;
 
@@ -687,9 +689,106 @@ function coordConcHandleDrop(ev) {
   ev.preventDefault();
   ev.currentTarget.classList.remove('dragover');
   const f = ev.dataTransfer.files[0];
-  if (f) coordConcLerArquivo(f);
+  if (f) coordConcHandleArquivo(f);
 }
 window.coordConcHandleDrop = coordConcHandleDrop;
+
+// Roteia pro leitor certo conforme a extensão — Excel (.xls/.xlsx) é lido
+// direto (colunas fixas, confiável); PDF precisa de IA pra reconstruir a
+// tabela, já que o texto bruto de um PDF vem fora de ordem (linha quebrada,
+// colunas embaralhadas).
+function coordConcHandleArquivo(file) {
+  if (!file) return;
+  const nome = (file.name || '').toLowerCase();
+  if (nome.endsWith('.pdf')) coordConcLerPDF(file);
+  else coordConcLerArquivo(file);
+}
+window.coordConcHandleArquivo = coordConcHandleArquivo;
+
+// Lê o relatório "Relatório de Contas a Pagar" em PDF (export do financeiro,
+// ex.: Conta Azul) usando a mesma IA (Gemini) já usada pra ler NF em outras
+// telas do sistema — pede pra devolver as linhas em JSON, no mesmo formato
+// que o caminho do Excel já usa, e entra no MESMO pipeline de comparação
+// (coordConcProcessar) daqui pra frente. Nunca marca nada como pago sozinho
+// — só popula a prévia que o usuário confirma manualmente.
+async function coordConcLerPDF(file) {
+  const status = document.getElementById('coord-conc-pdf-status');
+  if (status) { status.style.display = ''; status.textContent = `📄 Lendo "${file.name}" com IA — pode levar alguns segundos...`; }
+  try {
+    const base64 = await new Promise((resolve, reject) => {
+      const r = new FileReader();
+      r.onload = e => resolve(e.target.result.split(',')[1]);
+      r.onerror = reject;
+      r.readAsDataURL(file);
+    });
+
+    const prompt = `Este PDF é um "Relatório de Contas a Pagar" (ex.: exportado do Conta Azul), com uma tabela de colunas Vencimento, Pagamento, Descrição, Fornecedor, Categoria, Valor total (R$), Em aberto (R$), Situação.
+
+Extraia TODAS as linhas da tabela (todas as páginas) e devolva em JSON, uma por uma. Regras:
+- Use a coluna "Fornecedor" (nome curto) pro campo "fornecedor".
+- Use a coluna "Descrição" completa (texto inteiro, sem cortar) pro campo "descricao".
+- Use a coluna "Vencimento" (formato dd/mm/aaaa) pro campo "vencimento".
+- Use o valor numérico da coluna "Em aberto (R$)" pro campo "valor" (ponto como separador decimal, ex.: 545.32 — nunca use vírgula).
+- NÃO inclua linhas cuja "Situação" seja "Pago" ou equivalente a quitado — inclua só o que ainda está em aberto/pendente/atrasado.
+- Não invente, não arredonde, não pule nenhuma linha em aberto, mesmo que pareça repetida.
+
+Retorne APENAS este JSON, sem texto adicional, sem markdown:
+{"linhas":[{"fornecedor":"...","descricao":"...","vencimento":"dd/mm/aaaa","valor":0.00}]}`;
+
+    const payload = {
+      contents: [{ parts: [
+        { inline_data: { mime_type: 'application/pdf', data: base64 } },
+        { text: prompt },
+      ]}],
+      generationConfig: { temperature: 0.1, maxOutputTokens: 16384 },
+    };
+
+    let resp;
+    for (let tentativa = 1; tentativa <= 3; tentativa++) {
+      resp = await geminiFetch({ method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+      if (resp.status === 429) { await new Promise(r => setTimeout(r, tentativa * 15000)); continue; }
+      break;
+    }
+    if (!resp.ok) {
+      const errData = await resp.json().catch(() => ({}));
+      throw new Error(errData?.error?.message || `HTTP ${resp.status}`);
+    }
+
+    const data = await resp.json();
+    const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    let parsed;
+    try {
+      parsed = JSON.parse(rawText.replace(/```json|```/g, '').trim());
+    } catch (e) {
+      throw new Error('A IA não devolveu um JSON válido — tente de novo ou confira se o PDF é mesmo o relatório de Contas a Pagar.');
+    }
+    const linhasIA = Array.isArray(parsed.linhas) ? parsed.linhas : [];
+    if (!linhasIA.length) { showToast('⚠️ Nenhuma linha em aberto encontrada nesse PDF.'); if (status) status.style.display = 'none'; return; }
+
+    const linhas = linhasIA
+      .map(l => ({
+        cnpj: '', nomePlanilha: String(l.fornecedor || '').trim(),
+        vencimento: String(l.vencimento || '').trim(), competencia: '',
+        descricao: String(l.descricao || '').trim(),
+        valor: Number(l.valor) || 0,
+      }))
+      .filter(l => l.valor > 0.005 && l.nomePlanilha);
+
+    if (!linhas.length) { showToast('⚠️ A IA leu o arquivo, mas nenhuma linha ficou válida (confira o PDF).'); if (status) status.style.display = 'none'; return; }
+
+    const suppSnap = await db.collection('suppliers').get();
+    _coordConc.suppliers = suppSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+    _coordConc.linhasPlanilha = _coordConc.linhasPlanilha.concat(linhas);
+    showToast(`📄 ${linhas.length} linhas lidas de "${file.name}" via IA.`);
+    if (status) status.style.display = 'none';
+    await coordConcProcessar();
+  } catch (err) {
+    console.error('coordConcLerPDF', err);
+    showToast('❌ Erro ao ler o PDF: ' + err.message);
+    if (status) status.style.display = 'none';
+  }
+}
+window.coordConcLerPDF = coordConcLerPDF;
 
 function coordConcLerArquivo(file) {
   if (!file) return;

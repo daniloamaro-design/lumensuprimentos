@@ -2,7 +2,7 @@
   "version": 2,
   "functions": {
     "api/gemini.js": {
-      "maxDuration": 30
+      "maxDuration": 90
     },
     "api/sync-passageiros.js": {
       "maxDuration": 20
