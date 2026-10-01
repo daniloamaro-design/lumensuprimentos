@@ -1364,7 +1364,7 @@
           </div>
           <div class="form-group" id="seg-casa-wrap" style="display:none;">
             <label class="form-label">Casa / Unidade</label>
-            <select class="form-select" id="seg-casa"><option value="">Selecione...</option></select>
+            <select class="form-select" id="seg-casa" onchange="segPreencherLocalCasa('seg-')"><option value="">Selecione...</option></select>
           </div>
           <div class="form-group">
             <label class="form-label">Local *</label>
@@ -3260,7 +3260,7 @@
             <option value="nao">Não</option>
           </select>
         </div>
-        <div id="seg-c-casa-wrap" style="display:none;"><label class="form-label">Casa / Unidade</label><select class="form-select" id="seg-c-casa"><option value="">Selecione...</option></select></div>
+        <div id="seg-c-casa-wrap" style="display:none;"><label class="form-label">Casa / Unidade</label><select class="form-select" id="seg-c-casa" onchange="segPreencherLocalCasa('seg-c-')"><option value="">Selecione...</option></select></div>
         <div><label class="form-label">Local *</label><input class="form-input" id="seg-c-local" placeholder="Nome do local"></div>
         <div><label class="form-label">Endereço *</label><input class="form-input" id="seg-c-endereco" placeholder="Endereço completo"></div>
         <div><label class="form-label">Vai ter menores de idade no evento? *</label>
@@ -3976,7 +3976,7 @@
 <script src="js/22-coord-dashboard.js?v=16"></script>
 <script src="js/23-importar-precos-nf.js?v=1"></script>
 <script src="js/24-guia-atualizacoes.js?v=1"></script>
-<script src="js/25-seguranca.js?v=5"></script>
+<script src="js/25-seguranca.js?v=6"></script>
 
 <!-- MODAL: NOVA SOLICITAÇÃO DE VARIEDADES -->
 <div class="modal-overlay hidden" id="modal-nova-var">

@@ -18,6 +18,17 @@ function segToggleCasa(perguntaSelId, wrapId) {
 }
 window.segToggleCasa = segToggleCasa;
 
+// Evento é em casa/centro social do Lumen → Local e Endereço já estão
+// cadastrados na casa (CASAS_ENDERECOS, populado em loadDynamicData), não
+// faz sentido pedir pra digitar nome/endereço de novo.
+function segPreencherLocalCasa(prefixo) {
+  const casa = document.getElementById(prefixo + 'casa').value;
+  if (!casa) return;
+  document.getElementById(prefixo + 'local').value = casa;
+  document.getElementById(prefixo + 'endereco').value = (typeof CASAS_ENDERECOS !== 'undefined' && CASAS_ENDERECOS[casa]) || '';
+}
+window.segPreencherLocalCasa = segPreencherLocalCasa;
+
 // Lê os campos de um dos 2 formulários (prefixo 'seg-' convidado, 'seg-c-' admin)
 // e valida. Retorna { erro } se faltar algo, ou os dados prontos pra gravar.
 function segLerFormulario(prefixo) {
