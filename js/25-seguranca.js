@@ -270,11 +270,16 @@ async function segCancelar(id) {
 window.segCancelar = segCancelar;
 
 // ── Admin: criar solicitação direto no sistema (sem passar pelo link de convidado) ──
-function segAbrirCriar() {
+async function segAbrirCriar() {
   segLimparFormulario('seg-c-');
+  document.getElementById('modal-seg-criar').classList.remove('hidden');
+  // CASAS só está garantidamente completa depois de loadDynamicData() —
+  // sem esperar por ela aqui, o select podia abrir com a lista pela metade
+  // (ou com só 1 casa) se o modal fosse aberto antes do carregamento inicial
+  // da sessão terminar.
+  if (typeof loadDynamicData === 'function') await loadDynamicData();
   const sel = document.getElementById('seg-c-casa');
   sel.innerHTML = '<option value="">Selecione...</option>' + (typeof CASAS !== 'undefined' ? CASAS : []).map(c => `<option value="${c}">${c}</option>`).join('');
-  document.getElementById('modal-seg-criar').classList.remove('hidden');
 }
 window.segAbrirCriar = segAbrirCriar;
 
