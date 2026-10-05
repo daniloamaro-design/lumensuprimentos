@@ -526,6 +526,18 @@ async function loadAllOrders() {
     tbody.innerHTML = '<tr><td colspan="11" style="text-align:center;padding:24px;"><div class="loading-state"><div class="spinner spinner-dark"></div>Carregando...</div></td></tr>';
   }
 
+  // Lista de categorias do filtro vem do cadastro (CATEGORIAS), não fixa no
+  // HTML — a fixa deixava de fora Variedades, Gás de cozinha, Higiene Pessoal.
+  const selCat = document.getElementById('filter-cat');
+  if (selCat && selCat.dataset.n !== String(Object.keys(CATEGORIAS).length)) {
+    const atual = selCat.value;
+    selCat.innerHTML = '<option value="">Todas</option>' +
+      Object.entries(CATEGORIAS).map(([k, c]) => `<option value="${k}">${c.icon || '📦'} ${c.nome}</option>`).join('') +
+      '<option value="mix">Mix (várias)</option>';
+    selCat.value = atual;
+    selCat.dataset.n = String(Object.keys(CATEGORIAS).length);
+  }
+
   let query = db.collection('orders').orderBy('createdAt','desc');
   const filterHouse = v('filter-house');
   const filterCat   = v('filter-cat');
