@@ -565,6 +565,10 @@ async function loadStockView() {
     });
   });
 
+  // Só casas que existem hoje no cadastro (Casas e Pessoas): movimentações
+  // com nome antigo/removido de casa não viram um card próprio.
+  if (CASAS.length) Object.keys(saldo).forEach(c => { if (!CASAS.includes(c)) delete saldo[c]; });
+
   // Renderiza os cards das casas
   const grid = document.getElementById('sv-houses-grid');
   document.getElementById('sv-loading').style.display = 'none';

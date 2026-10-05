@@ -974,6 +974,19 @@ async function saveEditHouse() {
       });
     }
 
+    // Registros antigos guardam a casa como texto: sem isso o estoque
+    // (movimentações), pedidos etc. ficavam sob o nome antigo e a Estoque
+    // Atual mostrava a casa duplicada.
+    if (novoNome !== originalNome) {
+      const renomear = async (colecao, campo) => {
+        const snap = await db.collection(colecao).where(campo, '==', originalNome).get();
+        for (const d of snap.docs) await db.collection(colecao).doc(d.id).update({ [campo]: novoNome });
+      };
+      for (const [colecao, campo] of [['movements','house'],['orders','house'],['percapitas','house'],['transferencias','origem'],['transferencias','destino']]) {
+        try { await renomear(colecao, campo); } catch (e) { console.warn('renomear casa em', colecao, e); }
+      }
+    }
+
     if (typeof CASAS_ENDERECOS !== 'undefined') {
       delete CASAS_ENDERECOS[originalNome];
       CASAS_ENDERECOS[novoNome] = novoEndereco;
