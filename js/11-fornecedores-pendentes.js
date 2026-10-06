@@ -988,7 +988,7 @@ function opcAtualizarTotais() {
       const forn = q.fornecedorNome || 'Sem fornecedor';
       totalGeral += val;
 
-      if      (opcAutorizados[q.id] === true)  { totalAut  += val; nAut++;  }
+      if      (opcAutorizados[q.id] === true)  { totalAut  += opcValorAutorizado(pedido, q); nAut++;  }
       else if (opcAutorizados[q.id] === false)  { totalNaut += val; nNaut++; }
       else                                      { totalPend += val; nPend++; }
 
@@ -1004,7 +1004,7 @@ function opcAtualizarTotais() {
         : 'Sem categoria';
       if (!porCat[catLabel]) porCat[catLabel] = { total: 0, autorizado: 0 };
       porCat[catLabel].total      += val;
-      if (opcAutorizados[q.id] === true) porCat[catLabel].autorizado += val;
+      if (opcAutorizados[q.id] === true) porCat[catLabel].autorizado += opcValorAutorizado(pedido, q);
     });
   });
 
@@ -1102,7 +1102,10 @@ function opcRenderizar() {
   const pagObjOpc = paginar(gruposOrdenados, opcPage);
   pagObjOpc.itens.forEach(([grpNome, entradas]) => {
     const cotsDoGrupo = entradas.filter(e => e.cotacao).map(e => e.cotacao);
-    const totalGrp    = cotsDoGrupo.reduce((s, q) => s + (parseFloat(q.valor)||0), 0);
+    // Valor AUTORIZADO pelo coordenador (não a soma das cotações, que são
+    // alternativas do mesmo pedido): só conta cotação aprovada e, em pedido
+    // dividido por produto, só a parte escolhida.
+    const totalGrp    = entradas.reduce((s, e) => s + (e.cotacao ? opcValorAutorizado(e.pedido, e.cotacao) : 0), 0);
     const cotIds      = cotsDoGrupo.map(q => q.id);
     const nAutGrp     = cotIds.filter(id => opcAutorizados[id] === true).length;
     const nNautGrp    = cotIds.filter(id => opcAutorizados[id] === false).length;
@@ -1129,7 +1132,7 @@ function opcRenderizar() {
             style="background:var(--danger-bg);color:var(--danger);border:1px solid var(--danger);border-radius:6px;padding:5px 12px;font-size:12px;font-weight:700;cursor:pointer;">
             ❌ Recusar todos
           </button>` : ''}
-          ${totalGrp > 0 ? `<span class="orca-valor-chip">${FMT_OPC(totalGrp)}</span>` : ''}
+          <span class="orca-valor-chip" title="Soma do que o coordenador já autorizou nesta casa" style="${totalGrp > 0 ? '' : 'opacity:.55;'}">✅ Autorizado ${FMT_OPC(totalGrp)}</span>
         </div>
       </div>
       <div class="orca-body" style="padding:0;">`;
@@ -1154,7 +1157,7 @@ function opcRenderizar() {
 
       Object.entries(porCat).sort(([a],[b]) => a.localeCompare(b,'pt-BR')).forEach(([catLabel, catEntradas]) => {
         const cotsCat   = catEntradas.filter(e => e.cotacao).map(e => e.cotacao);
-        const totalCat  = cotsCat.reduce((s, q) => s + (parseFloat(q.valor)||0), 0);
+        const totalCat  = catEntradas.reduce((s, e) => s + (e.cotacao ? opcValorAutorizado(e.pedido, e.cotacao) : 0), 0);
         const cotIdsCat = cotsCat.map(q => q.id);
         const nAutCat   = cotIdsCat.filter(id => opcAutorizados[id] === true).length;
 
@@ -1165,7 +1168,7 @@ function opcRenderizar() {
               <span style="font-size:13px;font-weight:700;color:var(--lumen);">${catLabel}</span>
               <span style="font-size:11px;color:var(--text-muted);">${cotsCat.length} pedido(s) · ${nAutCat} autorizado(s)</span>
             </div>
-            ${totalCat > 0 ? `<span style="font-size:14px;font-weight:700;color:var(--lumen);">${FMT_OPC(totalCat)}</span>` : ''}
+            <span style="font-size:13px;font-weight:700;color:${totalCat > 0 ? 'var(--ok)' : 'var(--text-muted)'};" title="Soma do que o coordenador já autorizou">✅ Autorizado ${FMT_OPC(totalCat)}</span>
           </div>
           <div class="table-wrap">
           <table class="orca-table" style="width:100%;">

@@ -313,3 +313,21 @@ async function apfAprovarEliberar() {
   }
 }
 window.apfAprovarEliberar = apfAprovarEliberar;
+
+// Valor autorizado pelo coordenador de uma cotação (0 se não aprovada). Em pedido
+// dividido por produto (etapa coordenador), só os itens escolhidos pra esse fornecedor.
+function opcValorAutorizado(pedido, q) {
+  if (!q || opcAutorizados[q.id] !== true) return 0;
+  const div = pedido?.divisaoFornecedores;
+  if (div && div.etapa === 'coordenador' && div.porItem) {
+    let tot = 0;
+    Object.entries(div.porItem).forEach(([key, qid]) => {
+      if (qid !== q.id) return;
+      const it = (Array.isArray(q.itens) ? q.itens : []).find(i => i.catKey + '|' + i.prodId === key);
+      if (it) tot += (parseFloat(it.valorUnit) || 0) * (Number(it.qty) || 0);
+    });
+    return Math.round(tot * 100) / 100;
+  }
+  return parseFloat(q.valor) || 0;
+}
+window.opcValorAutorizado = opcValorAutorizado;
