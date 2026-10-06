@@ -1783,6 +1783,7 @@ document.querySelector('.main-content').insertAdjacentHTML('beforeend', `
             <div style="display:flex;gap:6px;">
               <button class="btn btn-secondary btn-sm" onclick="orcCasasSelecionarTodas(true)" style="font-size:11px;padding:3px 10px;">Todas</button>
               <button class="btn btn-secondary btn-sm" onclick="orcCasasSelecionarTodas(false)" style="font-size:11px;padding:3px 10px;">Nenhuma</button>
+              <span id="orc-casas-blocos" style="display:contents;"></span>
               <button class="btn btn-secondary btn-sm" onclick="orcCasasSalvar()" style="font-size:11px;padding:3px 10px;color:var(--lumen);">💾 Salvar seleção</button>
             </div>
           </div>

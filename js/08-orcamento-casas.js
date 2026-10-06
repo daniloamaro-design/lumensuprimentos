@@ -19,7 +19,28 @@ async function orcCasasCarregar() {
   _orcCasasRenderizar();
 }
 
+// Atalhos por bloco (o "Bloco" definido no cadastro da casa): um clique
+// marca só as casas daquele bloco; dá pra ajustar na mão depois.
+function _orcCasasRenderizarBlocos() {
+  const wrap = document.getElementById('orc-casas-blocos');
+  if (!wrap) return;
+  const blocos = [...new Set(CASAS.map(c => CASAS_BLOCOS[c]).filter(Boolean))].sort((a, b) => Number(a) - Number(b));
+  const semBloco = CASAS.some(c => !CASAS_BLOCOS[c]);
+  const btn = (valor, rotulo) => `<button class="btn btn-secondary btn-sm" onclick="orcCasasSelecionarBloco('${valor}')" style="font-size:11px;padding:3px 10px;">${rotulo}</button>`;
+  wrap.innerHTML = blocos.map(b => btn(b, 'Bloco ' + b)).join('') + (semBloco ? btn('', 'Sem bloco') : '');
+}
+
+function orcCasasSelecionarBloco(bloco) {
+  CASAS.forEach(c => {
+    const el = document.getElementById('orc-casa-' + c.replace(/[^a-zA-Z0-9]/g,'_'));
+    if (el) el.checked = (CASAS_BLOCOS[c] || '') === String(bloco);
+  });
+  _orcCasasAtualizar();
+}
+window.orcCasasSelecionarBloco = orcCasasSelecionarBloco;
+
 function _orcCasasRenderizar() {
+  _orcCasasRenderizarBlocos();
   const el = document.getElementById('orc-casas-checkboxes');
   if (!el) return;
   el.innerHTML = CASAS.map(c => {
