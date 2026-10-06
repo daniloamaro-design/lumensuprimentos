@@ -1234,6 +1234,7 @@ async function lancarPedidoNoFinanceiro(orderId, orderData) {
       fornecedor:       fornNome,
       fornecedorId:     fornId,
       classificacao,
+      catKey:           cats[0] || '',
       destinatario:     orderData.house || '',
       mes:              MESES_PT[mesIdx],
       ano:              refDate.getFullYear(),

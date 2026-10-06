@@ -772,39 +772,10 @@ async function opcGerenteDecisao(cotId, valor) {
             ...orderUpdateData,
           });
 
-          // Lança no financeiro e consome limite do fornecedor
-          const valor2 = parseFloat(cotData.valor) || 0;
-          if (valor2 > 0 && cotData.fornecedorId) {
-            try {
-              // CORREÇÃO: incluir catKey e classificação correta para aparecer nas métricas por categoria
-              const _orderDataOpc = orderSnap.data();
-              const _catsOpc = (_orderDataOpc.categories || []);
-              const _classifOpc = _catsOpc.map(c => (typeof CATEGORIAS !== 'undefined' && CATEGORIAS[c]) ? CATEGORIAS[c].nome : c).join(', ') || 'Pedido';
-              const _refDateOpc = new Date();
-              await db.collection('compras_financeiro').add({
-                fornecedor: cotData.fornecedorNome || '',
-                fornecedorId: cotData.fornecedorId || '',
-                classificacao: _classifOpc,
-                catKey: _catsOpc[0] || '',
-                destinatario: _orderDataOpc.house || '',
-                valor: valor2,
-                vencimentoStr: boletoVencimento || '',
-                dataCompraSerial: _refDateOpc.getTime(),
-                mes: _refDateOpc.toLocaleString('pt-BR',{month:'long'}).toUpperCase(),
-                ano: _refDateOpc.getFullYear(),
-                pago: '',
-                pedidoRef: _orderDataOpc.code || orderId,
-                pedidoId: orderId,
-                centroCustoId:   _orderDataOpc.centroCustoId   || '',
-                centroCustoNome: _orderDataOpc.centroCustoNome || '',
-                lancadoSP: false,
-                createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-              });
-              await db.collection('suppliers').doc(cotData.fornecedorId).update({
-                utilizado: firebase.firestore.FieldValue.increment(valor2)
-              });
-            } catch(e) { console.warn('Erro financeiro:', e); }
-          }
+          // O lançamento no financeiro (e o consumo do limite do fornecedor) é feito
+          // só por lancarPedidoNoFinanceiro acima — uma segunda criação aqui
+          // duplicava o lançamento de todo pedido aprovado.
+          const _orderDataOpc = orderSnap.data();
 
           // Atualiza o preço de referência (aba Preços por Cidade) de cada
           // item da cotação aprovada, na cidade da casa do pedido -- assim
@@ -1340,10 +1311,16 @@ function opcRenderizar() {
           window._opcComparativoRenderizado.add(p.id);
           html += `<tr>
             <td colspan="9" style="padding:0;border-top:none;">
-              <button onclick="opcToggleComparativo('${p.id}')" id="opc-comp-btn-${p.id}"
-                style="width:100%;text-align:left;background:var(--bg);border:none;border-top:1px dashed var(--border);padding:6px 18px;font-size:11px;font-weight:700;color:var(--lumen);cursor:pointer;">
-                📊 Comparar preço por item entre os ${cotsDoPedido.length} fornecedores ▾
-              </button>
+              <div style="display:flex;align-items:center;background:var(--bg);border-top:1px dashed var(--border);">
+                <button onclick="opcToggleComparativo('${p.id}')" id="opc-comp-btn-${p.id}"
+                  style="flex:1;text-align:left;background:none;border:none;padding:6px 18px;font-size:11px;font-weight:700;color:var(--lumen);cursor:pointer;">
+                  📊 Comparar preço por item entre os ${cotsDoPedido.length} fornecedores ▾
+                </button>
+                <button onclick="opcAbrirAprovacaoPorProduto('${p.id}')"
+                  style="margin:4px 14px 4px 0;background:var(--lumen);color:#fff;border:none;border-radius:6px;padding:5px 12px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;">
+                  🧮 Aprovar por produto
+                </button>
+              </div>
               <div id="opc-comp-${p.id}" class="hidden" style="padding:10px 18px 16px;background:var(--bg);">
                 ${opcComparativoItensHTML(p, cotsDoPedido)}
               </div>
