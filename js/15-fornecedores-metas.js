@@ -910,6 +910,9 @@ async function _syncFinanceiroParaOrigem(reg, pago, valorPago) {
   try {
     const novoValorPago = pago === 'Sim' ? (Number(reg.valor) || 0) : (Number(valorPago) || 0);
     if (reg.modulo === 'frete') {
+      // Frete cancelado não vira "pago" nem "pendente": mantém statusPag 'cancelado'.
+      const fAtual = await db.collection('fretes').doc(reg.pedidoId).get();
+      if (fAtual.exists && fAtual.data().status === 'cancelado') return;
       await db.collection('fretes').doc(reg.pedidoId).update({
         statusPag: pago === 'Sim' ? 'pago' : 'pendente',
         valorPago: novoValorPago,

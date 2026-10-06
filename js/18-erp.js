@@ -896,7 +896,18 @@ async function frtMarcarEntregue(id) {
 async function frtCancelar(id) {
   const f = _fretesCache.find(x => x.id === id);
   if (!confirm(`Cancelar o frete ${f?.code || ''}? Esta ação registra o cancelamento.`)) return;
-  frtMudarStatus(id, 'cancelado', 'Frete cancelado', { statusPag: 'cancelado' });
+  await frtMudarStatus(id, 'cancelado', 'Frete cancelado', { statusPag: 'cancelado' });
+  // Frete cancelado não gera pagamento: tira o lançamento (se ainda em aberto) do
+  // Financeiro. Antes ele ficava lá e entrava no "Marcar Pagos" junto com os
+  // demais do freteiro (LF-20261001-001 foi pago assim, já cancelado).
+  try {
+    const snap = await db.collection('compras_financeiro').where('pedidoRef', '==', f.code).get();
+    for (const d of snap.docs) {
+      const l = d.data();
+      if (l.pago === 'Sim' || (Number(l.valorPago) || 0) > 0) showToast('⚠️ Frete cancelado, mas o lançamento no Financeiro já estava pago/parcial — confira o pagamento.');
+      else await db.collection('compras_financeiro').doc(d.id).delete();
+    }
+  } catch (e) { console.warn('remover lançamento do frete cancelado:', e); }
 }
 window.frtMarcarEntregue = frtMarcarEntregue;
 window.frtCancelar = frtCancelar;
