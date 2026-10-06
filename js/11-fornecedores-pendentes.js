@@ -513,6 +513,12 @@ let opcPrecos = {};        // { 'catKey|prodId|city': price } -- preço de refer
 const FMT_OPC = v => 'R$ ' + v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 async function initOrcPendentes() {
+  // Atualizações podem se sobrepor (botão Atualizar, listener a cada mudança,
+  // salvar preço/aprovar logo em seguida). Cada execução monta as cotações num
+  // objeto LOCAL e só a mais recente publica — antes todas empurravam pro mesmo
+  // opcCotacoes e as cotações apareciam repetidas na tela.
+  const _run = window._opcRunSeq = (window._opcRunSeq || 0) + 1;
+  const cotsLocal = {};
   opcPedidos   = [];
   opcCotacoes  = {};
   opcAutorizados = {};
@@ -587,12 +593,15 @@ async function initOrcPendentes() {
         q.statusGerente = 'pendente';
       }
       if (!orderIds.has(q.orderId)) return;
-      if (!opcCotacoes[q.orderId]) opcCotacoes[q.orderId] = [];
-      opcCotacoes[q.orderId].push(q);
+      if (!cotsLocal[q.orderId]) cotsLocal[q.orderId] = [];
+      if (!cotsLocal[q.orderId].some(x => x.id === q.id)) cotsLocal[q.orderId].push(q);
       if (opcAutorizados[q.id] === undefined) {
         opcAutorizados[q.id] = q.statusCoordenador === 'aprovado' ? true : q.statusCoordenador === 'recusado' ? false : null;
       }
     });
+
+    if (_run !== window._opcRunSeq) return; // uma atualização mais nova já assumiu
+    opcCotacoes = cotsLocal;
 
     // Atualiza badge no menu
     const n = opcPedidos.length;

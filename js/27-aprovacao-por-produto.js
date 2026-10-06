@@ -65,7 +65,7 @@ function opcAbrirAprovacaoPorProduto(pedidoId) {
   const pedido = opcPedidos.find(p => p.id === pedidoId);
   if (!pedido) return;
   _apfGarantirModal();
-  const cots = (opcCotacoes[pedidoId] || []).filter(q => q.statusGerente !== 'aprovado' && q.statusGerente !== 'recusado');
+  const cots = (opcCotacoes[pedidoId] || []).filter((q, i, arr) => arr.findIndex(x => x.id === q.id) === i && q.statusGerente !== 'aprovado' && q.statusGerente !== 'recusado');
   const itens = _apfItensDoPedido(pedido);
   const sel = {};
   const rascunho = pedido.divisaoFornecedores?.porItem || null;
