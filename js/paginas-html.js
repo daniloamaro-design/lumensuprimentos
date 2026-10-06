@@ -1797,14 +1797,13 @@ document.querySelector('.main-content').insertAdjacentHTML('beforeend', `
             <thead><tr>
               <th style="padding:8px 12px;text-align:left;font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.4px;border-bottom:1px solid var(--border);width:160px;">Período</th>
               <th style="padding:8px 12px;text-align:right;font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.4px;border-bottom:1px solid var(--border);">Total Geral</th>
+              <th style="padding:8px 12px;text-align:right;font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.4px;border-bottom:1px solid var(--border);">🔄 Transferido</th>
               <th style="padding:8px 12px;text-align:right;font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.4px;border-bottom:1px solid var(--border);">🌾 Cereal</th>
               <th style="padding:8px 12px;text-align:right;font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.4px;border-bottom:1px solid var(--border);">🧴 Higiene</th>
               <th style="padding:8px 12px;text-align:right;font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.4px;border-bottom:1px solid var(--border);">🥩 Proteína</th>
-              <th style="padding:8px 12px;text-align:right;font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.4px;border-bottom:1px solid var(--border);">🎁 Doação</th>
-              <th style="padding:8px 12px;text-align:right;font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.4px;border-bottom:1px solid var(--border);">🔄 Transferência</th>
             </tr></thead>
             <tbody id="hist-cmp-tbody">
-              <tr><td colspan="7" style="padding:18px 12px;text-align:center;color:var(--text-muted);font-size:12px;">Selecione os dois períodos e clique em Comparar.</td></tr>
+              <tr><td colspan="6" style="padding:18px 12px;text-align:center;color:var(--text-muted);font-size:12px;">Selecione os dois períodos e clique em Comparar.</td></tr>
             </tbody>
           </table>
         </div>
@@ -1813,20 +1812,19 @@ document.querySelector('.main-content').insertAdjacentHTML('beforeend', `
         <!-- Doações e Transferências — valor estimado (sem preço de compra real) -->
         <div style="margin-top:20px;padding-top:16px;border-top:1px dashed var(--border);">
           <div style="font-size:12.5px;color:var(--text-muted);margin-bottom:10px;">
-            🎁🔄 <strong>Doações e transferências recebidas (valor estimado)</strong> — não houve compra nesses casos; o valor é calculado multiplicando a quantidade pelo preço de referência cadastrado em Preços por Cidade. É uma noção de tamanho, não o gasto real.
+            🔄 <strong>Transferidos / doados recebidos (valor estimado)</strong> — doação e transferência são a mesma coisa: item recebido sem compra, não soma no Total Geral; o valor é calculado multiplicando a quantidade pelo preço de referência cadastrado em Preços por Cidade. É uma noção de tamanho, não o gasto real.
           </div>
           <div style="overflow-x:auto;">
             <table style="width:100%;border-collapse:collapse;font-size:13px;">
               <thead><tr>
                 <th style="padding:8px 12px;text-align:left;font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.4px;border-bottom:1px solid var(--border);width:160px;">Período</th>
-                <th style="padding:8px 12px;text-align:right;font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.4px;border-bottom:1px solid var(--border);">🎁 Doação</th>
-                <th style="padding:8px 12px;text-align:right;font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.4px;border-bottom:1px solid var(--border);">🔄 Transferência</th>
+                <th style="padding:8px 12px;text-align:right;font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.4px;border-bottom:1px solid var(--border);">🔄 Transferido</th>
                 <th style="padding:8px 12px;text-align:right;font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.4px;border-bottom:1px solid var(--border);">🌾 Cereal</th>
                 <th style="padding:8px 12px;text-align:right;font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.4px;border-bottom:1px solid var(--border);">🧴 Higiene</th>
                 <th style="padding:8px 12px;text-align:right;font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.4px;border-bottom:1px solid var(--border);">🥩 Proteína</th>
               </tr></thead>
               <tbody id="hist-cmp-doatransf-tbody">
-                <tr><td colspan="6" style="padding:18px 12px;text-align:center;color:var(--text-muted);font-size:12px;">Clique em Comparar períodos.</td></tr>
+                <tr><td colspan="5" style="padding:18px 12px;text-align:center;color:var(--text-muted);font-size:12px;">Clique em Comparar períodos.</td></tr>
               </tbody>
             </table>
           </div>

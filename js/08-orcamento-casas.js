@@ -139,6 +139,13 @@ async function somarDoacoesTransferenciasPeriodo(ini, fim, casasValidas) {
   return { doacao, transferencia };
 }
 
+// Doação (entrada marcada como doação) e transferência recebida são a mesma
+// coisa pro orçamento: item que chegou sem compra. Junta os dois num valor só.
+function _histTransferido(dt) {
+  const d = dt?.doacao || {}, t = dt?.transferencia || {};
+  return { total:(d.total||0)+(t.total||0), cereal:(d.cereal||0)+(t.cereal||0), higiene:(d.higiene||0)+(t.higiene||0), proteina:(d.proteina||0)+(t.proteina||0) };
+}
+
 async function histCompararPeriodos() {
   const aIni = document.getElementById('hist-cmp-a-ini').value;
   const aFim = document.getElementById('hist-cmp-a-fim').value;
@@ -147,7 +154,7 @@ async function histCompararPeriodos() {
   if (!aIni || !aFim || !bIni || !bFim) { showToast('Preencha as datas dos dois períodos.'); return; }
 
   const tbody = document.getElementById('hist-cmp-tbody');
-  tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:16px;"><div class="loading-state"><div class="spinner spinner-dark"></div>Carregando...</div></td></tr>';
+  tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:16px;"><div class="loading-state"><div class="spinner spinner-dark"></div>Carregando...</div></td></tr>';
 
   const fmtD = d => d.split('-').reverse().join('/');
 
@@ -196,7 +203,7 @@ async function histCompararPeriodos() {
   }
 
   const doaTransfTbody = document.getElementById('hist-cmp-doatransf-tbody');
-  if (doaTransfTbody) doaTransfTbody.innerHTML = '<tr><td colspan="6" style="padding:18px 12px;text-align:center;color:var(--text-muted);font-size:12px;"><div class="loading-state"><div class="spinner spinner-dark"></div>Carregando...</div></td></tr>';
+  if (doaTransfTbody) doaTransfTbody.innerHTML = '<tr><td colspan="5" style="padding:18px 12px;text-align:center;color:var(--text-muted);font-size:12px;"><div class="loading-state"><div class="spinner spinner-dark"></div>Carregando...</div></td></tr>';
 
   try {
     const casasValidas = orcCasasFiltradas();
@@ -207,23 +214,26 @@ async function histCompararPeriodos() {
     ]);
 
     if (doaTransfTbody) {
-      const linhaDT = (label, dt) => `
+      const linhaDT = (label, dt) => {
+        const trf = _histTransferido(dt);
+        return `
         <tr>
           <td style="padding:11px 14px;border-bottom:1px solid var(--border);"><strong style="color:var(--text);">${label}</strong></td>
-          <td style="padding:11px 14px;text-align:right;border-bottom:1px solid var(--border);color:var(--text);">${FMT_HIST(dt.doacao.total)}</td>
-          <td style="padding:11px 14px;text-align:right;border-bottom:1px solid var(--border);color:var(--text);">${FMT_HIST(dt.transferencia.total)}</td>
-          <td style="padding:11px 14px;text-align:right;border-bottom:1px solid var(--border);color:var(--text-muted);">${FMT_HIST(dt.doacao.cereal + dt.transferencia.cereal)}</td>
-          <td style="padding:11px 14px;text-align:right;border-bottom:1px solid var(--border);color:var(--text-muted);">${FMT_HIST(dt.doacao.higiene + dt.transferencia.higiene)}</td>
-          <td style="padding:11px 14px;text-align:right;border-bottom:1px solid var(--border);color:var(--text-muted);">${FMT_HIST(dt.doacao.proteina + dt.transferencia.proteina)}</td>
+          <td style="padding:11px 14px;text-align:right;border-bottom:1px solid var(--border);color:var(--text);">${FMT_HIST(trf.total)}</td>
+          <td style="padding:11px 14px;text-align:right;border-bottom:1px solid var(--border);color:var(--text-muted);">${FMT_HIST(trf.cereal)}</td>
+          <td style="padding:11px 14px;text-align:right;border-bottom:1px solid var(--border);color:var(--text-muted);">${FMT_HIST(trf.higiene)}</td>
+          <td style="padding:11px 14px;text-align:right;border-bottom:1px solid var(--border);color:var(--text-muted);">${FMT_HIST(trf.proteina)}</td>
         </tr>`;
+      };
       doaTransfTbody.innerHTML = linhaDT('Período A', DTA) + linhaDT('Período B', DTB);
     }
 
-    // Total Geral passa a incluir doação + transferência estimadas (mesma
-    // lógica já aplicada na Análise detalhada por casa) — Cereal/Higiene/
-    // Proteína continuam só compras.
-    A.totalGeral = A.total + DTA.doacao.total + DTA.transferencia.total;
-    B.totalGeral = B.total + DTB.doacao.total + DTB.transferencia.total;
+    // Total Geral = só o que foi comprado (pago a fornecedor). Transferência e
+    // doação são itens recebidos sem pagamento: ficam ao lado, não somam —
+    // somar misturaria gasto real com valor estimado.
+    A.totalGeral = A.total;
+    B.totalGeral = B.total;
+    const TA = _histTransferido(DTA), TB = _histTransferido(DTB);
 
     const varTag = (a, b) => {
       if (!b) return '';
@@ -236,6 +246,13 @@ async function histCompararPeriodos() {
     const cell = (a, b, showVar) => {
       const isA = a <= b;
       return `<td style="padding:11px 14px;text-align:right;font-weight:${isA?'700':'400'};color:var(--${isA?'ok':'danger'});">${FMT_HIST(a)}${isA?menor:''}${showVar?varTag(a,b):''}</td>`;
+    };
+    // Transferido é o inverso: quanto MAIOR, melhor (item recebido sem pagar).
+    const maior = '<span style="font-size:10px;background:var(--ok-bg);color:var(--ok);padding:1px 6px;border-radius:20px;margin-left:5px;font-weight:700;">★ maior</span>';
+    const cellTrf = (a, b) => {
+      if (a === b) return `<td style="padding:11px 14px;text-align:right;color:var(--text-muted);">${FMT_HIST(a)}</td>`;
+      const best = a > b;
+      return `<td style="padding:11px 14px;text-align:right;font-weight:${best?'700':'400'};color:var(--${best?'ok':'danger'});">${FMT_HIST(a)}${best?maior:''}</td>`;
     };
 
     // Pill de tendência total
@@ -252,18 +269,18 @@ async function histCompararPeriodos() {
           <strong style="color:var(--text);">Período A</strong>
           <div style="font-size:11px;color:var(--text-muted);">${fmtD(aIni)} a ${fmtD(aFim)}</div>
         </td>
-        ${cell(A.totalGeral,B.totalGeral,true)}${cell(A.cereal,B.cereal,false)}${cell(A.higiene,B.higiene,false)}${cell(A.proteina,B.proteina,false)}${cell(DTA.doacao.total,DTB.doacao.total,false)}${cell(DTA.transferencia.total,DTB.transferencia.total,false)}
+        ${cell(A.totalGeral,B.totalGeral,true)}${cellTrf(TA.total,TB.total)}${cell(A.cereal,B.cereal,false)}${cell(A.higiene,B.higiene,false)}${cell(A.proteina,B.proteina,false)}
       </tr>
       <tr>
         <td style="padding:11px 14px;">
           <strong style="color:var(--text);">Período B</strong>
           <div style="font-size:11px;color:var(--text-muted);">${fmtD(bIni)} a ${fmtD(bFim)}</div>
         </td>
-        ${cell(B.totalGeral,A.totalGeral,false)}${cell(B.cereal,A.cereal,false)}${cell(B.higiene,A.higiene,false)}${cell(B.proteina,A.proteina,false)}${cell(DTB.doacao.total,DTA.doacao.total,false)}${cell(DTB.transferencia.total,DTA.transferencia.total,false)}
+        ${cell(B.totalGeral,A.totalGeral,false)}${cellTrf(TB.total,TA.total)}${cell(B.cereal,A.cereal,false)}${cell(B.higiene,A.higiene,false)}${cell(B.proteina,A.proteina,false)}
       </tr>`;
   } catch(e) {
-    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:16px;color:var(--danger);">Erro: ${e.message}</td></tr>`;
-    if (doaTransfTbody) doaTransfTbody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:16px;color:var(--danger);">Erro: ${e.message}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:16px;color:var(--danger);">Erro: ${e.message}</td></tr>`;
+    if (doaTransfTbody) doaTransfTbody.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:16px;color:var(--danger);">Erro: ${e.message}</td></tr>`;
   }
 }
 
@@ -381,14 +398,11 @@ async function histCompararPorCasa() {
     const casas = [...new Set([...Object.keys(porCasaA), ...Object.keys(porCasaB), ...Object.keys(dtA), ...Object.keys(dtB)])];
     const nomesCat = { cereal:'🌾 Cereal', higiene:'🧴 Higiene', proteina:'🥩 Proteína' };
 
-    // Total por casa passa a incluir doação + transferência estimadas (além
-    // das compras) — dá a noção do valor total que passou pela casa, não só
-    // o que foi efetivamente comprado. Cereal/Higiene/Proteína continuam só
-    // compras (é o que "categoria que mais puxou" compara).
+    // Total por casa = só compras. Transferido (transferência + doação, valor
+    // estimado, sem pagamento) fica ao lado e não soma no total.
     const montar = (compras, dt) => {
-      const doacao = dt?.doacao?.total || 0;
-      const transferencia = dt?.transferencia?.total || 0;
-      return { ...compras, doacao, transferencia, totalGeral: compras.total + doacao + transferencia };
+      const transferencia = _histTransferido(dt).total;
+      return { ...compras, transferencia, totalGeral: compras.total };
     };
 
     const linhas = casas.map(casa => {
@@ -413,11 +427,16 @@ async function histCompararPorCasa() {
       const cor = isMenor ? 'var(--ok)' : 'var(--danger)';
       return `<td style="padding:9px 12px;text-align:right;color:${cor};font-weight:600;">${FMT_HIST(val)}</td>`;
     };
+    // Transferido: quanto maior, melhor (recebido sem pagar)
+    const cellTrf = (val, other) => {
+      if (val === other) return `<td style="padding:9px 12px;text-align:right;color:var(--text-muted);font-weight:600;">${FMT_HIST(val)}</td>`;
+      return `<td style="padding:9px 12px;text-align:right;color:${val > other ? 'var(--ok)' : 'var(--danger)'};font-weight:600;">${FMT_HIST(val)}</td>`;
+    };
 
     let html = `<div class="card" style="margin-top:4px;">
       <div class="card-header"><div class="card-header-title">🏠 Análise detalhada por casa — pior orçamento primeiro</div></div>
       <div class="card-body">
-        <div style="font-size:11.5px;color:var(--text-muted);margin-bottom:10px;">🟢 verde = opção mais barata entre os dois períodos &nbsp;|&nbsp; 🔴 vermelho = opção mais cara</div>`;
+        <div style="font-size:11.5px;color:var(--text-muted);margin-bottom:10px;">🟢 verde = opção mais barata entre os dois períodos (em Transferido, o maior) &nbsp;|&nbsp; 🔴 vermelho = opção mais cara (em Transferido, o menor)</div>`;
 
     linhas.forEach(l => {
       const pctLabel = l.semBase
@@ -435,34 +454,31 @@ async function histCompararPorCasa() {
             <thead><tr>
               <th style="padding:8px 12px;text-align:left;font-size:11px;color:var(--text-muted);text-transform:uppercase;">Período</th>
               <th style="padding:8px 12px;text-align:right;font-size:11px;color:var(--text-muted);text-transform:uppercase;">Total geral</th>
+              <th style="padding:8px 12px;text-align:right;font-size:11px;color:var(--text-muted);text-transform:uppercase;">🔄 Transferido</th>
               <th style="padding:8px 12px;text-align:right;font-size:11px;color:var(--text-muted);text-transform:uppercase;">🌾 Cereal</th>
               <th style="padding:8px 12px;text-align:right;font-size:11px;color:var(--text-muted);text-transform:uppercase;">🧴 Higiene</th>
               <th style="padding:8px 12px;text-align:right;font-size:11px;color:var(--text-muted);text-transform:uppercase;">🥩 Proteína</th>
-              <th style="padding:8px 12px;text-align:right;font-size:11px;color:var(--text-muted);text-transform:uppercase;">🎁 Doação</th>
-              <th style="padding:8px 12px;text-align:right;font-size:11px;color:var(--text-muted);text-transform:uppercase;">🔄 Transf.</th>
             </tr></thead>
             <tbody>
               <tr style="border-top:1px solid var(--border);">
                 <td style="padding:9px 12px;">Período A</td>
                 ${cellComp(l.A.totalGeral, l.B.totalGeral)}
+                ${cellTrf(l.A.transferencia, l.B.transferencia)}
                 ${cellComp(l.A.cereal, l.B.cereal)}
                 ${cellComp(l.A.higiene, l.B.higiene)}
                 ${cellComp(l.A.proteina, l.B.proteina)}
-                ${cellComp(l.A.doacao, l.B.doacao)}
-                ${cellComp(l.A.transferencia, l.B.transferencia)}
               </tr>
               <tr style="border-top:1px solid var(--border);">
                 <td style="padding:9px 12px;">Período B</td>
                 ${cellComp(l.B.totalGeral, l.A.totalGeral)}
+                ${cellTrf(l.B.transferencia, l.A.transferencia)}
                 ${cellComp(l.B.cereal, l.A.cereal)}
                 ${cellComp(l.B.higiene, l.A.higiene)}
                 ${cellComp(l.B.proteina, l.A.proteina)}
-                ${cellComp(l.B.doacao, l.A.doacao)}
-                ${cellComp(l.B.transferencia, l.A.transferencia)}
               </tr>
             </tbody>
           </table>
-          <div style="padding:6px 14px;font-size:11.5px;color:var(--text-muted);background:var(--surface);">Categoria que mais puxou o valor (compras): <strong style="color:var(--danger);">${catLabel}</strong> &nbsp;·&nbsp; Total geral inclui doação e transferência estimadas</div>
+          <div style="padding:6px 14px;font-size:11.5px;color:var(--text-muted);background:var(--surface);">Categoria que mais puxou o valor (compras): <strong style="color:var(--danger);">${catLabel}</strong> &nbsp;·&nbsp; Total geral = só compras · Transferido (estimado) não soma no total: quanto maior, menos gasto</div>
         </div>`;
     });
 
