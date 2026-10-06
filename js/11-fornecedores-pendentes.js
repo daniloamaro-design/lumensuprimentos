@@ -1316,6 +1316,10 @@ function opcRenderizar() {
                   style="flex:1;text-align:left;background:none;border:none;padding:6px 18px;font-size:11px;font-weight:700;color:var(--lumen);cursor:pointer;">
                   📊 Comparar preço por item entre os ${cotsDoPedido.length} fornecedores ▾
                 </button>
+                <button onclick="opcAbrirPrecosPorProduto('${p.id}')"
+                  style="margin:4px 6px 4px 0;background:var(--surface);color:var(--lumen);border:1px solid var(--lumen);border-radius:6px;padding:5px 12px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;">
+                  💲 Preços por produto
+                </button>
                 <button onclick="opcAbrirAprovacaoPorProduto('${p.id}')"
                   style="margin:4px 14px 4px 0;background:var(--lumen);color:#fff;border:none;border-radius:6px;padding:5px 12px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;">
                   🧮 Aprovar por produto

@@ -16,9 +16,9 @@ const _cotEsc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&':
 const _cotBRL = n => 'R$ ' + (Number(n) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const _cotNum = v => { const n = parseFloat(String(v == null ? '' : v).replace(',', '.')); return Number.isFinite(n) ? n : 0; };
 
-function _cotItensDoPedido() {
+function _cotItensDoPedido(pedido) {
   const out = [];
-  Object.entries(detailOrderData?.items || {}).forEach(([catKey, prods]) => {
+  Object.entries(pedido?.items || {}).forEach(([catKey, prods]) => {
     Object.entries(prods || {}).forEach(([prodId, qty]) => {
       const p = CATEGORIAS[catKey]?.produtos?.find(x => x.id === prodId);
       const nome = (typeof nomeProdutoAtual === 'function' ? nomeProdutoAtual(catKey, prodId, p?.nome) : p?.nome) || prodId;
@@ -28,10 +28,13 @@ function _cotItensDoPedido() {
   return out;
 }
 
-async function cotMatrizAbrir() {
-  const orderId = currentDetailOrderId;
+// Sem argumentos: pedido aberto no detalhe. Com (orderId, pedido, origem): chamada de outra tela
+// (ex.: Orçamentos Pendentes, origem 'pendentes' — recarrega a lista depois de salvar).
+async function cotMatrizAbrir(orderIdArg, pedidoArg, origem) {
+  const orderId = orderIdArg || currentDetailOrderId;
+  const pedido = pedidoArg || detailOrderData;
   currentQuotationOrderId = orderId;
-  document.getElementById('modal-quot-title').textContent = `Orçamentos — ${detailOrderData?.code || ''}`;
+  document.getElementById('modal-quot-title').textContent = `Orçamentos — ${pedido?.code || ''}`;
   openModal('modal-quotation');
   const wrap = document.getElementById('cot-matriz');
   wrap.innerHTML = '<div class="loading-state"><div class="spinner spinner-dark"></div>Carregando...</div>';
@@ -41,14 +44,19 @@ async function cotMatrizAbrir() {
       suppliersCache = s.docs.map(d => ({ id: d.id, ...d.data() }));
     }
     const snap = await db.collection('quotations').where('orderId', '==', orderId).get();
-    _cot = { orderId, itens: _cotItensDoPedido(), cols: [], seq: 0 };
+    _cot = { orderId, pedido, origem: origem || (_cot && _cot.orderId === orderId ? _cot.origem : null), itens: _cotItensDoPedido(pedido), cols: [], seq: 0 };
     snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => (Number(a.valor) || 0) - (Number(b.valor) || 0)).forEach(q => {
       const precos = {};
       (Array.isArray(q.itens) ? q.itens : []).forEach(i => { precos[i.catKey + '|' + i.prodId] = String(i.valorUnit ?? ''); });
       _cot.cols.push({
         uid: ++_cot.seq, id: q.id, fornecedorId: q.fornecedorId || '', fornecedorNome: q.fornecedorNome || '',
         validade: q.validade || '', obs: q.obs || '', status: q.status || 'pendente',
-        modo: (Array.isArray(q.itens) && q.itens.length) ? 'itens' : 'total',
+        // Proteína (e qualquer pedido aberto por Orçamentos Pendentes) usa a
+        // tabela por produto: cotação antiga só com total abre em modo "por
+        // item" (preços em branco) — o total antigo fica visível no aviso e
+        // volta com "informar só o total".
+        modo: ((Array.isArray(q.itens) && q.itens.length) || _cot.origem === 'pendentes' || (_cot.pedido?.categories || []).includes('proteina')) ? 'itens' : 'total',
+        totalAnterior: (Array.isArray(q.itens) && q.itens.length) ? 0 : (parseFloat(q.valor) || 0),
         precos, totalManual: q.valor != null ? String(q.valor) : '',
       });
     });
@@ -170,7 +178,8 @@ function _cotRecalcular() {
     if (el) { el.textContent = t.total > 0 ? _cotBRL(t.total) : '—'; el.style.color = (menor != null && t.completo && t.total === menor) ? 'var(--ok)' : 'var(--text)'; }
     const av = document.getElementById('cot-aviso-' + c.uid);
     if (av) {
-      if (c.modo === 'itens' && t.faltam > 0 && t.total > 0) av.innerHTML = `<span style="color:var(--warn,#d97706);font-weight:600;">⚠️ faltam ${t.faltam} item(ns) sem preço</span>`;
+      if (c.modo === 'itens' && t.total === 0 && c.totalAnterior > 0) av.innerHTML = `<span style="color:var(--text-muted);">total informado antes (sem itens): <b>${_cotBRL(c.totalAnterior)}</b> — preencha os preços por produto</span>`;
+      else if (c.modo === 'itens' && t.faltam > 0 && t.total > 0) av.innerHTML = `<span style="color:var(--warn,#d97706);font-weight:600;">⚠️ faltam ${t.faltam} item(ns) sem preço</span>`;
       else if (menor != null && t.completo && t.total === menor) av.innerHTML = '<span style="color:var(--ok);font-weight:700;">★ menor total</span>';
       else if (c.modo === 'total' && t.total > 0) av.innerHTML = '<span style="color:var(--text-muted);">total informado (sem itens)</span>';
       else av.innerHTML = '';
@@ -232,7 +241,9 @@ async function cotSalvarCol(uid) {
       } catch (e) { console.warn('Erro ao avançar status do pedido:', e); }
     }
     showToast('✅ Cotação salva!');
-    await cotMatrizAbrir();
+    const origem = _cot.origem;
+    await cotMatrizAbrir(_cot.orderId, _cot.pedido, origem);
+    if (origem === 'pendentes' && typeof initOrcPendentes === 'function') initOrcPendentes();
   } catch (e) {
     console.error('cotSalvarCol', e);
     showToast('❌ Erro ao salvar: ' + e.message);

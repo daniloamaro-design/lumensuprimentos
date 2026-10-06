@@ -52,6 +52,15 @@ const _apfPreco = (q, key) => {
 };
 const _apfDetalhada = q => Array.isArray(q.itens) && q.itens.length > 0;
 
+// Abre a matriz de preços (js/26) pra este pedido, a partir de Orçamentos Pendentes
+function opcAbrirPrecosPorProduto(pedidoId) {
+  const pedido = opcPedidos.find(p => p.id === pedidoId);
+  if (!pedido) return;
+  if (document.getElementById('modal-apf')) closeModal('modal-apf');
+  cotMatrizAbrir(pedido.id, pedido, 'pendentes');
+}
+window.opcAbrirPrecosPorProduto = opcAbrirPrecosPorProduto;
+
 function opcAbrirAprovacaoPorProduto(pedidoId) {
   const pedido = opcPedidos.find(p => p.id === pedidoId);
   if (!pedido) return;
@@ -114,7 +123,7 @@ function _apfRenderizar() {
       O pedido será dividido em um lançamento por fornecedor.
     </div>
     ${soTotal.length ? `<div style="font-size:12px;padding:8px 12px;margin-bottom:10px;border-left:3px solid var(--warn,#d97706);background:var(--warn-bg);">Sem preço por item (só total), não entram na divisão: <b>${soTotal.map(q => _apfEsc(q.fornecedorNome) + ' (' + _apfBRL(q.valor) + ')').join(', ')}</b>. Pra aprovar o pedido inteiro com uma delas, use os botões ✅ da lista.</div>` : ''}
-    ${detalhadas.length === 0 ? '<div style="padding:24px;text-align:center;color:var(--text-muted);">Nenhuma cotação com preço por item neste pedido. Preencha os preços por produto em Orçamentos do pedido primeiro.</div>' : `
+    ${detalhadas.length === 0 ? `<div style="padding:24px;text-align:center;color:var(--text-muted);">Nenhuma cotação com preço por item neste pedido.<br><br><button class="btn btn-primary" onclick="opcAbrirPrecosPorProduto('${_apf.pedido.id}')">💲 Preencher preços por produto</button></div>` : `
     <div style="overflow-x:auto;border:1px solid var(--border);border-radius:10px;">
       <table style="width:100%;border-collapse:collapse;">
         <thead><tr><th style="${th}min-width:200px;">Produto</th><th style="${th}text-align:right;">Qtd.</th>${head}<th style="${th}border-left:2px solid var(--border);text-align:center;">Cancelar</th></tr></thead>

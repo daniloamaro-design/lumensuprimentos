@@ -1743,19 +1743,60 @@ function _removeAttachExtra(type, id) {
   _renderAttachExtras();
 }
 
+// Pedido dividido entre fornecedores (Aprovar por produto): cada parte tem a
+// própria NF/boleto, guardada em divisaoFornecedores.partes[i].anexos. A parte
+// 0 (maior valor, fornecedor principal) também é espelhada nos campos antigos
+// do pedido (nfNumero, nfValor…), que o resto do sistema ainda lê.
+let _attachParteIdx = null;
+function _attachDividido() {
+  const d = detailOrderData?.divisaoFornecedores;
+  return !!(d && d.etapa === 'final' && Array.isArray(d.partes) && d.partes.length > 1);
+}
+function _attachParteView(idx) {
+  const o = detailOrderData || {};
+  const parte = o.divisaoFornecedores?.partes?.[idx] || {};
+  const an = parte.anexos || (idx === 0 ? {
+    nfNumero: o.nfNumero, nfValor: o.nfValor, nfFileName: o.nfFileName, nfFileURL: o.nfFileURL, nfExtras: o.nfExtras,
+    boletoVencimento: o.boletoVencimento, boletoFileName: o.boletoFileName, boletoFileURL: o.boletoFileURL, boletoExtras: o.boletoExtras, obs: o.attachObs,
+  } : {});
+  return {
+    nfNumero: an.nfNumero || '', nfValor: an.nfValor || 0, nfFileName: an.nfFileName, nfFileURL: an.nfFileURL, nfExtras: an.nfExtras || [],
+    boletoVencimento: an.boletoVencimento || parte.vencimento || '', boletoFileName: an.boletoFileName, boletoFileURL: an.boletoFileURL, boletoExtras: an.boletoExtras || [],
+    attachObs: an.obs || '', fornecedorId: parte.fornecedorId || '', fornecedorNome: parte.fornecedorNome || '',
+  };
+}
+function _attachParteViewComoAnexos() {
+  const o = detailOrderData || {};
+  return { nfFileName: o.nfFileName, nfFileURL: o.nfFileURL, boletoFileName: o.boletoFileName, boletoFileURL: o.boletoFileURL };
+}
+function attachTrocarParte(idx) { _attachParteIdx = Number(idx) || 0; openAttachModal(); }
+window.attachTrocarParte = attachTrocarParte;
+
 function openAttachModal() {
+  const dividido = _attachDividido();
+  if (!dividido) _attachParteIdx = null;
+  else if (_attachParteIdx == null || _attachParteIdx >= detailOrderData.divisaoFornecedores.partes.length) _attachParteIdx = 0;
+  const src = dividido ? _attachParteView(_attachParteIdx) : detailOrderData;
+  const wrapParte = document.getElementById('attach-parte-wrap');
+  if (wrapParte) {
+    wrapParte.style.display = dividido ? '' : 'none';
+    if (dividido) {
+      const sp = document.getElementById('attach-parte');
+      sp.innerHTML = detailOrderData.divisaoFornecedores.partes.map((pt, i) => `<option value="${i}" ${i === _attachParteIdx ? 'selected' : ''}>${pt.fornecedorNome} — R$ ${(Number(pt.valor) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} (${pt.pedidoRef})</option>`).join('');
+    }
+  }
   populateSupplierSelect('attach-supplier');
-  document.getElementById('attach-nf-num').value        = detailOrderData?.nfNumero || '';
+  document.getElementById('attach-nf-num').value        = src?.nfNumero || '';
   // nfValor é o TOTAL (NF principal + extras somados em saveAttachment()) —
   // não o valor só da nota principal. Pré-preencher o campo com o total e
   // salvar de novo somaria os extras uma 2ª vez (bug já visto em produção:
   // reabrir e salvar dobrava o valor da NF extra no total). Reconstrói aqui
   // só a parte da principal, subtraindo os extras já contabilizados.
-  const somaExtrasAtual = (detailOrderData?.nfExtras || []).reduce((s, ex) => s + (parseFloat(ex.valor) || 0), 0);
-  const nfValorPrincipal = (parseFloat(detailOrderData?.nfValor) || 0) - somaExtrasAtual;
-  document.getElementById('attach-nf-valor').value      = nfValorPrincipal > 0 ? nfValorPrincipal : (detailOrderData?.nfValor || '');
-  document.getElementById('attach-boleto-venc').value   = detailOrderData?.boletoVencimento || '';
-  document.getElementById('attach-obs').value           = detailOrderData?.attachObs || '';
+  const somaExtrasAtual = (src?.nfExtras || []).reduce((s, ex) => s + (parseFloat(ex.valor) || 0), 0);
+  const nfValorPrincipal = (parseFloat(src?.nfValor) || 0) - somaExtrasAtual;
+  document.getElementById('attach-nf-valor').value      = nfValorPrincipal > 0 ? nfValorPrincipal : (src?.nfValor || '');
+  document.getElementById('attach-boleto-venc').value   = src?.boletoVencimento || '';
+  document.getElementById('attach-obs').value           = src?.attachObs || '';
 
   // Limpa inputs de arquivo para não persistir NF/boleto de outro pedido.
   // Zerar input.value NÃO dispara o evento 'change' sozinho — sem isso,
@@ -1769,8 +1810,8 @@ function openAttachModal() {
   if (_bolInput) _bolInput.value = '';
   const _nfLbl  = document.getElementById('attach-nf-label');
   const _bolLbl = document.getElementById('attach-boleto-label');
-  if (_nfLbl && !detailOrderData?.nfFileURL)   _nfLbl.textContent  = 'Clique para selecionar';
-  if (_bolLbl && !detailOrderData?.boletoFileURL) _bolLbl.textContent = 'Clique para selecionar';
+  if (_nfLbl && !src?.nfFileURL)   _nfLbl.textContent  = 'Clique para selecionar';
+  if (_bolLbl && !src?.boletoFileURL) _bolLbl.textContent = 'Clique para selecionar';
   ['nf', 'boleto'].forEach(type => {
     const nameEl = document.getElementById(`attach-${type}-filename`);
     const area   = document.getElementById(`attach-${type}-area`);
@@ -1786,10 +1827,10 @@ function openAttachModal() {
   const nfExisting     = document.getElementById('attach-nf-existing');
   const boletoExisting = document.getElementById('attach-boleto-existing');
 
-  if (detailOrderData?.nfFileURL) {
+  if (src?.nfFileURL) {
     nfExisting.style.display = 'flex';
-    document.getElementById('attach-nf-existing-name').textContent  = detailOrderData.nfFileName || 'nota-fiscal';
-    { const _l = document.getElementById('attach-nf-existing-link'); const _p = detailOrderData.nfFileURL;
+    document.getElementById('attach-nf-existing-name').textContent  = src.nfFileName || 'nota-fiscal';
+    { const _l = document.getElementById('attach-nf-existing-link'); const _p = src.nfFileURL;
       _l.href = '#'; _l.onclick = (e) => { e.preventDefault(); verArquivoPedido(_p); }; }
     document.getElementById('attach-nf-label').textContent = 'Substituir arquivo';
   } else {
@@ -1797,10 +1838,10 @@ function openAttachModal() {
     document.getElementById('attach-nf-label').textContent = 'Clique para selecionar';
   }
 
-  if (detailOrderData?.boletoFileURL) {
+  if (src?.boletoFileURL) {
     boletoExisting.style.display = 'flex';
-    document.getElementById('attach-boleto-existing-name').textContent = detailOrderData.boletoFileName || 'boleto';
-    { const _l = document.getElementById('attach-boleto-existing-link'); const _p = detailOrderData.boletoFileURL;
+    document.getElementById('attach-boleto-existing-name').textContent = src.boletoFileName || 'boleto';
+    { const _l = document.getElementById('attach-boleto-existing-link'); const _p = src.boletoFileURL;
       _l.href = '#'; _l.onclick = (e) => { e.preventDefault(); verArquivoPedido(_p); }; }
     document.getElementById('attach-boleto-label').textContent = 'Substituir arquivo';
   } else {
@@ -1809,7 +1850,8 @@ function openAttachModal() {
   }
 
   // Restaura fornecedor salvo
-  const fornId = detailOrderData?.fornecedorId || '';
+  const fornId = src?.fornecedorId || '';
+  const _selSup = document.getElementById('attach-supplier'); if (_selSup) _selSup.disabled = dividido;
   if (fornId) {
     setTimeout(() => {
       const sel = document.getElementById('attach-supplier');
@@ -1819,8 +1861,8 @@ function openAttachModal() {
 
   // Carrega NFs/boletos complementares já salvos neste pedido
   _attachExtraSeq = 0;
-  _attachNfExtras = (detailOrderData?.nfExtras || []).map(ex => ({ id: ++_attachExtraSeq, numero: ex.numero || '', valor: ex.valor || '', fileUrl: ex.fileUrl || '', fileName: ex.fileName || '' }));
-  _attachBoletoExtras = (detailOrderData?.boletoExtras || []).map(ex => ({ id: ++_attachExtraSeq, vencimento: ex.vencimento || '', fileUrl: ex.fileUrl || '', fileName: ex.fileName || '' }));
+  _attachNfExtras = (src?.nfExtras || []).map(ex => ({ id: ++_attachExtraSeq, numero: ex.numero || '', valor: ex.valor || '', fileUrl: ex.fileUrl || '', fileName: ex.fileName || '' }));
+  _attachBoletoExtras = (src?.boletoExtras || []).map(ex => ({ id: ++_attachExtraSeq, vencimento: ex.vencimento || '', fileUrl: ex.fileUrl || '', fileName: ex.fileName || '' }));
   _renderAttachExtras();
 
   openModal('modal-attach');
@@ -1851,16 +1893,18 @@ async function saveAttachment() {
   const orderId = currentDetailOrderId; // captura já aqui: currentDetailOrderId pode mudar
                                          // (usuário abre outro pedido) enquanto o upload roda
   setBtnLoading('btn-save-attach', true);
+  const parteIdx = _attachDividido() ? _attachParteIdx : null;
+  const parteAtual = parteIdx != null ? detailOrderData.divisaoFornecedores.partes[parteIdx] : null;
   const nfNumero   = document.getElementById('attach-nf-num').value.trim();
   const nfValor    = document.getElementById('attach-nf-valor').value;
   const nfValorPrincipal = parseFloat(nfValor) || 0; // só a NF principal, sem somar as complementares — usado pra sincronizar o Financeiro NF a NF
   const boletoVenc = document.getElementById('attach-boleto-venc').value;
   const attachObs  = document.getElementById('attach-obs').value;
   const supSel         = document.getElementById('attach-supplier');
-  const fornecedorId   = supSel.value || '';
-  const fornecedorNome = fornecedorId
+  const fornecedorId   = parteAtual ? (parteAtual.fornecedorId || '') : (supSel.value || '');
+  const fornecedorNome = parteAtual ? (parteAtual.fornecedorNome || '') : (fornecedorId
     ? (supSel.options[supSel.selectedIndex]?.text || '')
-    : (detailOrderData?.fornecedorNome || '');
+    : (detailOrderData?.fornecedorNome || ''));
 
   const update = {
     nfNumero, nfValor: parseFloat(nfValor)||0,
@@ -1930,7 +1974,27 @@ async function saveAttachment() {
     if (boletoFile) update.boletoFileName = boletoFile.name;
   }
 
-  await db.collection('orders').doc(orderId).update(update);
+  // Pedido dividido: grava na parte escolhida; só a parte 0 espelha nos campos
+  // antigos do pedido (e nunca troca o fornecedor do pedido).
+  let updateOrder = update;
+  if (parteAtual) {
+    const div = JSON.parse(JSON.stringify(detailOrderData.divisaoFornecedores));
+    const antes = div.partes[parteIdx].anexos || (parteIdx === 0 ? _attachParteViewComoAnexos() : {});
+    div.partes[parteIdx].anexos = {
+      nfNumero: update.nfNumero, nfValor: update.nfValor, nfExtras: update.nfExtras || [],
+      nfFileName: update.nfFileName || antes.nfFileName || '', nfFileURL: update.nfFileURL || antes.nfFileURL || '',
+      boletoVencimento: update.boletoVencimento, boletoExtras: update.boletoExtras || [],
+      boletoFileName: update.boletoFileName || antes.boletoFileName || '', boletoFileURL: update.boletoFileURL || antes.boletoFileURL || '',
+      obs: update.attachObs || '',
+    };
+    if (parteIdx === 0) {
+      const { fornecedorId: _f1, fornecedorNome: _f2, ...resto } = update;
+      updateOrder = { ...resto, divisaoFornecedores: div };
+    } else {
+      updateOrder = { divisaoFornecedores: div, updatedAt: update.updatedAt };
+    }
+  }
+  await db.collection('orders').doc(orderId).update(updateOrder);
   // Lança sozinho no financeiro assim que a NF tem valor — sem isso o Saldo
   // Devedor só cresceria quando alguém clicasse em "Sincronizar Pedidos".
   // Cada NF (principal + complementares) vira o PRÓPRIO lançamento no
@@ -1939,10 +2003,10 @@ async function saveAttachment() {
   if (typeof _syncFinanceiroLancar === 'function') {
     const cats = (detailOrderData?.categories || []);
     const classificacaoBase = cats.map(c => CATEGORIAS[c]?.nome || c).join(', ') || 'Pedido';
-    const fornecedorSync   = update.fornecedorNome || detailOrderData?.fornecedorNome;
-    const fornecedorIdSync = update.fornecedorId   || detailOrderData?.fornecedorId;
+    const fornecedorSync   = parteAtual ? parteAtual.fornecedorNome : (update.fornecedorNome || detailOrderData?.fornecedorNome);
+    const fornecedorIdSync = parteAtual ? parteAtual.fornecedorId   : (update.fornecedorId   || detailOrderData?.fornecedorId);
     const destinatarioSync = detailOrderData?.house;
-    const codeBase         = detailOrderData?.code;
+    const codeBase         = parteAtual ? parteAtual.pedidoRef : detailOrderData?.code;
 
     if (nfValorPrincipal > 0) {
       _syncFinanceiroLancar({
@@ -1968,7 +2032,7 @@ async function saveAttachment() {
   // Só sincroniza o painel/detalhe aberto se ainda for o mesmo pedido;
   // se o usuário já trocou de pedido, não mexe no que está na tela agora.
   if (currentDetailOrderId === orderId) {
-    detailOrderData = { ...detailOrderData, ...update };
+    detailOrderData = { ...detailOrderData, ...updateOrder };
     showOrderDetail(orderId);
   }
   showToast('✅ Informações de NF/Boleto salvas com sucesso!');
