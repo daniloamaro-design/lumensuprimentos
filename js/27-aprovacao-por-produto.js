@@ -50,6 +50,12 @@ const _apfPreco = (q, key) => {
   const it = (Array.isArray(q.itens) ? q.itens : []).find(i => i.catKey + '|' + i.prodId === key);
   return it ? (parseFloat(it.valorUnit) || 0) : 0;
 };
+// Quantidade e observação que ESTE fornecedor ofereceu pro item (caixa maior/menor)
+const _apfQ = (q, key, qtdPedido) => {
+  const it = (Array.isArray(q.itens) ? q.itens : []).find(i => i.catKey + '|' + i.prodId === key);
+  const qtd = it && Number(it.qty) > 0 ? Number(it.qty) : qtdPedido;
+  return { qtd, obs: (it && it.obs) || '' };
+};
 const _apfDetalhada = q => Array.isArray(q.itens) && q.itens.length > 0;
 
 // Abre a matriz de preços (js/26) pra este pedido, a partir de Orçamentos Pendentes
@@ -102,7 +108,7 @@ function _apfRenderizar() {
       return `<td data-apf-key="${_apfEsc(i.key)}" data-apf-qid="${q.id}" style="padding:7px 10px;border-bottom:1px solid var(--border);border-left:1px solid var(--border);${melhor ? 'background:var(--ok-bg);' : ''}">
           <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
             <input type="radio" name="apf-${_apfEsc(i.key)}" value="${q.id}" ${sel[i.key] === q.id ? 'checked' : ''} onchange="apfEscolher('${_apfEsc(i.key)}','${q.id}')" style="accent-color:var(--lumen);width:16px;height:16px;">
-            <span><b style="${melhor ? 'color:var(--ok);' : ''}">${_apfBRL(p)}</b>${melhor ? ' <span style="font-size:10px;color:var(--ok);">★ menor</span>' : ''}<br><span style="font-size:11px;color:var(--text-muted);">${_apfBRL(p * i.qty)}</span></span>
+            <span><b style="${melhor ? 'color:var(--ok);' : ''}">${_apfBRL(p)}</b>${melhor ? ' <span style="font-size:10px;color:var(--ok);">★ menor</span>' : ''}<br><span style="font-size:11px;color:var(--text-muted);">${(() => { const f = _apfQ(q, i.key, i.qty); return (f.qtd !== i.qty ? f.qtd + ' × ' + _apfBRL(p) + ' = ' : '') + _apfBRL(p * f.qtd); })()}</span>${(() => { const f = _apfQ(q, i.key, i.qty); return (f.qtd !== i.qty ? `<br><span style="font-size:10.5px;color:var(--warn,#d97706);font-weight:700;">⚠ ${f.qtd} em vez de ${i.qty}</span>` : '') + (f.obs ? `<br><span style="font-size:10.5px;color:var(--text-muted);">📝 ${_apfEsc(f.obs)}</span>` : ''); })()}</span>
           </label></td>`;
     }).join('');
     return `<tr>
@@ -150,7 +156,7 @@ function _apfPartes() {
   _apf.cots.filter(_apfDetalhada).forEach(q => {
     const chaves = _apf.itens.filter(i => _apf.sel[i.key] === q.id).map(i => i.key);
     if (!chaves.length) return;
-    const valor = Math.round(chaves.reduce((s, k) => { const it = _apf.itens.find(x => x.key === k); return s + _apfPreco(q, k) * it.qty; }, 0) * 100) / 100;
+    const valor = Math.round(chaves.reduce((s, k) => { const it = _apf.itens.find(x => x.key === k); return s + _apfPreco(q, k) * _apfQ(q, k, it.qty).qtd; }, 0) * 100) / 100;
     partes.push({ cot: q, chaves, valor });
   });
   return partes;

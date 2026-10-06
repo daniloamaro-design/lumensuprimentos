@@ -67,7 +67,13 @@ async function cotMatrizAbrir(orderIdArg, pedidoArg, origem) {
     _cot = { orderId, pedido, origem: origem || (_cot && _cot.orderId === orderId ? _cot.origem : null), itens: _cotItensDoPedido(pedido), cols: [], seq: 0 };
     snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => (Number(a.valor) || 0) - (Number(b.valor) || 0)).forEach(q => {
       const precos = {};
-      (Array.isArray(q.itens) ? q.itens : []).forEach(i => { precos[i.catKey + '|' + i.prodId] = String(i.valorUnit ?? ''); });
+      const qtds = {}, obsItens = {};
+      (Array.isArray(q.itens) ? q.itens : []).forEach(i => {
+        const k = i.catKey + '|' + i.prodId;
+        precos[k] = String(i.valorUnit ?? '');
+        if (i.qtdPedido != null && Number(i.qty) !== Number(i.qtdPedido)) qtds[k] = String(i.qty);   // só guarda quando difere do pedido
+        if (i.obs) obsItens[k] = i.obs;
+      });
       _cot.cols.push({
         uid: ++_cot.seq, id: q.id, fornecedorId: q.fornecedorId || '', fornecedorNome: q.fornecedorNome || '',
         validade: q.validade || '', obs: q.obs || '', status: q.status || 'pendente',
@@ -77,7 +83,7 @@ async function cotMatrizAbrir(orderIdArg, pedidoArg, origem) {
         // volta com "informar só o total".
         modo: ((Array.isArray(q.itens) && q.itens.length) || _cot.origem === 'pendentes' || (_cot.pedido?.categories || []).includes('proteina')) ? 'itens' : 'total',
         totalAnterior: (Array.isArray(q.itens) && q.itens.length) ? 0 : (parseFloat(q.valor) || 0),
-        precos, totalManual: q.valor != null ? String(q.valor) : '',
+        precos, qtds, obsItens, totalManual: q.valor != null ? String(q.valor) : '',
       });
     });
     if (!_cot.cols.length) _cotNovaColuna();
@@ -90,7 +96,7 @@ async function cotMatrizAbrir(orderIdArg, pedidoArg, origem) {
 window.cotMatrizAbrir = cotMatrizAbrir;
 
 function _cotNovaColuna() {
-  _cot.cols.push({ uid: ++_cot.seq, id: null, fornecedorId: '', fornecedorNome: '', validade: '', obs: '', status: 'pendente', modo: 'itens', precos: {}, totalManual: '' });
+  _cot.cols.push({ uid: ++_cot.seq, id: null, fornecedorId: '', fornecedorNome: '', validade: '', obs: '', status: 'pendente', modo: 'itens', precos: {}, qtds: {}, obsItens: {}, totalManual: '' });
 }
 function cotAddCol() { _cotNovaColuna(); _cotRenderizar(); }
 window.cotAddCol = cotAddCol;
@@ -98,10 +104,14 @@ window.cotAddCol = cotAddCol;
 const _cotCol = uid => _cot.cols.find(c => c.uid === uid);
 const _cotEditavel = c => !c.id || c.status === 'pendente';
 
+// Quantidade que este fornecedor vai fornecer do item (caixa um pouco maior/menor):
+// vale a digitada na coluna dele; sem nada, a do pedido.
+const _cotQtd = (c, i) => { const q = _cotNum(c.qtds?.[i.key]); return q > 0 ? q : i.qty; };
+
 function _cotTotais(c) {
   if (c.modo === 'total') return { total: _cotNum(c.totalManual), faltam: 0, completo: _cotNum(c.totalManual) > 0 };
   let total = 0, faltam = 0;
-  _cot.itens.forEach(i => { const u = _cotNum(c.precos[i.key]); if (u > 0) total += u * i.qty; else faltam++; });
+  _cot.itens.forEach(i => { const u = _cotNum(c.precos[i.key]); if (u > 0) total += u * _cotQtd(c, i); else faltam++; });
   return { total, faltam, completo: faltam === 0 && total > 0 };
 }
 
@@ -131,6 +141,10 @@ function _cotRenderizar() {
         ? `<td data-cel="${c.uid}|${_cotEsc(i.key)}" style="padding:5px 8px;border-bottom:1px solid var(--border);border-left:1px solid var(--border);">
              <input type="number" step="0.01" min="0" class="form-input" placeholder="0,00" style="text-align:right;padding:6px 8px;" value="${_cotEsc(c.precos[i.key] ?? '')}" ${_cotEditavel(c) ? '' : 'disabled'}
                oninput="cotSetPreco(${c.uid},'${_cotEsc(i.key)}',this.value)">
+             <div style="display:flex;gap:4px;margin-top:4px;">
+               <input type="number" step="any" min="0" class="form-input" title="Quantidade que ESTE fornecedor fornece (se a caixa dele for maior/menor). Em branco = ${i.qty} do pedido." placeholder="${i.qty}" style="width:62px;text-align:right;padding:3px 6px;font-size:11px;" value="${_cotEsc(c.qtds?.[i.key] ?? '')}" ${_cotEditavel(c) ? '' : 'disabled'} oninput="cotSetQtd(${c.uid},'${_cotEsc(i.key)}',this.value)">
+               <input type="text" class="form-input" title="Observação deste produto neste fornecedor" placeholder="obs. (ex.: caixa 18kg)" style="flex:1;min-width:0;padding:3px 6px;font-size:11px;" value="${_cotEsc(c.obsItens?.[i.key] ?? '')}" ${_cotEditavel(c) ? '' : 'disabled'} oninput="cotSetObsItem(${c.uid},'${_cotEsc(i.key)}',this.value)">
+             </div>
              <div data-sub="${c.uid}|${_cotEsc(i.key)}" style="font-size:10.5px;color:var(--text-muted);text-align:right;margin-top:2px;min-height:13px;"></div>
            </td>`
         : `<td style="padding:7px 10px;border-bottom:1px solid var(--border);border-left:1px solid var(--border);text-align:center;color:var(--text-muted);font-size:11px;">só total</td>`).join('')}
@@ -187,7 +201,7 @@ function _cotRecalcular() {
       const sub = document.querySelector(`[data-sub="${c.uid}|${i.key}"]`);
       const melhor = u > 0 && precos.length > 1 && u === min;
       if (td) td.style.background = melhor ? 'var(--ok-bg)' : '';
-      if (sub) { sub.textContent = u > 0 ? _cotBRL(u * i.qty) : ''; sub.style.color = melhor ? 'var(--ok)' : 'var(--text-muted)'; sub.style.fontWeight = melhor ? '700' : '400'; }
+      if (sub) { const qf = _cotQtd(c, i); sub.textContent = u > 0 ? ((qf !== i.qty ? qf + ' × ' + _cotBRL(u) + ' = ' : '') + _cotBRL(u * qf)) : ''; sub.style.color = melhor ? 'var(--ok)' : 'var(--text-muted)'; sub.style.fontWeight = melhor ? '700' : '400'; }
     });
   });
   const tots = cols.map(c => ({ c, t: _cotTotais(c) }));
@@ -213,6 +227,9 @@ function cotSetForn(uid, sel) {
   c.fornecedorNome = sel.options[sel.selectedIndex]?.text || '';
 }
 function cotSetPreco(uid, key, v) { const c = _cotCol(uid); if (c) { c.precos[key] = v; _cotRecalcular(); } }
+function cotSetQtd(uid, key, v) { const c = _cotCol(uid); if (c) { (c.qtds = c.qtds || {})[key] = v; _cotRecalcular(); } }
+function cotSetObsItem(uid, key, v) { const c = _cotCol(uid); if (c) (c.obsItens = c.obsItens || {})[key] = v; }
+window.cotSetQtd = cotSetQtd; window.cotSetObsItem = cotSetObsItem;
 function cotSetTotal(uid, v) { const c = _cotCol(uid); if (c) { c.totalManual = v; _cotRecalcular(); } }
 function cotSetMeta(uid, campo, v) { const c = _cotCol(uid); if (c) c[campo] = v; }
 function cotSetModo(uid) { const c = _cotCol(uid); if (c) { c.modo = c.modo === 'total' ? 'itens' : 'total'; _cotRenderizar(); } }
@@ -239,7 +256,11 @@ async function cotSalvarCol(uid) {
   } else {
     itens = _cot.itens.filter(i => _cotNum(c.precos[i.key]) > 0).map(i => {
       const u = _cotNum(c.precos[i.key]);
-      return { catKey: i.catKey, prodId: i.prodId, nome: i.nome, qty: i.qty, valorUnit: u, valorTotal: Math.round(u * i.qty * 100) / 100 };
+      const qf = _cotQtd(c, i);
+      const it = { catKey: i.catKey, prodId: i.prodId, nome: i.nome, qty: qf, qtdPedido: i.qty, valorUnit: u, valorTotal: Math.round(u * qf * 100) / 100 };
+      const ob = (c.obsItens?.[i.key] || '').trim();
+      if (ob) it.obs = ob;
+      return it;
     });
     valor = Math.round(itens.reduce((s, i) => s + i.valorTotal, 0) * 100) / 100;
   }
