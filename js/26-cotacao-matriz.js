@@ -16,9 +16,29 @@ const _cotEsc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&':
 const _cotBRL = n => 'R$ ' + (Number(n) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const _cotNum = v => { const n = parseFloat(String(v == null ? '' : v).replace(',', '.')); return Number.isFinite(n) ? n : 0; };
 
+// Itens que realmente precisam ser COMPRADOS: depois da Avaliação de Estoque,
+// o que o estoque atende (transferência) sai da cotação. Mesma regra do PDF
+// "Itens para COMPRA" (generatePDFFromDetail). Sem avaliação, vale o pedido todo.
+function pedidoItensParaCompra(pedido) {
+  const vazio = m => !m || !Object.values(m).some(c => c && Object.keys(c).length);
+  let m = pedido?.purchaseItems;
+  if (vazio(m) && pedido?.stockEval) {
+    m = {};
+    Object.values(pedido.stockEval).filter(ev => !ev.transfer || ev.qty <= 0).forEach(ev => {
+      if (!m[ev.catKey]) m[ev.catKey] = {};
+      const buyQty = ev.needed - (ev.transfer ? (ev.qty || 0) : 0);
+      m[ev.catKey][ev.prodId] = Math.max(0, buyQty || ev.needed);
+    });
+  }
+  if (vazio(m)) m = pedido?.items || {};
+  const out = {};
+  Object.entries(m).forEach(([cat, prods]) => Object.entries(prods || {}).forEach(([id, q]) => { if ((Number(q) || 0) > 0) (out[cat] = out[cat] || {})[id] = q; }));
+  return out;
+}
+
 function _cotItensDoPedido(pedido) {
   const out = [];
-  Object.entries(pedido?.items || {}).forEach(([catKey, prods]) => {
+  Object.entries(pedidoItensParaCompra(pedido)).forEach(([catKey, prods]) => {
     Object.entries(prods || {}).forEach(([prodId, qty]) => {
       const p = CATEGORIAS[catKey]?.produtos?.find(x => x.id === prodId);
       const nome = (typeof nomeProdutoAtual === 'function' ? nomeProdutoAtual(catKey, prodId, p?.nome) : p?.nome) || prodId;

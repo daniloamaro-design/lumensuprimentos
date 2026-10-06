@@ -845,7 +845,7 @@ function opcComparativoItensHTML(pedido, cotacoes) {
   // Lista canônica dos itens do pedido (catKey/prodId/qty), na mesma ordem
   // em que aparecem no pedido.
   const itensPedido = [];
-  Object.entries(pedido.items || {}).forEach(([catKey, prods]) => {
+  Object.entries(typeof pedidoItensParaCompra === 'function' ? pedidoItensParaCompra(pedido) : (pedido.items || {})).forEach(([catKey, prods]) => {
     Object.entries(prods).forEach(([prodId, qty]) => {
       const cat = window.CATEGORIAS?.[catKey];
       const p = cat?.produtos?.find(x => x.id === prodId);

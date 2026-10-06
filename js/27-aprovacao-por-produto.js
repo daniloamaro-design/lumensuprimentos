@@ -35,7 +35,7 @@ function _apfGarantirModal() {
 
 function _apfItensDoPedido(pedido) {
   const out = [];
-  Object.entries(pedido.items || {}).forEach(([catKey, prods]) => {
+  Object.entries(pedidoItensParaCompra(pedido)).forEach(([catKey, prods]) => {
     Object.entries(prods || {}).forEach(([prodId, qty]) => {
       const p = CATEGORIAS[catKey]?.produtos?.find(x => x.id === prodId);
       const nome = (typeof nomeProdutoAtual === 'function' ? nomeProdutoAtual(catKey, prodId, p?.nome) : p?.nome) || prodId;
