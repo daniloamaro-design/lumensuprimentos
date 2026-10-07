@@ -41,6 +41,7 @@ window.orcCasasSelecionarBloco = orcCasasSelecionarBloco;
 
 function _orcCasasRenderizar() {
   _orcCasasRenderizarBlocos();
+  _histCmpRenderHeaders();
   const el = document.getElementById('orc-casas-checkboxes');
   if (!el) return;
   el.innerHTML = CASAS.map(c => {
@@ -93,6 +94,26 @@ function orcCasasFiltradas() {
   return _orcCasasAtivas;
 }
 
+// Categorias mostradas nas colunas do comparativo: TODAS as do cadastro
+// (Cereal, Higiene, Proteína, Variedades, Lanches Proj. Sociais, Missa Ser
+// Feliz, Gás…) — antes eram só as 3 fixas. As somas guardam cada categoria
+// pela própria chave (acc[catKey]).
+function _histCats() {
+  return Object.entries(CATEGORIAS || {}).map(([key, c]) => ({ key, rotulo: (c.icon || '📦') + ' ' + c.nome }));
+}
+const _histSomaCat = (acc, key, v) => { acc[key] = (acc[key] || 0) + v; };
+
+function _histCmpRenderHeaders() {
+  const th = (txt, extra) => '<th style="padding:8px 12px;text-align:right;font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.4px;border-bottom:1px solid var(--border);' + (extra || '') + '">' + txt + '</th>';
+  const cats = _histCats();
+  const h1 = document.getElementById('hist-cmp-thead');
+  if (h1) h1.innerHTML = '<tr><th style="padding:8px 12px;text-align:left;font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.4px;border-bottom:1px solid var(--border);width:160px;">Período</th>'
+    + th('Total Geral') + th('🔄 Transferido') + cats.map(c => th(c.rotulo)).join('') + '</tr>';
+  const h2 = document.getElementById('hist-cmp-doatransf-thead');
+  if (h2) h2.innerHTML = '<tr><th style="padding:8px 12px;text-align:left;font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.4px;border-bottom:1px solid var(--border);width:160px;">Período</th>'
+    + th('🔄 Transferido') + cats.map(c => th(c.rotulo)).join('') + '</tr>';
+}
+
 // ── Estimativa de valor pra Doações e Transferências ────────────────────
 // Doação e transferência entre casas não têm preço de compra (não houve
 // compra) — pra dar uma noção de quanto isso representa, multiplica a
@@ -124,20 +145,18 @@ async function somarDoacoesTransferenciasPeriodo(ini, fim, casasValidas) {
   ]);
 
   const somaItens = (items, city) => {
-    const acc = { total:0, cereal:0, higiene:0, proteina:0 };
+    const acc = { total:0 };
     (items || []).forEach(item => {
       const preco = mapaPrecos[`${item.catKey}|${item.prodId}|${city}`] || 0;
       const val = preco * (Number(item.qty) || 0);
       acc.total += val;
-      if (item.catKey === 'cereal')   acc.cereal   += val;
-      if (item.catKey === 'higiene')  acc.higiene  += val;
-      if (item.catKey === 'proteina') acc.proteina += val;
+      _histSomaCat(acc, item.catKey, val);
     });
     return acc;
   };
-  const somaTudo = (a, b) => ({ total: a.total+b.total, cereal: a.cereal+b.cereal, higiene: a.higiene+b.higiene, proteina: a.proteina+b.proteina });
+  const somaTudo = (a, b) => { const r = { ...a }; Object.entries(b).forEach(([k, v]) => { r[k] = (r[k] || 0) + v; }); return r; };
 
-  let doacao = { total:0, cereal:0, higiene:0, proteina:0 };
+  let doacao = { total:0 };
   movSnap.docs.forEach(d => {
     const m = d.data();
     if (!casasValidas.has(m.house || '—')) return;
@@ -147,7 +166,7 @@ async function somarDoacoesTransferenciasPeriodo(ini, fim, casasValidas) {
     doacao = somaTudo(doacao, somaItens(m.items, city));
   });
 
-  let transferencia = { total:0, cereal:0, higiene:0, proteina:0 };
+  let transferencia = { total:0 };
   trfSnap.docs.forEach(d => {
     const t = d.data();
     if (!casasValidas.has(t.destino || '—')) return; // conta como "recebido" pela casa de destino
@@ -164,7 +183,10 @@ async function somarDoacoesTransferenciasPeriodo(ini, fim, casasValidas) {
 // coisa pro orçamento: item que chegou sem compra. Junta os dois num valor só.
 function _histTransferido(dt) {
   const d = dt?.doacao || {}, t = dt?.transferencia || {};
-  return { total:(d.total||0)+(t.total||0), cereal:(d.cereal||0)+(t.cereal||0), higiene:(d.higiene||0)+(t.higiene||0), proteina:(d.proteina||0)+(t.proteina||0) };
+  const r = { ...d };
+  Object.entries(t).forEach(([k, v]) => { r[k] = (r[k] || 0) + v; });
+  r.total = (d.total || 0) + (t.total || 0);
+  return r;
 }
 
 async function histCompararPeriodos() {
@@ -175,7 +197,9 @@ async function histCompararPeriodos() {
   if (!aIni || !aFim || !bIni || !bFim) { showToast('Preencha as datas dos dois períodos.'); return; }
 
   const tbody = document.getElementById('hist-cmp-tbody');
-  tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:16px;"><div class="loading-state"><div class="spinner spinner-dark"></div>Carregando...</div></td></tr>';
+  _histCmpRenderHeaders();
+  const _nCols = 3 + _histCats().length;
+  tbody.innerHTML = '<tr><td colspan="' + _nCols + '" style="text-align:center;padding:16px;"><div class="loading-state"><div class="spinner spinner-dark"></div>Carregando...</div></td></tr>';
 
   const fmtD = d => d.split('-').reverse().join('/');
 
@@ -208,23 +232,21 @@ async function histCompararPeriodos() {
       s.docs.forEach(d => { pedMap[d.id] = d.data(); });
     }
     const casasValidas = orcCasasFiltradas();
-    const tot = { total:0, cereal:0, higiene:0, proteina:0 };
+    const tot = { total:0 };
     snap.docs.forEach(d => {
       const q = d.data(); const p = pedMap[q.orderId] || {};
       if (!casasValidas.has(p.house || '—')) return; // filtra casas não selecionadas
       const val = parseFloat(q.valor||0); tot.total += val;
       (p.categories||[]).forEach(c => {
         const div = (p.categories||[]).length||1;
-        if (c==='cereal')   tot.cereal   += val/div;
-        if (c==='higiene')  tot.higiene  += val/div;
-        if (c==='proteina') tot.proteina += val/div;
+        _histSomaCat(tot, c, val/div);
       });
     });
     return tot;
   }
 
   const doaTransfTbody = document.getElementById('hist-cmp-doatransf-tbody');
-  if (doaTransfTbody) doaTransfTbody.innerHTML = '<tr><td colspan="5" style="padding:18px 12px;text-align:center;color:var(--text-muted);font-size:12px;"><div class="loading-state"><div class="spinner spinner-dark"></div>Carregando...</div></td></tr>';
+  if (doaTransfTbody) doaTransfTbody.innerHTML = '<tr><td colspan="' + (2 + _histCats().length) + '" style="padding:18px 12px;text-align:center;color:var(--text-muted);font-size:12px;"><div class="loading-state"><div class="spinner spinner-dark"></div>Carregando...</div></td></tr>';
 
   try {
     const casasValidas = orcCasasFiltradas();
@@ -241,9 +263,7 @@ async function histCompararPeriodos() {
         <tr>
           <td style="padding:11px 14px;border-bottom:1px solid var(--border);"><strong style="color:var(--text);">${label}</strong></td>
           <td style="padding:11px 14px;text-align:right;border-bottom:1px solid var(--border);color:var(--text);">${FMT_HIST(trf.total)}</td>
-          <td style="padding:11px 14px;text-align:right;border-bottom:1px solid var(--border);color:var(--text-muted);">${FMT_HIST(trf.cereal)}</td>
-          <td style="padding:11px 14px;text-align:right;border-bottom:1px solid var(--border);color:var(--text-muted);">${FMT_HIST(trf.higiene)}</td>
-          <td style="padding:11px 14px;text-align:right;border-bottom:1px solid var(--border);color:var(--text-muted);">${FMT_HIST(trf.proteina)}</td>
+          ${_histCats().map(c => `<td style="padding:11px 14px;text-align:right;border-bottom:1px solid var(--border);color:var(--text-muted);">${FMT_HIST(trf[c.key] || 0)}</td>`).join('')}
         </tr>`;
       };
       doaTransfTbody.innerHTML = linhaDT('Período A', DTA) + linhaDT('Período B', DTB);
@@ -290,18 +310,18 @@ async function histCompararPeriodos() {
           <strong style="color:var(--text);">Período A</strong>
           <div style="font-size:11px;color:var(--text-muted);">${fmtD(aIni)} a ${fmtD(aFim)}</div>
         </td>
-        ${cell(A.totalGeral,B.totalGeral,true)}${cellTrf(TA.total,TB.total)}${cell(A.cereal,B.cereal,false)}${cell(A.higiene,B.higiene,false)}${cell(A.proteina,B.proteina,false)}
+        ${cell(A.totalGeral,B.totalGeral,true)}${cellTrf(TA.total,TB.total)}${_histCats().map(c => cell(A[c.key]||0, B[c.key]||0, false)).join('')}
       </tr>
       <tr>
         <td style="padding:11px 14px;">
           <strong style="color:var(--text);">Período B</strong>
           <div style="font-size:11px;color:var(--text-muted);">${fmtD(bIni)} a ${fmtD(bFim)}</div>
         </td>
-        ${cell(B.totalGeral,A.totalGeral,false)}${cellTrf(TB.total,TA.total)}${cell(B.cereal,A.cereal,false)}${cell(B.higiene,A.higiene,false)}${cell(B.proteina,A.proteina,false)}
+        ${cell(B.totalGeral,A.totalGeral,false)}${cellTrf(TB.total,TA.total)}${_histCats().map(c => cell(B[c.key]||0, A[c.key]||0, false)).join('')}
       </tr>`;
   } catch(e) {
-    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:16px;color:var(--danger);">Erro: ${e.message}</td></tr>`;
-    if (doaTransfTbody) doaTransfTbody.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:16px;color:var(--danger);">Erro: ${e.message}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="${3 + _histCats().length}" style="text-align:center;padding:16px;color:var(--danger);">Erro: ${e.message}</td></tr>`;
+    if (doaTransfTbody) doaTransfTbody.innerHTML = `<tr><td colspan="${2 + _histCats().length}" style="text-align:center;padding:16px;color:var(--danger);">Erro: ${e.message}</td></tr>`;
   }
 }
 
@@ -336,16 +356,12 @@ async function somarPeriodoPorCasa(ini, fim) {
     const q = d.data(); const p = pedMap[q.orderId] || {};
     const casa = p.house || '—';
     if (!casasValidas.has(casa)) return; // filtra casas não selecionadas
-    if (!porCasa[casa]) porCasa[casa] = { total:0, cereal:0, higiene:0, proteina:0 };
+    if (!porCasa[casa]) porCasa[casa] = { total:0 };
     const val = parseFloat(q.valor||0);
     porCasa[casa].total += val;
     const cats = p.categories || [];
     const div = cats.length || 1;
-    cats.forEach(c => {
-      if (c==='cereal')   porCasa[casa].cereal   += val/div;
-      if (c==='higiene')  porCasa[casa].higiene  += val/div;
-      if (c==='proteina') porCasa[casa].proteina += val/div;
-    });
+    cats.forEach(c => _histSomaCat(porCasa[casa], c, val/div));
   });
   return porCasa;
 }
@@ -363,14 +379,12 @@ async function somarDoacoesTransferenciasPorCasa(ini, fim, casasValidas) {
     db.collection('transferencias').where('status','==','confirmada').get().catch(e=>{console.error('[COMP-trf-casa]',e); return {docs:[]};}),
   ]);
 
-  const vazio = () => ({ total:0, cereal:0, higiene:0, proteina:0 });
+  const vazio = () => ({ total:0 });
   const somaItensEm = (acc, items, city) => {
     (items || []).forEach(item => {
       const val = (mapaPrecos[`${item.catKey}|${item.prodId}|${city}`] || 0) * (Number(item.qty) || 0);
       acc.total += val;
-      if (item.catKey === 'cereal')   acc.cereal   += val;
-      if (item.catKey === 'higiene')  acc.higiene  += val;
-      if (item.catKey === 'proteina') acc.proteina += val;
+      _histSomaCat(acc, item.catKey, val);
     });
   };
 
@@ -417,7 +431,7 @@ async function histCompararPorCasa() {
       somarDoacoesTransferenciasPorCasa(bIni, bFim, casasValidas),
     ]);
     const casas = [...new Set([...Object.keys(porCasaA), ...Object.keys(porCasaB), ...Object.keys(dtA), ...Object.keys(dtB)])];
-    const nomesCat = { cereal:'🌾 Cereal', higiene:'🧴 Higiene', proteina:'🥩 Proteína' };
+    const nomesCat = Object.fromEntries(_histCats().map(c => [c.key, c.rotulo]));
 
     // Total por casa = só compras. Transferido (transferência + doação, valor
     // estimado, sem pagamento) fica ao lado e não soma no total.
@@ -427,12 +441,12 @@ async function histCompararPorCasa() {
     };
 
     const linhas = casas.map(casa => {
-      const A = montar(porCasaA[casa] || { total:0, cereal:0, higiene:0, proteina:0 }, dtA[casa]);
-      const B = montar(porCasaB[casa] || { total:0, cereal:0, higiene:0, proteina:0 }, dtB[casa]);
+      const A = montar(porCasaA[casa] || { total:0 }, dtA[casa]);
+      const B = montar(porCasaB[casa] || { total:0 }, dtB[casa]);
       const semBase = B.totalGeral === 0; // não teve movimento no período B — não dá pra calcular variação real
       const pct = semBase ? (A.totalGeral > 0 ? Infinity : 0) : ((A.totalGeral - B.totalGeral)/B.totalGeral*100);
-      const deltas = { cereal: A.cereal-B.cereal, higiene: A.higiene-B.higiene, proteina: A.proteina-B.proteina };
-      const catMaior = Object.entries(deltas).sort((x,y)=>y[1]-x[1])[0][0];
+      const deltas = Object.fromEntries(_histCats().map(c => [c.key, (A[c.key]||0) - (B[c.key]||0)]));
+      const catMaior = (Object.entries(deltas).sort((x,y)=>y[1]-x[1])[0] || ['cereal'])[0];
       return { casa, A, B, pct, semBase, catMaior };
     });
 
@@ -476,26 +490,20 @@ async function histCompararPorCasa() {
               <th style="padding:8px 12px;text-align:left;font-size:11px;color:var(--text-muted);text-transform:uppercase;">Período</th>
               <th style="padding:8px 12px;text-align:right;font-size:11px;color:var(--text-muted);text-transform:uppercase;">Total geral</th>
               <th style="padding:8px 12px;text-align:right;font-size:11px;color:var(--text-muted);text-transform:uppercase;">🔄 Transferido</th>
-              <th style="padding:8px 12px;text-align:right;font-size:11px;color:var(--text-muted);text-transform:uppercase;">🌾 Cereal</th>
-              <th style="padding:8px 12px;text-align:right;font-size:11px;color:var(--text-muted);text-transform:uppercase;">🧴 Higiene</th>
-              <th style="padding:8px 12px;text-align:right;font-size:11px;color:var(--text-muted);text-transform:uppercase;">🥩 Proteína</th>
+              ${_histCats().map(c => `<th style="padding:8px 12px;text-align:right;font-size:11px;color:var(--text-muted);text-transform:uppercase;">${c.rotulo}</th>`).join('')}
             </tr></thead>
             <tbody>
               <tr style="border-top:1px solid var(--border);">
                 <td style="padding:9px 12px;">Período A</td>
                 ${cellComp(l.A.totalGeral, l.B.totalGeral)}
                 ${cellTrf(l.A.transferencia, l.B.transferencia)}
-                ${cellComp(l.A.cereal, l.B.cereal)}
-                ${cellComp(l.A.higiene, l.B.higiene)}
-                ${cellComp(l.A.proteina, l.B.proteina)}
+                ${_histCats().map(c => cellComp(l.A[c.key]||0, l.B[c.key]||0)).join('')}
               </tr>
               <tr style="border-top:1px solid var(--border);">
                 <td style="padding:9px 12px;">Período B</td>
                 ${cellComp(l.B.totalGeral, l.A.totalGeral)}
                 ${cellTrf(l.B.transferencia, l.A.transferencia)}
-                ${cellComp(l.B.cereal, l.A.cereal)}
-                ${cellComp(l.B.higiene, l.A.higiene)}
-                ${cellComp(l.B.proteina, l.A.proteina)}
+                ${_histCats().map(c => cellComp(l.B[c.key]||0, l.A[c.key]||0)).join('')}
               </tr>
             </tbody>
           </table>

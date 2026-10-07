@@ -1795,7 +1795,7 @@ document.querySelector('.main-content').insertAdjacentHTML('beforeend', `
         <button class="btn btn-secondary btn-sm" onclick="histCompararPorCasa()" style="margin-bottom:14px;margin-left:8px;">🏠 Análise detalhada por casa</button>
         <div style="overflow-x:auto;">
           <table style="width:100%;border-collapse:collapse;font-size:13px;">
-            <thead><tr>
+            <thead id="hist-cmp-thead"><tr>
               <th style="padding:8px 12px;text-align:left;font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.4px;border-bottom:1px solid var(--border);width:160px;">Período</th>
               <th style="padding:8px 12px;text-align:right;font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.4px;border-bottom:1px solid var(--border);">Total Geral</th>
               <th style="padding:8px 12px;text-align:right;font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.4px;border-bottom:1px solid var(--border);">🔄 Transferido</th>
@@ -1817,7 +1817,7 @@ document.querySelector('.main-content').insertAdjacentHTML('beforeend', `
           </div>
           <div style="overflow-x:auto;">
             <table style="width:100%;border-collapse:collapse;font-size:13px;">
-              <thead><tr>
+              <thead id="hist-cmp-doatransf-thead"><tr>
                 <th style="padding:8px 12px;text-align:left;font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.4px;border-bottom:1px solid var(--border);width:160px;">Período</th>
                 <th style="padding:8px 12px;text-align:right;font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.4px;border-bottom:1px solid var(--border);">🔄 Transferido</th>
                 <th style="padding:8px 12px;text-align:right;font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.4px;border-bottom:1px solid var(--border);">🌾 Cereal</th>
