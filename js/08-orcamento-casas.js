@@ -21,9 +21,22 @@ async function orcCasasCarregar() {
 
 // Atalhos por bloco (o "Bloco" definido no cadastro da casa): um clique
 // marca só as casas daquele bloco; dá pra ajustar na mão depois.
-function _orcCasasRenderizarBlocos() {
+// Relê os blocos direto do cadastro de casas toda vez que a tela abre — CASAS_BLOCOS
+// só era preenchido no login, então bloco novo (ou casa que mudou de bloco) só
+// aparecia depois de sair e entrar de novo.
+async function _orcCasasAtualizarBlocos() {
+  try {
+    const snap = await db.collection('houses').get();
+    const novo = {};
+    snap.docs.forEach(d => { const h = d.data(); if (h.ativo !== false && h.bloco) novo[h.nome] = String(h.bloco); });
+    if (JSON.stringify(novo) !== JSON.stringify(CASAS_BLOCOS)) { CASAS_BLOCOS = novo; _orcCasasRenderizarBlocos(true); }
+  } catch (e) { console.warn('blocos das casas:', e); }
+}
+
+function _orcCasasRenderizarBlocos(semAtualizar) {
   const wrap = document.getElementById('orc-casas-blocos');
   if (!wrap) return;
+  if (!semAtualizar) _orcCasasAtualizarBlocos();
   const blocos = [...new Set(CASAS.map(c => CASAS_BLOCOS[c]).filter(Boolean))].sort((a, b) => Number(a) - Number(b));
   const semBloco = CASAS.some(c => !CASAS_BLOCOS[c]);
   const btn = (valor, rotulo) => `<button class="btn btn-secondary btn-sm" onclick="orcCasasSelecionarBloco('${valor}')" style="font-size:11px;padding:3px 10px;">${rotulo}</button>`;
