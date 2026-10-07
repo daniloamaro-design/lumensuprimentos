@@ -1414,12 +1414,22 @@ async function loadOrcHistorico() {
     const snap = await db.collection('orcamentos_financeiros').orderBy('geradoEm', 'desc').get();
     _orcHistCache = snap.docs.map(d => ({ id: d.id, ...d.data() }));
 
-    // Popula filtro de casas na primeira carga
+    // Filtro de casas: TODAS as casas cadastradas (antes só as que já tinham
+    // orçamento salvo) + qualquer casa antiga que ainda apareça no histórico.
     const selCasa = document.getElementById('orc-hist-casa');
-    if (selCasa && selCasa.options.length <= 1) {
-      const casas = [...new Set(_orcHistCache.map(o => o.casa).filter(Boolean))].sort((a,b) => a.localeCompare(b,'pt-BR'));
+    if (selCasa) {
+      const casas = [...new Set([...(typeof CASAS !== 'undefined' ? CASAS : []), ..._orcHistCache.map(o => o.casa).filter(Boolean)])].sort((a,b) => a.localeCompare(b,'pt-BR'));
       selCasa.innerHTML = '<option value="">Todas as casas</option>' + casas.map(c => `<option value="${c}">${c}</option>`).join('');
-      if (filtroCasa) selCasa.value = filtroCasa;
+      selCasa.value = filtroCasa;
+    }
+    // Filtro de blocos: os blocos que existem (cadastro das casas + histórico) — as
+    // opções fixas A–D não batiam com os blocos numéricos (1, 2, 3…).
+    const selBloco = document.getElementById('orc-hist-bloco');
+    if (selBloco) {
+      const blocos = [...new Set([...(typeof CASAS_BLOCOS !== 'undefined' ? Object.values(CASAS_BLOCOS) : []), ..._orcHistCache.map(o => o.bloco).filter(Boolean)].map(String))]
+        .sort((a,b) => (Number(a) - Number(b)) || a.localeCompare(b,'pt-BR'));
+      selBloco.innerHTML = '<option value="">Todos os blocos</option>' + blocos.map(b => `<option value="${b}">Bloco ${b}</option>`).join('');
+      selBloco.value = filtroBloco;
     }
 
     let lista = _orcHistCache;
@@ -1457,9 +1467,13 @@ async function loadOrcHistorico() {
           <div style="font-size:12px;color:var(--text-muted);">
             📋 ${o.code||'—'} &nbsp;|&nbsp; Gerado por <strong>${o.geradoPor||'—'}</strong> em ${geradoEm}
             &nbsp;|&nbsp; ${(o.itens||[]).length} produto(s)
+            ${o.editadoPor ? `&nbsp;|&nbsp; ✏️ editado por <strong>${o.editadoPor}</strong>${o.editadoEm?.toDate ? ' em ' + o.editadoEm.toDate().toLocaleDateString('pt-BR') : ''}` : ''}
           </div>
-          <button class="btn btn-outline btn-sm" onclick="orcHistVerDetalhe('${o.id}')">Ver detalhes</button>
-          <button class="btn btn-outline btn-sm" onclick="orcHistBaixarPDF('${o.id}')">⬇️ Baixar PDF</button>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <button class="btn btn-outline btn-sm" onclick="orcHistVerDetalhe('${o.id}')">Ver detalhes</button>
+            <button class="btn btn-outline btn-sm" onclick="orcHistEditar('${o.id}')">✏️ Editar orçamento</button>
+            <button class="btn btn-outline btn-sm" onclick="orcHistBaixarPDF('${o.id}')">⬇️ Baixar PDF</button>
+          </div>
         </div>
       </div>`;
     }).join('') + paginacaoHTML(pagObjOrcHist, 'orcHistGoToPage');
@@ -1599,6 +1613,149 @@ function orcHistBaixarPDF(id) {
   showToast('✅ PDF exportado!');
 }
 window.orcHistBaixarPDF = orcHistBaixarPDF;
+
+// ── Editar orçamento já gerado ─────────────────────────────────────────
+// Corrige período, pessoas/dias, tipo e (principalmente) quantidade e preço
+// de cada produto, podendo remover ou incluir produtos. O total é refeito
+// pela soma dos subtotais. Alterar pessoas/dias NÃO recalcula as quantidades
+// (elas foram calculadas na geração) — ajuste as quantidades na tabela.
+let _oce = null; // { o, itens:[{cat, catKey, nome, prodId, unidade, qtd, unitPrice}] }
+const _oceEsc = t => String(t == null ? '' : t).replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
+const _oceBRL = n => 'R$ ' + (Number(n)||0).toLocaleString('pt-BR', { minimumFractionDigits:2, maximumFractionDigits:2 });
+const _oceNum = v => { const n = parseFloat(String(v == null ? '' : v).replace(',', '.')); return Number.isFinite(n) ? n : 0; };
+
+function _oceGarantirModal() {
+  if (document.getElementById('modal-orc-edit')) return;
+  const div = document.createElement('div');
+  div.className = 'modal-overlay hidden';
+  div.id = 'modal-orc-edit';
+  div.innerHTML = `<div class="modal modal-wide" style="max-width:1100px;width:96vw;">
+    <div class="modal-header"><div class="modal-title" id="oce-titulo">Editar orçamento</div>
+      <button class="modal-close" onclick="closeModal('modal-orc-edit')">×</button></div>
+    <div class="modal-body" id="oce-body"></div>
+    <div class="modal-footer" style="display:flex;gap:8px;justify-content:flex-end;">
+      <button class="btn btn-outline" onclick="closeModal('modal-orc-edit')">Cancelar</button>
+      <button class="btn btn-primary" onclick="orcHistSalvarEdicao()">💾 Salvar alterações</button>
+    </div></div>`;
+  document.body.appendChild(div);
+}
+
+function orcHistEditar(id) {
+  const o = _orcHistCache.find(x => x.id === id);
+  if (!o) return;
+  _oceGarantirModal();
+  const nomeParaChave = Object.fromEntries(Object.entries(CATEGORIAS).map(([k, c]) => [c.nome, k]));
+  _oce = { o, itens: (o.itens || []).map(it => ({
+    cat: it.cat || '', catKey: it.catKey || nomeParaChave[it.cat] || '', nome: it.nome || it.prodId || '', prodId: it.prodId || '',
+    unidade: it.unidade || '', qtd: String(it.qtd ?? ''), unitPrice: String(it.unitPrice ?? ''),
+  })) };
+  document.getElementById('oce-titulo').textContent = `Editar orçamento — ${o.code || ''} · ${o.casa || ''}`;
+  _oceRenderizar();
+  openModal('modal-orc-edit');
+}
+window.orcHistEditar = orcHistEditar;
+
+function _oceRenderizar() {
+  const { o, itens } = _oce;
+  const inp = 'padding:6px 8px;';
+  const linhas = itens.map((it, i) => `<tr>
+      <td style="padding:6px 10px;border-bottom:1px solid var(--border);">${_oceEsc(it.nome)}</td>
+      <td style="padding:6px 10px;border-bottom:1px solid var(--border);color:var(--text-muted);">${_oceEsc(it.cat)}</td>
+      <td style="padding:4px 8px;border-bottom:1px solid var(--border);width:110px;"><input type="number" step="any" min="0" class="form-input" style="${inp}text-align:right;" value="${_oceEsc(it.qtd)}" oninput="oceSet(${i},'qtd',this.value)"></td>
+      <td style="padding:6px 10px;border-bottom:1px solid var(--border);color:var(--text-muted);">${_oceEsc(it.unidade)}</td>
+      <td style="padding:4px 8px;border-bottom:1px solid var(--border);width:130px;"><input type="number" step="0.01" min="0" class="form-input" style="${inp}text-align:right;" value="${_oceEsc(it.unitPrice)}" oninput="oceSet(${i},'unitPrice',this.value)"></td>
+      <td id="oce-sub-${i}" style="padding:6px 10px;border-bottom:1px solid var(--border);text-align:right;font-weight:600;white-space:nowrap;"></td>
+      <td style="padding:4px 8px;border-bottom:1px solid var(--border);"><button class="btn btn-danger btn-sm" title="Remover produto" onclick="oceRemover(${i})" style="padding:2px 8px;">✕</button></td>
+    </tr>`).join('') || '<tr><td colspan="7" style="padding:16px;text-align:center;color:var(--text-muted);">Nenhum produto.</td></tr>';
+  const optCats = '<option value="">Categoria…</option>' + Object.entries(CATEGORIAS).map(([k, c]) => `<option value="${k}">${_oceEsc(c.icon || '')} ${_oceEsc(c.nome)}</option>`).join('');
+  document.getElementById('oce-body').innerHTML = `
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:14px;">
+      <div><label class="form-label">Casa</label><input class="form-input" value="${_oceEsc(o.casa)}${o.bloco ? ' · Bloco ' + _oceEsc(o.bloco) : ''}" disabled></div>
+      <div><label class="form-label">De</label><input type="date" class="form-input" id="oce-de" value="${_oceEsc(o.de || '')}"></div>
+      <div><label class="form-label">Até</label><input type="date" class="form-input" id="oce-ate" value="${_oceEsc(o.ate || '')}"></div>
+      <div><label class="form-label">Pessoas</label><input type="number" min="0" class="form-input" id="oce-pessoas" value="${_oceEsc(o.pessoas ?? '')}"></div>
+      <div><label class="form-label">Dias</label><input type="number" min="0" class="form-input" id="oce-dias" value="${_oceEsc(o.dias ?? '')}"></div>
+      <div><label class="form-label">Tipo</label><select class="form-select" id="oce-tipo"><option value="compra" ${o.tipo !== 'transferencia' ? 'selected' : ''}>Compra direta</option><option value="transferencia" ${o.tipo === 'transferencia' ? 'selected' : ''}>Transferência</option></select></div>
+    </div>
+    <div style="font-size:12px;color:var(--text-muted);margin-bottom:8px;">Alterar pessoas/dias <b>não</b> recalcula as quantidades — ajuste a quantidade de cada produto na tabela. O total é a soma dos subtotais.</div>
+    <div style="overflow-x:auto;border:1px solid var(--border);border-radius:10px;">
+      <table style="width:100%;border-collapse:collapse;font-size:13px;">
+        <thead><tr style="background:var(--surface2);">
+          <th style="padding:8px 10px;text-align:left;font-size:11px;color:var(--text-muted);">PRODUTO</th><th style="padding:8px 10px;text-align:left;font-size:11px;color:var(--text-muted);">CATEGORIA</th>
+          <th style="padding:8px 10px;text-align:right;font-size:11px;color:var(--text-muted);">QTD</th><th style="padding:8px 10px;text-align:left;font-size:11px;color:var(--text-muted);">UNID.</th>
+          <th style="padding:8px 10px;text-align:right;font-size:11px;color:var(--text-muted);">PREÇO UNIT.</th><th style="padding:8px 10px;text-align:right;font-size:11px;color:var(--text-muted);">SUBTOTAL</th><th></th>
+        </tr></thead>
+        <tbody>${linhas}</tbody>
+        <tfoot><tr><td colspan="5" style="padding:10px;text-align:right;font-weight:700;">Total</td><td id="oce-total" style="padding:10px;text-align:right;font-weight:800;font-size:15px;color:var(--lumen);white-space:nowrap;"></td><td></td></tr></tfoot>
+      </table>
+    </div>
+    <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;margin-top:14px;padding:10px 12px;border:1px dashed var(--border);border-radius:8px;">
+      <div style="min-width:160px;"><label class="form-label">+ Incluir produto</label><select class="form-select" id="oce-add-cat" onchange="oceCatMudou()">${optCats}</select></div>
+      <div style="min-width:220px;flex:1;"><label class="form-label">&nbsp;</label><select class="form-select" id="oce-add-prod"><option value="">Produto…</option></select></div>
+      <div style="width:100px;"><label class="form-label">Qtd</label><input type="number" step="any" min="0" class="form-input" id="oce-add-qtd" placeholder="0"></div>
+      <button class="btn btn-secondary btn-sm" onclick="oceIncluir()">Incluir</button>
+    </div>`;
+  _oceRecalcular();
+}
+
+function _oceRecalcular() {
+  let total = 0;
+  _oce.itens.forEach((it, i) => {
+    const sub = Math.round(_oceNum(it.qtd) * _oceNum(it.unitPrice) * 100) / 100;
+    total += sub;
+    const el = document.getElementById('oce-sub-' + i); if (el) el.textContent = _oceBRL(sub);
+  });
+  const t = document.getElementById('oce-total'); if (t) t.textContent = _oceBRL(total);
+  return total;
+}
+function oceSet(i, campo, v) { if (_oce.itens[i]) { _oce.itens[i][campo] = v; _oceRecalcular(); } }
+function oceRemover(i) { _oce.itens.splice(i, 1); _oceRenderizar(); }
+function oceCatMudou() {
+  const k = document.getElementById('oce-add-cat').value;
+  const sel = document.getElementById('oce-add-prod');
+  sel.innerHTML = '<option value="">Produto…</option>' + (CATEGORIAS[k]?.produtos || []).map(p => `<option value="${_oceEsc(p.id)}">${_oceEsc(p.nome)} (${_oceEsc(p.unidade || '')})</option>`).join('');
+}
+async function oceIncluir() {
+  const k = document.getElementById('oce-add-cat').value, pid = document.getElementById('oce-add-prod').value;
+  const qtd = _oceNum(document.getElementById('oce-add-qtd').value);
+  if (!k || !pid || !(qtd > 0)) { showToast('Escolha a categoria, o produto e informe a quantidade.'); return; }
+  if (_oce.itens.some(i => i.catKey === k && i.prodId === pid)) { showToast('Esse produto já está no orçamento — ajuste a quantidade dele na tabela.'); return; }
+  const prod = CATEGORIAS[k].produtos.find(p => p.id === pid);
+  let preco = 0;
+  try { const mapa = await _histCarregarMapaPrecos(); preco = mapa[`${k}|${pid}|${_oce.o.city}`] || 0; } catch (e) { /* sem preço de referência: fica 0 */ }
+  _oce.itens.push({ cat: CATEGORIAS[k].nome, catKey: k, nome: prod?.nome || pid, prodId: pid, unidade: prod?.unidade || '', qtd: String(qtd), unitPrice: preco ? String(preco) : '' });
+  _oceRenderizar();
+}
+async function orcHistSalvarEdicao() {
+  const o = _oce.o;
+  if (!_oce.itens.length) { showToast('O orçamento precisa ter pelo menos um produto.'); return; }
+  const itens = _oce.itens.map(it => {
+    const qtd = _oceNum(it.qtd), unitPrice = _oceNum(it.unitPrice);
+    const novo = { cat: it.cat, nome: it.nome, prodId: it.prodId, unidade: it.unidade, qtd, unitPrice, subtotal: Math.round(qtd * unitPrice * 100) / 100 };
+    if (it.catKey) novo.catKey = it.catKey;
+    return novo;
+  });
+  const total = Math.round(itens.reduce((s, i) => s + i.subtotal, 0) * 100) / 100;
+  try {
+    await db.collection('orcamentos_financeiros').doc(o.id).update({
+      de: document.getElementById('oce-de').value || o.de || null,
+      ate: document.getElementById('oce-ate').value || o.ate || null,
+      pessoas: _oceNum(document.getElementById('oce-pessoas').value),
+      dias: _oceNum(document.getElementById('oce-dias').value),
+      tipo: document.getElementById('oce-tipo').value,
+      itens, total,
+      editadoPor: currentUserData?.name || '', editadoEm: firebase.firestore.FieldValue.serverTimestamp(),
+    });
+    showToast('✅ Orçamento atualizado!');
+    closeModal('modal-orc-edit');
+    document.getElementById('orc-hist-detalhe').innerHTML = '';
+    loadOrcHistorico();
+  } catch (e) {
+    console.error('orcHistSalvarEdicao', e);
+    showToast('❌ Erro ao salvar: ' + e.message);
+  }
+}
+window.oceSet = oceSet; window.oceRemover = oceRemover; window.oceCatMudou = oceCatMudou; window.oceIncluir = oceIncluir; window.orcHistSalvarEdicao = orcHistSalvarEdicao;
 
 // ─────────────────────────────────────────────
 // 🎁  DONATION TOGGLE
