@@ -250,7 +250,7 @@ window.cotRemoverCol = cotRemoverCol;
 async function cotSalvarCol(uid) {
   const c = _cotCol(uid); if (!c) return;
   if (!c.fornecedorId) { showToast('Selecione o fornecedor.'); return; }
-  let valor = 0, itens = null;
+  let valor = 0, itens = []; // coluna quotations.itens é NOT NULL: total sem itens = []
   if (c.modo === 'total') {
     valor = _cotNum(c.totalManual);
   } else {
