@@ -405,3 +405,9 @@ let currentHousePrices = {};   // Preços da cidade da casa
 let housePercapitas = {}; // Per capitas por casa (carregado do Firebase)
 let detailOrderData = null; // for PDF from modal
 
+
+// Categoria desativada/removida ainda aparece em pedidos antigos (ex.: 'grafica'): não pode derrubar a tela.
+function _catSegura(catKey) {
+  return CATEGORIAS[catKey] || { nome: String(catKey || '').replace(/_/g, ' '), icon: '📦', produtos: [], _inativa: true };
+}
+window._catSegura = _catSegura;

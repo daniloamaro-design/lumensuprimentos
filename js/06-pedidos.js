@@ -792,7 +792,7 @@ function desenharCompraNoPDF(doc, order, itensCompra) {
   }
 
   Object.entries(cats).forEach(([catKey, items]) => {
-    const cat = CATEGORIAS[catKey];
+    const cat = _catSegura(catKey);
     if (y > 250) { doc.addPage(); y = 20; }
 
     doc.setFillColor(...blue);
@@ -1271,7 +1271,7 @@ function renderStockEvalBody(existingEval) {
   Object.entries(items).forEach(([catKey, prods]) => {
     const keys = Object.keys(prods);
     if (!keys.length) return;
-    const cat = CATEGORIAS[catKey];
+    const cat = _catSegura(catKey);
     html += `<div class="stk-section-title">${cat.icon} ${cat.nome}</div>`;
 
     keys.forEach(prodId => {
@@ -1563,7 +1563,7 @@ function makeTransferPDF(order, transferItems, evalData) {
 
   Object.entries(byCat).forEach(([catKey, evs]) => {
     if (y > 240) { doc.addPage(); y = 20; }
-    const cat = CATEGORIAS[catKey];
+    const cat = _catSegura(catKey);
     doc.setFillColor(...blue);
     doc.rect(12, y-5, 186, 9, 'F');
     doc.setTextColor(255,255,255); doc.setFontSize(9); doc.setFont('helvetica','bold');
@@ -1636,7 +1636,7 @@ function makePurchasePDF(order, purchaseItems) {
 
   Object.entries(byCat).forEach(([catKey, evs]) => {
     if (y > 240) { doc.addPage(); y = 20; }
-    const cat = CATEGORIAS[catKey];
+    const cat = _catSegura(catKey);
     doc.setFillColor(...blue);
     doc.rect(12, y-5, 186, 9, 'F');
     doc.setTextColor(255,255,255); doc.setFontSize(9); doc.setFont('helvetica','bold');
@@ -2053,13 +2053,13 @@ function buildOrderHTML(house, items, compact, orderMeta) {
   Object.entries(items).forEach(([catKey, prods]) => {
     const keys = Object.keys(prods);
     if (keys.length === 0) return;
-    const cat = CATEGORIAS[catKey];
+    const cat = _catSegura(catKey);
     html += `<div style="margin-bottom:16px;">
       <div style="background:#E6EEF8;padding:8px 12px;border-radius:6px;font-weight:700;font-size:13px;color:#003875;margin-bottom:8px;">${cat.icon} ${cat.nome}</div>
       <table style="width:100%;border-collapse:collapse;font-size:13px;">
         <tr style="background:#f8f9fa;"><th style="padding:7px 10px;text-align:left;border-bottom:1px solid #e0e0e0;font-weight:600;font-size:11px;color:#6B7280;text-transform:uppercase;">Produto</th><th style="padding:7px 10px;text-align:right;border-bottom:1px solid #e0e0e0;font-weight:600;font-size:11px;color:#6B7280;text-transform:uppercase;">Qtd</th><th style="padding:7px 10px;text-align:left;border-bottom:1px solid #e0e0e0;font-weight:600;font-size:11px;color:#6B7280;text-transform:uppercase;">Unid.</th></tr>
         ${keys.map(prodId => {
-          const p = cat.produtos.find(x => x.id === prodId);
+          const p = cat.produtos.find(x => x.id === prodId) || (cat._inativa ? { nome: prodId.replace(/_/g, ' ') } : null);
           if (!p) return '';
           return `<tr><td style="padding:8px 10px;border-bottom:1px solid #eee;">${p.nome}</td><td style="padding:8px 10px;text-align:right;border-bottom:1px solid #eee;font-weight:700;color:#003875;">${prods[prodId]}</td><td style="padding:8px 10px;border-bottom:1px solid #eee;color:#6B7280;">${p.unidade}</td></tr>`;
         }).join('')}
@@ -2145,7 +2145,7 @@ function makePDF(house, items, meta, isPurchaseOnly) {
   Object.entries(items).forEach(([catKey, prods]) => {
     const keys = Object.keys(prods);
     if (keys.length === 0) return;
-    const cat = CATEGORIAS[catKey];
+    const cat = _catSegura(catKey);
 
     if (y > 240) { doc.addPage(); y = 20; }
 

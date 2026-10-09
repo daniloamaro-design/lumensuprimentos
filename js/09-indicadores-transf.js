@@ -1036,7 +1036,7 @@ async function showTransfDetail(docId) {
     cats[item.catKey].push(item);
   });
   Object.entries(cats).forEach(([catKey, items]) => {
-    const cat = CATEGORIAS[catKey];
+    const cat = _catSegura(catKey);
     itemsHTML += `<div style="margin-bottom:12px;">
       <div style="font-weight:700;font-size:13px;color:var(--lumen);background:var(--lumen-lt);padding:6px 10px;border-radius:6px;margin-bottom:6px;">${cat?.icon} ${cat?.nome}</div>
       ${items.map(i => `<div style="display:flex;justify-content:space-between;padding:6px 10px;border-bottom:1px solid var(--border);">
@@ -1133,7 +1133,7 @@ function desenharTransferenciaNoPDF(doc, t, registradoPorNome) {
   });
 
   Object.entries(cats).forEach(([catKey, items]) => {
-    const cat = CATEGORIAS[catKey];
+    const cat = _catSegura(catKey);
     if (y > 250) { doc.addPage(); y = 20; }
 
     doc.setFillColor(...blue);
