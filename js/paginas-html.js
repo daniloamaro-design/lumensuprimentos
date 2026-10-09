@@ -408,7 +408,7 @@ document.querySelector('.main-content').insertAdjacentHTML('beforeend', `
               <th style="width:140px;">Ações</th>
             </tr>
           </thead>
-          <tbody id="cc-tbody">
+          <tbody id="cc-lista-tbody">
             <tr><td colspan="4" style="text-align:center;padding:24px;"><div class="spinner spinner-dark"></div></td></tr>
           </tbody>
         </table>

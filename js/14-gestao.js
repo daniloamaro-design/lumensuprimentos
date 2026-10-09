@@ -139,7 +139,7 @@ async function initManageCC() {
 }
 
 async function _ccCarregarTabela() {
-  const tbody = document.getElementById('cc-tbody');
+  const tbody = document.getElementById('cc-lista-tbody');
   const totalEl = document.getElementById('cc-total');
   tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:24px;"><div class="spinner spinner-dark"></div></td></tr>';
   try {
