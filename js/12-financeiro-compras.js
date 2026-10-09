@@ -1838,7 +1838,7 @@ function _caMontarLinhas(dados, mapaDocs){
     obsP.push(FIN_PAGO(d.pago) ? 'Pago' : 'Pendente');
     // Centro de Custo: prefere o vínculo direto do lançamento, cai na casa de destino como fallback
     const cc = String(d.centroCustoNome || d.centroCusto || dest || '').trim();
-    linhas.push([ dtComp || '', dtVenc || '', '', valor, cat, desc, forn, docFis, cc, obsP.join(' | ') ]);
+    linhas.push([ dtComp || '', dtVenc || '', '', valor, String(d.categoriaConta || cat).trim(), desc, forn, docFis, cc, obsP.join(' | ') ]);
   });
   return linhas;
 }
