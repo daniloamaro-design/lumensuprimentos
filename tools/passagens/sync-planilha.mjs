@@ -305,9 +305,24 @@ function mapearComprada(row) {
 
 // ── Upsert ───────────────────────────────────────────────────────────
 async function upsertSolicitacao(db, fornecedores, dados, contadores) {
-  const { rows: existentes } = await db.query(
+  let { rows: existentes } = await db.query(
     'select id, codigo, status, orcamentos from passagens_solicitacoes where planilha_chave = $1', [dados.chave]
   );
+
+  // A chave (passageiro|data da solicitação|trajeto|data de partida) muda quando alguém
+  // corrige um desses campos na planilha (ex.: ano da solicitação digitado errado).
+  // Sem isto o sync criava uma passagem NOVA e deixava a antiga parada — duplicando
+  // solicitações e confundindo o financeiro. Se não achou pela chave, procura a mesma
+  // passagem por passageiro + trajeto + data de partida e só ASSUME o registro (atualiza
+  // a chave) quando houver exatamente um candidato.
+  if (!existentes.length && dados.passageiro && dados.saida && dados.origem && dados.destino) {
+    const { rows: cand } = await db.query(
+      `select id, codigo, status, orcamentos, passageiro, origem, destino from passagens_solicitacoes
+        where planilha_aba = $1 and saida = $2 and status <> 'cancelada'`, [dados.planilhaAba, dados.saida]);
+    const T = x => norm(x).replace(/[^a-z]/g, '');
+    const iguais = cand.filter(c => norm(c.passageiro) === norm(dados.passageiro) && T(c.origem) === T(dados.origem) && T(c.destino) === T(dados.destino));
+    if (iguais.length === 1) { existentes = iguais; contadores.chaveCorrigida = (contadores.chaveCorrigida || 0) + 1; }
+  }
 
   // Cotações adicionadas à mão no sistema (fornecedor fora das colunas da planilha)
   // não podem ser apagadas pelo sync: preserva as que a planilha não traz.
@@ -354,12 +369,12 @@ async function upsertSolicitacao(db, fornecedores, dados, contadores) {
       `update passagens_solicitacoes set
          tipo=$1, solicitante=$2, passageiro=$3, origem=$4, destino=$5, saida=$6, retorno=$7,
          motivo=$8, obs=$9, status=$10, orcamentos=$11, valor_final=$12, fornecedor=$13,
-         data_compra=$14, num_bilhete=$15, planilha_aba=$16,
+         data_compra=$14, num_bilhete=$15, planilha_aba=$16, planilha_chave=$19,
          historico = coalesce(historico, '[]'::jsonb) || $17::jsonb
        where id = $18`,
       [patch.tipo, patch.solicitante, patch.passageiro, patch.origem, patch.destino, patch.saida, patch.retorno,
        patch.motivo, patch.obs, patch.status, patch.orcamentos, patch.valor_final, patch.fornecedor,
-       patch.data_compra, patch.num_bilhete, patch.planilha_aba, histEntry, existentes[0].id]
+       patch.data_compra, patch.num_bilhete, patch.planilha_aba, histEntry, existentes[0].id, dados.chave]
     );
     return { id: existentes[0].id, codigo: existentes[0].codigo, fornecedorId };
   }
@@ -399,6 +414,30 @@ async function upsertFinanceiro(db, f, contadores) {
   );
 }
 
+// Pendentes do sistema cuja linha NÃO está mais na aba "Passagens pendentes" (comprada e
+// movida pra outra aba, cancelada, apagada). Antes ficavam pendentes pra sempre.
+// Se existe compra equivalente (mesmo passageiro + trajeto, partida até 20 dias de
+// diferença) o pendente é cancelado como "comprada — ver PASS-x"; senão como "saiu da planilha".
+async function fecharPendentesOrfas(db, chavesNaPlanilha) {
+  if (!chavesNaPlanilha.size) { console.log('  (aba sem linhas válidas — não fechei nenhuma pendente por segurança)'); return; }
+  const { rows: pend } = await db.query(`select id, codigo, passageiro, origem, destino, saida, planilha_chave from passagens_solicitacoes
+     where planilha_aba = 'pendentes' and status = 'pendente'`);
+  const orfas = pend.filter(r => !chavesNaPlanilha.has(r.planilha_chave));
+  if (!orfas.length) { console.log('  Nenhuma pendente órfã.'); return; }
+  const { rows: comp } = await db.query(`select codigo, passageiro, origem, destino, saida from passagens_solicitacoes where status = 'comprada'`);
+  const T = x => norm(x).replace(/[^a-z]/g, '');
+  const dias = (a, b) => Math.abs((new Date(a) - new Date(b)) / 86400000);
+  for (const r of orfas) {
+    const cs = comp.filter(c => norm(c.passageiro) === norm(r.passageiro) && T(c.origem) === T(r.origem) && T(c.destino) === T(r.destino) && c.saida && r.saida && dias(c.saida, r.saida) <= 20)
+                   .sort((a, b) => dias(a.saida, r.saida) - dias(b.saida, r.saida));
+    const nota = cs.length ? `Comprada — ver ${cs[0].codigo}; a linha saiu da aba de pendentes` : 'Saiu da aba de pendentes da planilha sem registro de compra — cancelada pelo sync';
+    console.log(`  ${DRY_RUN ? '[dry] ' : ''}${r.codigo} ${r.passageiro}: ${nota}`);
+    if (DRY_RUN) continue;
+    await db.query(`update passagens_solicitacoes set status='cancelada', historico = coalesce(historico,'[]'::jsonb) || $2::jsonb where id=$1`,
+      [r.id, JSON.stringify([{ acao: nota, usuario: 'Sync Planilha', ts: new Date().toISOString() }])]);
+  }
+}
+
 // ── Main ─────────────────────────────────────────────────────────────
 async function main() {
   console.log(DRY_RUN ? '🔍 Modo dry-run (nada será gravado)\n' : '✍️  Modo aplicar\n');
@@ -414,12 +453,15 @@ async function main() {
 
     const contPend = { novas: 0, atualizadas: 0 };
     let ignoradas = 0;
+    const chavesNaPlanilha = new Set();
     for (const row of linhasPendentes) {
       const dados = mapearPendente(row);
       if (!dados) { ignoradas++; continue; }
       if (!dados.passageiro) continue; // linha vazia/lixo
+      chavesNaPlanilha.add(dados.chave);
       await upsertSolicitacao(db, fornecedores, dados, contPend);
     }
+    if (contPend.chaveCorrigida) console.log(`  → ${contPend.chaveCorrigida} linha(s) corrigida(s) na planilha reconhecida(s) como a mesma passagem (sem criar duplicada).`);
     console.log(`  → ${contPend.novas} novas, ${contPend.atualizadas} atualizadas, ${ignoradas} ignoradas (status fechado).\n`);
 
     console.log('Baixando aba "Passagens compradas"...');
@@ -444,6 +486,9 @@ async function main() {
     }
     console.log(`  → ${contCompr.novas} novas, ${contCompr.atualizadas} atualizadas, ${ignoradasCompr} ignoradas (antes do corte de ${CORTE_COMPRADAS}).`);
     console.log(`  → financeiro: ${contFin.finNovos} lançamentos novos, ${contFin.finExistentes} já existiam.\n`);
+
+    console.log('Fechando pendentes que saíram da planilha...');
+    await fecharPendentesOrfas(db, chavesNaPlanilha);
 
     console.log(DRY_RUN ? '✅ Dry-run concluído.' : '✅ Sincronização concluída.');
   } finally {
