@@ -1196,7 +1196,8 @@ async function loadPasSolic() {
 window.loadPasSolic = loadPasSolic;
 
 let pasSolicPage = 1;
-function renderPasSolic() {
+// Lista já filtrada (busca + status) e ordenada como está na tela — usada pela tabela e pelo PDF.
+function _pasListaFiltrada() {
   const busca = (document.getElementById('pas-f-busca')?.value || '').toLowerCase().trim();
   const fst = document.getElementById('pas-f-status')?.value || '';
   const sort = document.getElementById('pas-sort')?.value || 'data-desc';
@@ -1213,6 +1214,11 @@ function renderPasSolic() {
     if (sort === 'alpha')    return String(a.passageiro||'').localeCompare(String(b.passageiro||''), 'pt-BR');
     return String(b.criadoEm||'').localeCompare(String(a.criadoEm||'')); // data-desc default
   });
+  return lista;
+}
+
+function renderPasSolic() {
+  const lista = _pasListaFiltrada();
   const tb = document.getElementById('pas-tbody');
   if (!tb) return;
   if (!lista.length) {
@@ -1234,6 +1240,42 @@ function renderPasSolic() {
 window.renderPasSolic = renderPasSolic;
 function pasSolicGoToPage(p) { pasSolicPage = p; renderPasSolic(); }
 window.pasSolicGoToPage = pasSolicGoToPage;
+
+// PDF da lista filtrada (ex.: só as pendentes): data da solicitação, meio de transporte,
+// passageiro, trajeto, data de partida, motivo, quem solicitou e menor orçamento/empresa.
+function pasExportarPDF() {
+  const lista = _pasListaFiltrada();
+  if (!lista.length) return showToast('⚠️ Nenhuma solicitação na lista para exportar.');
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+  const fst = document.getElementById('pas-f-status')?.value || '';
+  const rotuloStatus = fst ? (document.getElementById('pas-f-status').selectedOptions[0]?.text || fst) : 'Todos os status';
+  const meio = t => ({ aviao: 'Avião', onibus: 'Ônibus' }[String(t || '').toLowerCase()] || (t || '—'));
+  const menorOrc = s => {
+    const o = pasOrcamentosDe(s).filter(x => Number(x.valor) > 0).sort((a, b) => Number(a.valor) - Number(b.valor))[0];
+    return o ? `${frtBRL(o.valor)} — ${o.fornecedorNome || o.fornecedor || o.empresa || '—'}` : '—';
+  };
+  doc.setFillColor(0, 56, 117); doc.rect(0, 0, 297, 20, 'F');
+  doc.setTextColor(255, 255, 255); doc.setFont('helvetica', 'bold'); doc.setFontSize(14);
+  doc.text('Obra Lumen — Solicitações de Passagens', 14, 9);
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(9);
+  doc.text(`${rotuloStatus} · ${lista.length} solicitação(ões) · gerado em ${new Date().toLocaleString('pt-BR')}`, 14, 15.5);
+  doc.autoTable({
+    startY: 25,
+    head: [['Data solic.', 'Meio', 'Passageiro', 'Passagem de ida', 'Partida', 'Motivo', 'Quem solicitou', 'Menor orçamento / empresa']],
+    body: lista.map(s => [
+      frtDataBR(s.criadoEm), meio(s.tipo), s.passageiro || '—',
+      `${s.origem || '—'} → ${s.destino || '—'}`, frtDataBR(s.saida), s.motivo || '—', s.solicitante || '—', menorOrc(s),
+    ]),
+    styles: { fontSize: 8, cellPadding: 2, overflow: 'linebreak' },
+    headStyles: { fillColor: [0, 56, 117], textColor: 255 },
+    alternateRowStyles: { fillColor: [244, 246, 250] },
+    columnStyles: { 0: { cellWidth: 22 }, 1: { cellWidth: 18 }, 4: { cellWidth: 22 }, 7: { cellWidth: 50 } },
+    margin: { left: 10, right: 10 },
+  });
+  doc.save(`passagens-${(fst || 'todas')}-${new Date().toISOString().slice(0, 10)}.pdf`);
+}
+window.pasExportarPDF = pasExportarPDF;
 
 let _pasDetId = null;   // solicitação aberta no detalhe
 let _pasOrcSel = -1;    // índice da cotação selecionada
