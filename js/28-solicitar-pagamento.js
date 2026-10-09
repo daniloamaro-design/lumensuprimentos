@@ -86,26 +86,30 @@ window.loadPasSolPagamento = () => spgCarregar('pas');
 // de cada linha (categoria pela categoria do pedido; centro de custo pelo do pedido).
 async function _spgPreparar(lista) {
   if (!_spgListas.categorias.length) {
-    const sc = await db.collection('categorias').get();
-    _spgListas.categorias = sc.docs.map(d => ({ key: d.id, ...d.data() })).filter(x => x.ativo !== false && x.nome && /^d/.test(x.nome));
-    const nomes = [...new Set(_spgListas.categorias.map(x => x.nome))].sort((a, b) => a.localeCompare(b, 'pt-BR', { numeric: true }));
-    _spgListas.nomesCategoria = nomes;
+    // Categoria contábil = lista de "Gerenciar Centro de Custo → Categorias" (a mesma escolhida no detalhe do pedido).
+    const sc = await db.collection('centro_custo_categorias').get();
+    _spgListas.categorias = sc.docs.map(d => ({ id: d.id, ...d.data() })).filter(x => x.nome);
+    _spgListas.nomesCategoria = [...new Set(_spgListas.categorias.map(x => x.nome))].sort((a, b) => a.localeCompare(b, 'pt-BR', { numeric: true }));
+    // Plano B quando o pedido não tem categoria: nome da categoria de produto (já vem no formato "2.1.1 …").
+    const pc = await db.collection('categorias').get();
+    _spgListas.catProduto = Object.fromEntries(pc.docs.map(d => [d.id, d.data().nome]));
   }
   if (!_spgListas.centros.length) {
     const cc = await db.collection('centros_custo').orderBy('nome', 'asc').get();
     _spgListas.centros = cc.docs.map(d => ({ id: d.id, ...d.data() }));
   }
   for (const l of lista) {
-    if (!l.categoriaConta) {
-      const cat = _spgListas.categorias.find(x => x.key === l.catKey);
-      if (cat) { l.categoriaConta = cat.nome; l._sugCat = true; }
+    const precisaPedido = !l.categoriaConta || (!l.centroCustoId && !l.centroCustoNome);
+    let od = null;
+    if (precisaPedido && l.pedidoId) {
+      try { const o = await db.collection('orders').doc(l.pedidoId).get(); od = o.exists ? o.data() : null; } catch (e) { /* sem sugestão */ }
     }
-    if (!l.centroCustoId && !l.centroCustoNome && l.pedidoId) {
-      try {
-        const o = await db.collection('orders').doc(l.pedidoId).get();
-        const od = o.exists ? o.data() : null;
-        if (od?.centroCustoId || od?.centroCustoNome) { l.centroCustoId = od.centroCustoId || ''; l.centroCustoNome = od.centroCustoNome || ''; l._sugCc = true; }
-      } catch (e) { /* sem sugestão */ }
+    if (!l.categoriaConta) {
+      const sug = od?.categoriaNome || _spgListas.catProduto[l.catKey];
+      if (sug && _spgListas.nomesCategoria.includes(sug)) l.categoriaConta = sug;
+    }
+    if (!l.centroCustoId && !l.centroCustoNome && (od?.centroCustoId || od?.centroCustoNome)) {
+      l.centroCustoId = od.centroCustoId || ''; l.centroCustoNome = od.centroCustoNome || '';
     }
   }
 }
