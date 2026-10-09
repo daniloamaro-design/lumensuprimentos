@@ -1262,15 +1262,15 @@ function pasExportarPDF() {
   doc.text(`${rotuloStatus} · ${lista.length} solicitação(ões) · gerado em ${new Date().toLocaleString('pt-BR')}`, 14, 15.5);
   doc.autoTable({
     startY: 25,
-    head: [['Data solic.', 'Meio', 'Passageiro', 'Passagem de ida', 'Partida', 'Motivo', 'Quem solicitou', 'Menor orçamento / empresa']],
-    body: lista.map(s => [
-      frtDataBR(s.criadoEm), meio(s.tipo), s.passageiro || '—',
+    head: [['Nº', 'Data solic.', 'Meio', 'Passageiro', 'Passagem de ida', 'Partida', 'Motivo', 'Quem solicitou', 'Menor orçamento / empresa']],
+    body: lista.map((s, i) => [
+      i + 1, frtDataBR(s.criadoEm), meio(s.tipo), s.passageiro || '—',
       `${s.origem || '—'} → ${s.destino || '—'}`, frtDataBR(s.saida), s.motivo || '—', s.solicitante || '—', menorOrc(s),
     ]),
     styles: { fontSize: 8, cellPadding: 2, overflow: 'linebreak' },
     headStyles: { fillColor: [0, 56, 117], textColor: 255 },
     alternateRowStyles: { fillColor: [244, 246, 250] },
-    columnStyles: { 0: { cellWidth: 22 }, 1: { cellWidth: 18 }, 4: { cellWidth: 22 }, 7: { cellWidth: 50 } },
+    columnStyles: { 0: { cellWidth: 10, halign: 'center' }, 1: { cellWidth: 22 }, 2: { cellWidth: 18 }, 5: { cellWidth: 22 }, 8: { cellWidth: 50 } },
     margin: { left: 10, right: 10 },
   });
   doc.save(`passagens-${(fst || 'todas')}-${new Date().toISOString().slice(0, 10)}.pdf`);
