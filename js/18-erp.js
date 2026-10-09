@@ -1267,16 +1267,16 @@ function abrirPasDetalhe(id) {
     </div>`;
   }).join('') : '<div style="color:var(--text-muted);font-size:13px;">Nenhuma cotação ainda.</div>';
 
-  const formAdd = (podeEditar && orcs.length < 3) ? `
+  const formAdd = podeEditar ? `
     <div style="border-top:1px dashed var(--border);margin-top:8px;padding-top:8px;">
-      <div style="font-weight:600;font-size:13px;margin-bottom:6px;">Adicionar cotação (${orcs.length}/3)</div>
+      <div style="font-weight:600;font-size:13px;margin-bottom:6px;">Adicionar cotação (${orcs.length} cadastrada${orcs.length === 1 ? '' : 's'})</div>
       <div style="display:grid;grid-template-columns:1fr 110px auto;gap:8px;align-items:end;">
         <div><label class="form-label">Fornecedor</label><select class="form-select" id="pas-orc-forn"><option value="">Selecione…</option></select></div>
         <div><label class="form-label">Valor</label><input class="form-input" id="pas-orc-valor" type="number" step="0.01" min="0"></div>
         <div><button class="btn btn-primary btn-sm" onclick="pasAddOrcamento()">+ Add</button></div>
       </div>
       <input class="form-input" id="pas-orc-obs" placeholder="Observação (opcional)" style="margin-top:6px;">
-    </div>` : (podeEditar ? '<div style="color:var(--text-muted);font-size:12px;margin-top:6px;">Máximo de 3 cotações atingido.</div>' : '');
+    </div>` : '';
 
   // Botões de ação por status
   const acoes = [];
@@ -1312,7 +1312,7 @@ function abrirPasDetalhe(id) {
     ${hist.length ? linha('Histórico', hist.map(h => `• ${frtEsc(h.acao || h.texto || '')}${h.usuario ? ' — ' + frtEsc(h.usuario) : ''}`).join('<br>')) : ''}
     ${acoes.length ? `<div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;border-top:1px solid var(--border);padding-top:10px;">${acoes.join('')}</div>` : ''}
   `;
-  if (podeEditar && orcs.length < 3) pasPopularFornecedores('pas-orc-forn');
+  if (podeEditar) pasPopularFornecedores('pas-orc-forn');
   pasRenderCalendarioComparacao(s);
 }
 window.abrirPasDetalhe = abrirPasDetalhe;
@@ -1531,8 +1531,7 @@ async function pasAddOrcamento() {
   if (!fornId) return showToast('⚠️ Selecione o fornecedor.');
   if (!(valor > 0)) return showToast('⚠️ Informe um valor válido.');
   const orcs = pasOrcamentosDe(s);
-  if (orcs.length >= 3) return showToast('⚠️ Máximo de 3 cotações.');
-  orcs.push({ fornecedorId: fornId, fornecedorNome: fornNome, valor, obs, selecionada: false });
+  orcs.push({ fornecedorId: fornId, fornecedorNome: fornNome, valor, obs, selecionada: false, manual: true });
   const patch = { orcamentos: orcs };
   if (s.status === 'pendente') patch.status = 'em_analise';
   await pasAtualizar(_pasDetId, patch, `Cotação adicionada: ${fornNome} ${frtBRL(valor)}`);

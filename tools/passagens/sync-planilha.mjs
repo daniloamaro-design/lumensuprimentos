@@ -306,8 +306,16 @@ function mapearComprada(row) {
 // ── Upsert ───────────────────────────────────────────────────────────
 async function upsertSolicitacao(db, fornecedores, dados, contadores) {
   const { rows: existentes } = await db.query(
-    'select id, codigo, status from passagens_solicitacoes where planilha_chave = $1', [dados.chave]
+    'select id, codigo, status, orcamentos from passagens_solicitacoes where planilha_chave = $1', [dados.chave]
   );
+
+  // Cotações adicionadas à mão no sistema (fornecedor fora das colunas da planilha)
+  // não podem ser apagadas pelo sync: preserva as que a planilha não traz.
+  const nomesPlanilha = new Set(FORNECEDORES_ORCAMENTO.map(norm));
+  for (const o of (Array.isArray(existentes[0]?.orcamentos) ? existentes[0].orcamentos : [])) {
+    const nome = o.fornecedorNome || o.fornecedor || '';
+    if (nome && (o.manual || !nomesPlanilha.has(norm(nome))) && !dados.orcamentos.some(x => norm(x.fornecedorNome) === norm(nome))) dados.orcamentos.push(o);
+  }
 
   // Resolve fornecedorId nos orçamentos e no fornecedor final.
   dados.orcamentos.forEach(o => { const f = acharFornecedor(fornecedores, o.fornecedorNome); if (f) o.fornecedorId = f.id; });
