@@ -142,7 +142,9 @@ async function finCarregarDados() {
     // precisa mais de uma view paralela lida direto de 'fretes': isso duplicava
     // cada frete (a linha sincronizada de verdade + uma linha fantasma cujo id
     // não existia em compras_financeiro, então marcar pago nela não fazia nada).
-    finDados = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    // Lançamentos de Suprimentos/Passagens (a partir de 10/10/2026) só chegam ao Financeiro
+    // depois de "Solicitar Pagamento" no módulo de origem (migration 046).
+    finDados = snap.docs.map(d => ({ id: d.id, ...d.data() })).filter(d => !(d.aguardaSolicitacao && !d.pagamentoSolicitadoEm));
     // Precisa dos fornecedores carregados ANTES de popular/filtrar por nome
     // resolvido — sem isso "Grandes Viagens" e "GRANDES VIAGENS TURISMO LTDA"
     // aparecem como opções (e filtros) separados, mesmo já sendo o mesmo

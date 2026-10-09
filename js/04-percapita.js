@@ -526,6 +526,8 @@ function goPage(page) {
   // Módulo Fretes (U3)
   if (page === 'frt-lista') setTimeout(loadFrtLista, 50);
   if (page === 'frt-pagamento') setTimeout(loadFrtPagamento, 50);
+  if (page === 'sup-sol-pagamento') setTimeout(() => window.loadSupSolPagamento && window.loadSupSolPagamento(), 50);
+  if (page === 'pas-sol-pagamento') setTimeout(() => window.loadPasSolPagamento && window.loadPasSolPagamento(), 50);
   if (page === 'frt-novo') setTimeout(loadFrtNovoForm, 50);
   if (page === 'orc-historico-fin') setTimeout(loadOrcHistorico, 50);
   if (page === 'frt-metas') setTimeout(loadFrtMetas, 50);

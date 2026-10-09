@@ -2353,7 +2353,7 @@ window.salvarPasOrcamento = salvarPasOrcamento;
    ══════════════════════════════════════════════════════════════════════ */
 
 // páginas dos módulos (hoje abertas a todos; o admin restringe na tela)
-const _MOD_PAGES = ['pas-solicitacoes', 'pas-nova', 'pas-detalhe', 'pas-indicadores', 'pas-calendario', 'frt-lista', 'frt-pagamento', 'frt-novo', 'frt-metas', 'frt-indicadores', 'ind-geral', 'plano-acao', 'diretoria-dashboard', 'diretoria-percapita'];
+const _MOD_PAGES = ['pas-sol-pagamento', 'pas-solicitacoes', 'pas-nova', 'pas-detalhe', 'pas-indicadores', 'pas-calendario', 'frt-lista', 'frt-pagamento', 'frt-novo', 'frt-metas', 'frt-indicadores', 'ind-geral', 'plano-acao', 'diretoria-dashboard', 'diretoria-percapita'];
 // todas as páginas do Suprimentos (perfis de gestão têm tudo)
 const _SUP_PAGES = ['dashboard', 'users', 'houses', 'manage-houses', 'manage-cities', 'manage-products',
   'manage-cats', 'percapita-financeiro', 'manage-cc', 'all-orders', 'produtividade', 'kanban',
@@ -2361,7 +2361,7 @@ const _SUP_PAGES = ['dashboard', 'users', 'houses', 'manage-houses', 'manage-cit
   'fornecedores-cadastro', 'fornecedores-consulta', 'my-orders', 'prices', 'percapita', 'calc-real', 'previsao', 'rotina-estoque',
   'cardapio-diario', 'financeiro-compras', 'indicadores', 'irmaos', 'ind-fornecedores', 'metas',
   'var-solicitacoes', 'var-orcamento', 'var-proposta', 'var-historico', 'var-setores', 'solicitar-ajuste',
-  'pas-orcamento', 'seg-lista'];
+  'pas-orcamento', 'seg-lista', 'sup-sol-pagamento'];
 const _TODAS_PAGES = [..._SUP_PAGES, ..._MOD_PAGES];
 
 // Matriz padrão = espelha o comportamento atual (js/04-percapita.js antigo)
@@ -2371,7 +2371,7 @@ window.FALLBACK_PERMS = {
   compras: ['new-order', 'movement', 'all-orders', 'prices', 'orcamento-financeiro', 'orc-pendentes',
     'fornecedores-cadastro', 'fornecedores-consulta', 'kanban', 'houses', 'manage-houses', 'manage-cities', 'manage-products',
     'manage-cats', 'manage-cc', 'financeiro-compras', 'percapita', 'stock-view', 'transferencias',
-    'previsao', 'calc-real', 'my-orders', 'var-solicitacoes', ..._MOD_PAGES],
+    'previsao', 'calc-real', 'my-orders', 'var-solicitacoes', 'sup-sol-pagamento', ..._MOD_PAGES],
   estoque: ['new-order', 'movement', 'all-orders', 'prices', 'orcamento-financeiro', 'orc-pendentes',
     'fornecedores-cadastro', 'fornecedores-consulta', 'kanban', 'stock-view', 'inventario', 'transferencias', 'percapita', 'previsao', 'my-orders',
     'var-solicitacoes', ..._MOD_PAGES],
