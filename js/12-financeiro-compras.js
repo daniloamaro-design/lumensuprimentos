@@ -41,6 +41,13 @@ function excelSerialToDate(serial) {
   return date;
 }
 
+// Vencimento novo é gravado como ISO (aaaa-mm-dd); na tela sempre dd/mm/aaaa.
+function vencBR(s) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(s || ''));
+  return m ? `${m[3]}/${m[2]}/${m[1]}` : (s || '');
+}
+window.vencBR = vencBR;
+
 function excelDateToStr(serial) {
   const d = excelSerialToDate(serial);
   if (!d) return '—';
@@ -307,7 +314,7 @@ function finRenderizarTabela(dados) {
       <td>${d.destinatario||'—'}</td>
       <td style="font-size:11px;color:var(--text-muted);">${d.mes||''}/${d.ano||''}</td>
       <td style="font-size:11px;">${d.dataCompraStr||'—'}</td>
-      <td style="font-size:11px;">${d.vencimentoStr||'—'}</td>
+      <td style="font-size:11px;">${vencBR(d.vencimentoStr)||'—'}</td>
       <td style="text-align:center;font-size:11px;color:var(--text-muted);">${d.diasPrazo||'—'}d</td>
       <td class="td-r" style="color:var(--lumen);">${FMT_FIN(d.valor)}</td>
       <td style="text-align:center;">${badge}</td>
@@ -696,7 +703,7 @@ async function pagAbrirRevisaoDuplicados() {
         return `<tr>
           <td style="text-align:center;"><input type="radio" name="keep-${g.gid}" value="${d.docId}" ${d.docId === g.manterSugerido ? 'checked' : ''} onchange="pagAtualizarResumoDup()"></td>
           <td style="font-size:11px;">${comp}</td>
-          <td style="font-size:11px;">${d.vencimentoStr || '—'}</td>
+          <td style="font-size:11px;">${vencBR(d.vencimentoStr) || '—'}</td>
           <td style="font-size:11px;text-align:center;">${FIN_PAGO(d.pago) ? '✅' : '—'}</td>
           <td style="font-size:11px;text-align:center;">${d.lancadoSP === 'Sim' || d.lancadoSP === true ? '✅' : '—'}</td>
           <td style="font-size:11px;color:var(--text-muted);">${imp}</td>
@@ -1179,7 +1186,7 @@ function finExportarExcel() {
   if (!dados.length) { showToast('Nenhum dado para exportar!'); return; }
   const rows = [['Fornecedor','Classificação','Destinatário','Mês','Ano','Data Compra','Vencimento','Prazo','Valor','Pago','Lançado SP']];
   dados.forEach(d => {
-    rows.push([d.fornecedor||'',d.classificacao||'',d.destinatario||'',d.mes||'',d.ano||'',d.dataCompraStr||'',d.vencimentoStr||'',d.diasPrazo||0,parseFloat(d.valor)||0,d.pago||'',d.lancadoSP||'']);
+    rows.push([d.fornecedor||'',d.classificacao||'',d.destinatario||'',d.mes||'',d.ano||'',d.dataCompraStr||'',vencBR(d.vencimentoStr)||'',d.diasPrazo||0,parseFloat(d.valor)||0,d.pago||'',d.lancadoSP||'']);
   });
   const ws = XLSX.utils.aoa_to_sheet(rows);
   ws['!cols'] = rows[0].map(() => ({ wch: 18 }));
@@ -1289,7 +1296,7 @@ function pagAtualizarResumo() {
     .sort((a,b) => a.vencimentoSerial - b.vencimentoSerial);
   if (proximos.length > 0) {
     const prox = proximos[0];
-    el('pag-s-proximo', prox.vencimentoStr || '—');
+    el('pag-s-proximo', vencBR(prox.vencimentoStr) || '—');
     el('pag-s-prox-forn', prox.fornecedor + ' · ' + FMT_FIN(prox.valor));
   } else {
     el('pag-s-proximo', '—');
@@ -1400,7 +1407,7 @@ function pagRenderizarTabela() {
                   isVencido ? 'background:rgba(198,40,40,0.08);' : '';
 
     const vencLabel = d.vencimentoStr
-      ? `${d.vencimentoStr}${isVencido ? `<br><span style="color:var(--danger);font-size:10px;font-weight:700;">⚠️ ${diasVenc}d atrasado</span>` : ''}`
+      ? `${vencBR(d.vencimentoStr)}${isVencido ? `<br><span style="color:var(--danger);font-size:10px;font-weight:700;">⚠️ ${diasVenc}d atrasado</span>` : ''}`
       : '—';
 
     const valorPagoParcial = Number(d.valorPago) || 0;
@@ -1540,7 +1547,7 @@ function finAbrirEdicaoLancamento(id) {
   document.getElementById('fin-edit-classificacao').value = reg.classificacao || '';
   document.getElementById('fin-edit-destinatario').value = reg.destinatario || '';
   document.getElementById('fin-edit-valor').value = reg.valor || '';
-  document.getElementById('fin-edit-vencimento').value = reg.vencimentoStr || '';
+  document.getElementById('fin-edit-vencimento').value = vencBR(reg.vencimentoStr);
   const aviso = document.getElementById('fin-edit-aviso');
   const modulo = reg.modulo || 'suprimentos';
   if (aviso) {
@@ -1562,7 +1569,10 @@ async function finSalvarEdicaoLancamento() {
   const classificacao = document.getElementById('fin-edit-classificacao').value.trim();
   const destinatario  = document.getElementById('fin-edit-destinatario').value.trim();
   const valor         = Number(document.getElementById('fin-edit-valor').value);
-  const vencimentoStr = document.getElementById('fin-edit-vencimento').value.trim();
+  let vencimentoStr = document.getElementById('fin-edit-vencimento').value.trim();
+  // Mantém o formato de gravação do registro (ISO nos lançamentos novos, que outras telas leem assim)
+  const _mBR = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(vencimentoStr);
+  if (_mBR && /^\d{4}-\d{2}-\d{2}/.test(reg.vencimentoStr || '')) vencimentoStr = `${_mBR[3]}-${_mBR[2]}-${_mBR[1]}`;
   if (!(valor > 0)) { showToast('⚠️ Informe um valor válido.'); return; }
 
   const valorAntigo = Number(reg.valor) || 0;
@@ -1767,7 +1777,7 @@ function pagExportarExcel() {
   if (!pagDadosFiltrados.length) { showToast('Nenhum dado para exportar!'); return; }
   const rows = [['Fornecedor','Classificação','Casa/Destinatário','Mês','Ano','Vencimento','Valor','Status','Lançado SP','Obs']];
   pagDadosFiltrados.forEach(d => {
-    rows.push([d.fornecedor||'',d.classificacao||'',d.destinatario||'',d.mes||'',d.ano||'',d.vencimentoStr||'',parseFloat(d.valor)||0,d.pago==='Sim'?'Pago':'Pendente',d.lancadoSP||'',d.pedidoRealizado||'']);
+    rows.push([d.fornecedor||'',d.classificacao||'',d.destinatario||'',d.mes||'',d.ano||'',vencBR(d.vencimentoStr)||'',parseFloat(d.valor)||0,d.pago==='Sim'?'Pago':'Pendente',d.lancadoSP||'',d.pedidoRealizado||'']);
   });
   const ws = XLSX.utils.aoa_to_sheet(rows);
   ws['!cols'] = rows[0].map((_,i) => ({ wch: i===0?22:i===6?14:16 }));
@@ -1890,7 +1900,7 @@ function gerarPdfDetalhadoFin(dados, titulo, nomeArquivo){
       its.forEach(d => {
         body.push([
           d.dataCompraStr || excelDateToStr(d.dataCompraSerial) || '—',
-          d.vencimentoStr || excelDateToStr(d.vencimentoSerial) || '—',
+          vencBR(d.vencimentoStr) || excelDateToStr(d.vencimentoSerial) || '—',
           String(d.destinatario||'—'),
           (FIN_PAGO(d.pago) ? 'Pago' : 'Pendente'),
           { content: fmt(parseFloat(d.valor)||0), styles:{ halign:'right' } }
