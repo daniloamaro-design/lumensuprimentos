@@ -9,8 +9,9 @@
 // próprio front, com a sessão autenticada do usuário (RLS cuida de quem
 // pode gravar), não aqui.
 
-const SHEET_ID = '1y2HWmZSr_maQnDtHF8MW5eEUZKR6uuu3SwDHuijZ8JQ';
-const ABA = 'LISTA GERAL';
+// Planilha de pessoas (primeira aba, gid=0). Compartilhada como "qualquer pessoa com o link" (leitor).
+const SHEET_ID = '1HW3iCC6DFAwwktowuGJv94_p6k6EIH0vwV8WpMglo2Y';
+const GID = '0';
 
 // Parser CSV simples (RFC4180: aspas duplas, vírgula como separador,
 // "" dentro de campo = aspas literal). A exportação do Sheets sempre
@@ -52,7 +53,7 @@ module.exports = async function handler(req, res) {
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
 
   try {
-    const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(ABA)}`;
+    const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&gid=${GID}`;
     const resp = await fetch(url);
     if (!resp.ok) return res.status(502).json({ error: `Planilha respondeu ${resp.status}` });
     const csv = await resp.text();
@@ -73,7 +74,7 @@ module.exports = async function handler(req, res) {
       const nome = (l[iNome] || '').trim();
       if (!nome) continue;
       const status = (iStatus > -1 ? l[iStatus] : '').trim();
-      if (status && status.toLowerCase() !== 'ativo') continue;
+      if (status.toLowerCase() !== 'ativo') continue; // só Ativo: inativos, "Outros" e sem status ficam de fora
       const chave = nome.toLowerCase();
       if (vistos.has(chave)) continue; // dedupe (planilha pode ter linha repetida)
       vistos.add(chave);
@@ -82,7 +83,7 @@ module.exports = async function handler(req, res) {
         cpf: iCpf > -1 ? (l[iCpf] || '').trim() || null : null,
         rg: iRg > -1 ? (l[iRg] || '').trim() || null : null,
         dataNascimento: iNasc > -1 ? dataISO(l[iNasc]) : null,
-        status: status || 'Ativo',
+        status,
       });
     }
 
