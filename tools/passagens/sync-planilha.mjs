@@ -230,6 +230,8 @@ function mapearPendente(row) {
     chave: chavePassagem(g(row, 'NOME'), g(row, 'DATA DE SOLICITAÇÃO'), g(row, 'PASSAGEM DE IDA'), g(row, 'DATA DE PARTIDA')),
     tipo: tipoTransporte(g(row, 'MEIO DE TRANSPORTE')),
     solicitante: g(row, 'QUEM SOLICITOU') || null,
+    pessoaSolicitou: g(row, 'QUEM SOLICITOU') || null,
+    cpf: g(row, 'CPF') || null, rg: g(row, 'RG') || null, dataNascimento: dataISO(g(row, 'DATA DE NASCIMENTO')),
     passageiro: g(row, 'NOME') || null,
     origem, destino,
     saida: dataISO(g(row, 'DATA DE PARTIDA')),
@@ -264,6 +266,8 @@ function mapearComprada(row) {
     chave,
     tipo: tipoTransporte(g(row, 'MEIO DE TRANSPORTE')),
     solicitante: g(row, 'QUEM SOLICITOU') || null,
+    pessoaSolicitou: g(row, 'QUEM SOLICITOU') || null,
+    cpf: g(row, 'CPF') || null, rg: g(row, 'RG') || null, dataNascimento: dataISO(g(row, 'DATA DE NASCIMENTO')),
     passageiro: g(row, 'NOME') || null,
     origem, destino,
     saida: dataISO(g(row, 'DATA DE PARTIDA')),
@@ -357,6 +361,7 @@ async function upsertSolicitacao(db, fornecedores, dados, contadores) {
     data_compra: JSON.stringify(dados.dataCompra),
     num_bilhete: JSON.stringify(dados.numBilhete),
     planilha_aba: dados.planilhaAba,
+    cpf: dados.cpf || null, rg: dados.rg || null, data_nascimento: dados.dataNascimento || null, pessoa_solicitou: dados.pessoaSolicitou || null,
   };
 
   const fornecedorId = dados.fornecedor?.id || null;
@@ -370,11 +375,12 @@ async function upsertSolicitacao(db, fornecedores, dados, contadores) {
          tipo=$1, solicitante=$2, passageiro=$3, origem=$4, destino=$5, saida=$6, retorno=$7,
          motivo=$8, obs=$9, status=$10, orcamentos=$11, valor_final=$12, fornecedor=$13,
          data_compra=$14, num_bilhete=$15, planilha_aba=$16, planilha_chave=$19,
+         cpf=coalesce($20, cpf), rg=coalesce($21, rg), data_nascimento=coalesce($22, data_nascimento), pessoa_solicitou=coalesce($23, pessoa_solicitou),
          historico = coalesce(historico, '[]'::jsonb) || $17::jsonb
        where id = $18`,
       [patch.tipo, patch.solicitante, patch.passageiro, patch.origem, patch.destino, patch.saida, patch.retorno,
        patch.motivo, patch.obs, patch.status, patch.orcamentos, patch.valor_final, patch.fornecedor,
-       patch.data_compra, patch.num_bilhete, patch.planilha_aba, histEntry, existentes[0].id, dados.chave]
+       patch.data_compra, patch.num_bilhete, patch.planilha_aba, histEntry, existentes[0].id, dados.chave, patch.cpf, patch.rg, patch.data_nascimento, patch.pessoa_solicitou]
     );
     return { id: existentes[0].id, codigo: existentes[0].codigo, fornecedorId };
   }
@@ -388,12 +394,13 @@ async function upsertSolicitacao(db, fornecedores, dados, contadores) {
     `insert into passagens_solicitacoes
        (id, codigo, tipo, solicitante, passageiro, origem, destino, saida, retorno, motivo, obs, status,
         orcamentos, valor_final, fornecedor, data_compra, num_bilhete, historico,
-        planilha_chave, planilha_aba, origem_planilha, criado_em)
+        planilha_chave, planilha_aba, origem_planilha, criado_em, cpf, rg, data_nascimento, pessoa_solicitou)
      values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,true,
-             coalesce($21::timestamptz, now()))`,
+             coalesce($21::timestamptz, now()), $22,$23,$24,$25)`,
     [id, codigo, patch.tipo, patch.solicitante, patch.passageiro, patch.origem, patch.destino, patch.saida, patch.retorno,
      patch.motivo, patch.obs, patch.status, patch.orcamentos, patch.valor_final, patch.fornecedor,
-     patch.data_compra, patch.num_bilhete, historico, dados.chave, dados.planilhaAba, dados.criadoEm]
+     patch.data_compra, patch.num_bilhete, historico, dados.chave, dados.planilhaAba, dados.criadoEm,
+     patch.cpf, patch.rg, patch.data_nascimento, patch.pessoa_solicitou]
   );
   return { id, codigo, fornecedorId };
 }

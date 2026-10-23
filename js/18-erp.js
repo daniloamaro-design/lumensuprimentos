@@ -1265,7 +1265,7 @@ function pasExportarPDF() {
     head: [['Nº', 'Data solic.', 'Meio', 'Passageiro', 'Passagem de ida', 'Partida', 'Motivo', 'Quem solicitou', 'Menor orçamento / empresa']],
     body: lista.map((s, i) => [
       i + 1, frtDataBR(s.criadoEm), meio(s.tipo), s.passageiro || '—',
-      `${s.origem || '—'} → ${s.destino || '—'}`, frtDataBR(s.saida), s.motivo || '—', s.solicitante || '—', menorOrc(s),
+      `${s.origem || '—'} → ${s.destino || '—'}`, frtDataBR(s.saida), s.motivo || '—', s.pessoaSolicitou || s.solicitante || '—', menorOrc(s),
     ]),
     styles: { fontSize: 8, cellPadding: 2, overflow: 'linebreak' },
     headStyles: { fillColor: [0, 56, 117], textColor: 255 },
@@ -1334,7 +1334,11 @@ function abrirPasDetalhe(id) {
   document.getElementById('pas-det-body').innerHTML = `
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
       ${linha('Solicitante', frtEsc(s.solicitante || '—'))}
+      ${linha('Pessoa que solicitou', frtEsc(s.pessoaSolicitou || '—'))}
       ${linha('Passageiro', frtEsc(s.passageiro || '—'))}
+      ${linha('CPF', frtEsc(s.cpf || '—'))}
+      ${linha('RG', frtEsc(s.rg || '—'))}
+      ${linha('Data de nascimento', frtDataBR(s.dataNascimento))}
       ${linha('Tipo', frtEsc(s.tipo || '—'))}
       ${linha('Status', pasBadge(s.status))}
       ${linha('Saída', frtEsc(s.saida || '—'))}
@@ -2173,6 +2177,8 @@ async function loadPasNovaForm() {
   if (sol) sol.value = (typeof currentUserData !== 'undefined' && currentUserData?.name) || '';
   await popularPessoasPassagensList();
   popularCidadesBrasilList();
+  const pas = document.getElementById('pas-n-passageiro');
+  if (pas && !pas.dataset.dadosLigado) { pas.dataset.dadosLigado = '1'; ['input', 'change'].forEach(ev => pas.addEventListener(ev, pasPreencherDadosPassageiro)); }
 }
 window.loadPasNovaForm = loadPasNovaForm;
 
@@ -2194,12 +2200,24 @@ window.popularCidadesBrasilList = popularCidadesBrasilList;
 // Cache em pessoas_passagens (Supabase); sincroniza via api/sync-passageiros
 // (proxy server-side, evita CORS) sob demanda (botão) ou automaticamente
 // se o cache tiver mais de 24h quando a tela é aberta.
+// nome (minúsculo) → { cpf, rg, data_nascimento } da lista de pessoas; preenche CPF/RG/nascimento ao escolher o passageiro
+let _pasPessoas = new Map();
+function pasPreencherDadosPassageiro() {
+  const p = _pasPessoas.get(String(document.getElementById('pas-n-passageiro')?.value || '').trim().toLowerCase());
+  if (!p) return;
+  document.getElementById('pas-n-cpf').value = p.cpf || '';
+  document.getElementById('pas-n-rg').value = p.rg || '';
+  document.getElementById('pas-n-nascimento').value = String(p.data_nascimento || '').slice(0, 10);
+}
+window.pasPreencherDadosPassageiro = pasPreencherDadosPassageiro;
+
 async function popularPessoasPassagensList() {
   const dl = document.getElementById('pas-n-pessoas-list');
   const info = document.getElementById('pas-n-sync-info');
   try {
-    const { data, error } = await window._sb.from('pessoas_passagens').select('nome, sincronizado_em').order('nome');
+    const { data, error } = await window._sb.from('pessoas_passagens').select('nome, cpf, rg, data_nascimento, sincronizado_em').order('nome');
     if (error) throw error;
+    _pasPessoas = new Map((data || []).map(p => [String(p.nome || '').trim().toLowerCase(), p]));
     if (dl) dl.innerHTML = (data || []).map(p => `<option value="${frtEsc(p.nome)}">`).join('');
     const ultima = data && data.length ? data[0].sincronizado_em : null;
     if (info) info.textContent = ultima ? `Lista atualizada em ${frtDataBR(ultima)}` : 'Lista de pessoas ainda não sincronizada — clique em 🔄';
@@ -2259,7 +2277,8 @@ async function salvarPasSolicitacao() {
   const saida = document.getElementById('pas-n-saida').value;
   const turno = document.getElementById('pas-n-turno').value;
   const motivo = document.getElementById('pas-n-motivo').value;
-  if (!passageiro || !origem || !destino || !saida || !turno || !motivo) {
+  const pessoaSolicitou = document.getElementById('pas-n-pessoa-solicitou').value.trim();
+  if (!passageiro || !pessoaSolicitou || !origem || !destino || !saida || !turno || !motivo) {
     return showToast('⚠️ Preencha todos os campos obrigatórios (*).');
   }
   const nome = (typeof currentUserData !== 'undefined' && currentUserData?.name) || '';
@@ -2270,7 +2289,11 @@ async function salvarPasSolicitacao() {
       codigo: pasGerarCodigo(), tipo,
       solicitante: nome,
       solicitanteUid: (typeof currentUserData !== 'undefined' && currentUserData?.id) || null,
-      passageiro, origem, destino, saida,
+      passageiro, pessoaSolicitou,
+      cpf: document.getElementById('pas-n-cpf').value.trim(),
+      rg: document.getElementById('pas-n-rg').value.trim(),
+      dataNascimento: document.getElementById('pas-n-nascimento').value || '',
+      origem, destino, saida,
       retorno: document.getElementById('pas-n-retorno').value || '',
       turno, motivo,
       bagagem: document.getElementById('pas-n-bagagem').value,
@@ -2283,7 +2306,7 @@ async function salvarPasSolicitacao() {
       criadoEm: firebase.firestore.FieldValue.serverTimestamp(),
     });
     showToast('✅ Solicitação enviada! ✈️');
-    ['pas-n-passageiro', 'pas-n-origem', 'pas-n-destino', 'pas-n-saida', 'pas-n-retorno', 'pas-n-pix', 'pas-n-obs'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+    ['pas-n-passageiro', 'pas-n-pessoa-solicitou', 'pas-n-cpf', 'pas-n-rg', 'pas-n-nascimento', 'pas-n-origem', 'pas-n-destino', 'pas-n-saida', 'pas-n-retorno', 'pas-n-pix', 'pas-n-obs'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
     _pasCache = []; // força recarga da lista
     goPage('pas-solicitacoes');
   } catch (e) {
