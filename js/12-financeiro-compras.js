@@ -1906,22 +1906,40 @@ function _caMapaDocs(){
 function _caMontarLinhas(dados, mapaDocs){
   const header = ['Data de Competência','Data de Vencimento','Data de Pagamento','Valor','Categoria','Descrição','Cliente/Fornecedor','CNPJ/CPF Cliente/Fornecedor','Centro de Custo','Observações'];
   const linhas = [header];
+  // Mesmo layout/regras da planilha de "Solicitar Pagamento" (js/28-solicitar-pagamento.js, spgExportar):
+  // competência = data da compra, vencimento = vencimento do lançamento (ou +7 dias),
+  // descrição "Pedido X — Fornecedor" / "Passagem X — Passageiro (trajeto)", Obs = observação.
+  const dia = ms => { if (!(ms > 0)) return null; const t = new Date(ms); return new Date(t.getFullYear(), t.getMonth(), t.getDate()); };
+  const vencDe = d => {
+    const s = String(d.vencimentoStr || '').trim();
+    let m = /^(\d{4})-(\d{2})-(\d{2})/.exec(s); if (m) return new Date(+m[1], +m[2]-1, +m[3]);
+    m = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(s); if (m) return new Date(+m[3], +m[2]-1, +m[1]);
+    const n = Number(d.vencimentoSerial);
+    return n > 0 ? dia(n > 1e7 ? n : (n - 25569) * 86400000) : null;
+  };
+  const FIX_PAS = { cat: '2.5.5 Transporte - Missionários', cc: 'Set. Comunidade de Vida' };
+  const FIX_FRT = { cat: '2.4.3 Frete', cc: 'Centro Administrativo' };
   dados.forEach(d => {
-    const dtComp = excelSerialToDate(d.dataCompraSerial) || excelSerialToDate(d.vencimentoSerial);
-    const dtVenc = excelSerialToDate(d.vencimentoSerial) || dtComp;
+    const dtComp = dia(_finDataMs(d)) || dia(new Date(d.createdAt || '').getTime()) || dia(Date.now());
+    const dtVenc = vencDe(d) || new Date(dtComp.getTime() + 7 * 86400000);
     const valor  = -Math.abs(parseFloat(d.valor) || 0);                 // saída = negativo
-    const cat    = String(d.classificacao||'').trim();                  // Categoria = classificação do lançamento
     const forn   = String(d.fornecedor||'').trim();
     const dest   = String(d.destinatario||'').trim();
+    const ref    = String(d.pedidoRef || '').trim();
     const docFis = mapaDocs.get(_caNorm(forn)) || '';                   // CNPJ/CPF do cadastro (branco se não houver)
-    const periodo = (d.mes||d.ano) ? ` (${String(d.mes||'').trim()}${d.mes&&d.ano?'/':''}${d.ano||''})` : '';
-    const desc   = ([cat,dest].filter(Boolean).join(' - ') || 'Lançamento') + periodo;
-    const obsP   = [];
-    if (d.pedidoRealizado) obsP.push(String(d.pedidoRealizado).trim());
-    obsP.push(FIN_PAGO(d.pago) ? 'Pago' : 'Pendente');
-    // Centro de Custo: prefere o vínculo direto do lançamento, cai na casa de destino como fallback
-    const cc = String(d.centroCustoNome || d.centroCusto || dest || '').trim();
-    linhas.push([ dtComp || '', dtVenc || '', '', valor, String(d.categoriaConta || cat).trim(), desc, forn, docFis, cc, obsP.join(' | ') ]);
+    const fix    = d.modulo === 'passagens' ? FIX_PAS : d.modulo === 'frete' ? FIX_FRT : null;
+    let desc;
+    if (d.modulo === 'passagens') {
+      const s = (typeof _pasCache !== 'undefined' ? _pasCache : []).find(x => x.id === d.pedidoId || x.codigo === ref) || {};
+      desc = `Passagem ${ref || s.codigo || ''} — ${s.passageiro || dest || ''}` + (s.origem ? ` (${s.origem} → ${s.destino || ''})` : '');
+    } else if (d.modulo === 'frete') {
+      desc = `Frete ${ref} — ${dest || forn}`;
+    } else {
+      desc = ref ? `Pedido ${ref} — ${forn}` : ([String(d.classificacao||'').trim(), dest].filter(Boolean).join(' - ') || 'Lançamento');
+    }
+    const cat = String(d.categoriaConta || (fix && fix.cat) || d.classificacao || '').trim();
+    const cc  = String(d.centroCustoNome || d.centroCusto || (fix && fix.cc) || dest || '').trim();
+    linhas.push([ dtComp, dtVenc, '', valor, cat, desc, forn, docFis, cc, String(d.obs || d.pedidoRealizado || '').trim() ]);
   });
   return linhas;
 }
@@ -1937,7 +1955,7 @@ async function exportarContaAzulExcel(dados, nomeArquivo){
     const h = ws['H' + (r+1)];
     if (h && h.v !== undefined && h.v !== '') { h.t='s'; h.v = String(h.v); }
   }
-  ws['!cols'] = [{wch:18},{wch:18},{wch:18},{wch:12},{wch:18},{wch:48},{wch:30},{wch:24},{wch:20},{wch:30}];
+  ws['!cols'] = [{wch:18},{wch:18},{wch:18},{wch:12},{wch:26},{wch:44},{wch:30},{wch:24},{wch:24},{wch:30}];
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Dados');
   XLSX.writeFile(wb, nomeArquivo, { cellDates:true });
