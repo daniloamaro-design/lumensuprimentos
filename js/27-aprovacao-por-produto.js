@@ -121,7 +121,7 @@ function _apfRenderizar() {
   }).join('');
 
   const rodape = detalhadas.map(q => `<td style="padding:8px 10px;border-top:2px solid var(--border);border-left:1px solid var(--border);vertical-align:top;">
-      <div id="apf-tot-${q.id}" style="font-size:15px;font-weight:800;"></div><div id="apf-qtd-${q.id}" style="font-size:11px;color:var(--text-muted);"></div></td>`).join('');
+      <div id="apf-tot-${q.id}" style="font-size:15px;font-weight:800;"></div><div id="apf-qtd-${q.id}" style="font-size:11px;color:var(--text-muted);"></div><button class="btn btn-outline btn-sm" style="margin-top:8px;" onclick="apfBaixarPedido('${q.id}')">📄 Baixar pedido (PDF)</button></td>`).join('');
 
   document.getElementById('apf-body').innerHTML = `
     <div style="font-size:12px;color:var(--text-muted);margin-bottom:10px;">
@@ -142,7 +142,8 @@ function _apfRenderizar() {
 
   const ft = document.getElementById('apf-footer');
   ft.innerHTML = `<button class="btn btn-outline" onclick="closeModal('modal-apf')">Fechar</button>
-    ${detalhadas.length ? `<button class="btn btn-secondary" onclick="apfSalvarSelecao()">💾 Salvar seleção (Coordenador)</button>
+    ${detalhadas.length ? `<button class="btn btn-outline" onclick="apfBaixarTodos()">📄 Baixar todos os pedidos</button>
+    <button class="btn btn-secondary" onclick="apfSalvarSelecao()">💾 Salvar seleção (Coordenador)</button>
     <button class="btn btn-primary" onclick="apfAprovarEliberar()">✅ Aprovar e liberar pedido (Gerente)</button>` : ''}`;
   _apfRecalcular();
 }
@@ -184,6 +185,57 @@ function _apfRecalcular() {
   if (el) el.innerHTML = `<b>Total a comprar:</b> ${_apfBRL(total)} em ${partes.length} fornecedor(es)` +
     (falta.length ? ` &nbsp;·&nbsp; <span style="color:var(--warn,#d97706);font-weight:700;">⚠️ ${falta.length} produto(s) sem escolha: ${falta.map(i => _apfEsc(i.nome)).join(', ')}</span>` : ' &nbsp;·&nbsp; <span style="color:var(--ok);font-weight:700;">✓ todos os produtos definidos</span>');
 }
+
+// ── PDF do pedido por fornecedor (pra enviar a cada empresa) ────────────
+// Usa a seleção atual da tela: só os itens escolhidos pra aquele fornecedor,
+// com a quantidade e o preço que ele cotou. Sem o preço de outros fornecedores.
+function _apfPdfFornecedor(parte) {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+  const blue = [0, 56, 117], gray = [107, 114, 128];
+  const { pedido } = _apf, q = parte.cot;
+  const fmt = n => 'R$ ' + (Number(n) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  doc.setFillColor(...blue); doc.rect(0, 0, 210, 30, 'F');
+  doc.setTextColor(255, 255, 255); doc.setFont('helvetica', 'bold'); doc.setFontSize(15);
+  doc.text('Obra Lumen — Pedido de Compra', 14, 13);
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(9);
+  doc.text(`Fornecedor: ${q.fornecedorNome || ''}`, 14, 21);
+  doc.text(`Pedido: ${pedido.code || pedido.id}   |   Casa de entrega: ${pedido.house || ''}   |   Data: ${new Date().toLocaleDateString('pt-BR')}`, 14, 27);
+  const body = parte.chaves.map(k => {
+    const it = _apf.itens.find(x => x.key === k);
+    const f = _apfQ(q, k, it.qty), p = _apfPreco(q, k);
+    return [it.nome + (f.obs ? `\n${f.obs}` : ''), it.unidade, String(f.qtd), fmt(p), fmt(p * f.qtd)];
+  });
+  doc.autoTable({
+    startY: 38,
+    head: [['Produto', 'Unid.', 'Qtd.', 'Valor unit.', 'Total']],
+    body,
+    foot: [[{ content: 'TOTAL DO PEDIDO', colSpan: 4, styles: { halign: 'right' } }, fmt(parte.valor)]],
+    theme: 'grid',
+    styles: { fontSize: 9, cellPadding: 2.5 },
+    headStyles: { fillColor: blue, textColor: 255 },
+    footStyles: { fillColor: [230, 238, 248], textColor: blue, fontStyle: 'bold' },
+    columnStyles: { 1: { cellWidth: 18 }, 2: { cellWidth: 18, halign: 'right' }, 3: { cellWidth: 30, halign: 'right' }, 4: { cellWidth: 32, halign: 'right' } },
+    margin: { left: 14, right: 14 },
+  });
+  doc.setTextColor(...gray); doc.setFontSize(7);
+  doc.text('Gerado pelo Sistema Suprimentos Obra Lumen — lumenserfeliz.org', 14, 290);
+  const slug = s => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9]+/g, '-').replace(/^-|-$/g, '');
+  doc.save(`Pedido-${slug(pedido.code || pedido.id)}-${slug(q.fornecedorNome)}.pdf`);
+}
+
+function apfBaixarPedido(qid) {
+  const parte = _apfPartes().find(p => p.cot.id === qid);
+  if (!parte) { showToast('Esse fornecedor ainda não tem nenhum produto escolhido.'); return; }
+  _apfPdfFornecedor(parte);
+}
+async function apfBaixarTodos() {
+  const partes = _apfPartes();
+  if (!partes.length) { showToast('Escolha os produtos de cada fornecedor primeiro.'); return; }
+  for (const p of partes) { _apfPdfFornecedor(p); await new Promise(r => setTimeout(r, 600)); }
+  showToast(`✅ ${partes.length} pedido(s) gerado(s), um PDF por fornecedor.`);
+}
+window.apfBaixarPedido = apfBaixarPedido; window.apfBaixarTodos = apfBaixarTodos;
 
 // ── Etapa 1: coordenador salva a seleção ────────────────────────────────
 async function apfSalvarSelecao(silencioso) {
