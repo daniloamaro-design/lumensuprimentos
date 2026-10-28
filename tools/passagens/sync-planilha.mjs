@@ -409,6 +409,15 @@ async function upsertFinanceiro(db, f, contadores) {
   if (!f) return;
   const { rows: existentes } = await db.query('select id from compras_financeiro where chave_unica = $1', [f.chave]);
   if (existentes.length) { contadores.finExistentes++; return; } // já lançado, não sobrescreve (financeiro é sensível)
+  // A chave muda com o texto do mês ("SET." x "SETEMBRO") e com centavos; sem esta checagem o mesmo
+  // bilhete era lançado de novo (e voltava como pendente depois de apagado ou pago). Mesmo código +
+  // mesmo valor (até 5 centavos) = já está lançado.
+  if (f.pedidoRef) {
+    const { rows: mesmo } = await db.query(
+      `select id from compras_financeiro where modulo='passagens' and pedido_ref = $1 and abs(valor - $2) <= 0.05 limit 1`,
+      [f.pedidoRef, parseFloat(f.valor) || 0]);
+    if (mesmo.length) { contadores.finExistentes++; return; }
+  }
   contadores.finNovos++;
   if (DRY_RUN) return;
   await db.query(
