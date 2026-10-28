@@ -85,7 +85,7 @@ window.loadPasSolPagamento = () => spgCarregar('pas');
 // Carrega as listas de Gerenciar Categorias / Gerenciar Centro de Custo e sugere o valor
 // de cada linha (categoria pela categoria do pedido; centro de custo pelo do pedido).
 async function _spgPreparar(lista) {
-  if (!_spgListas.categorias.length) {
+  {
     // Categoria contábil = lista de "Gerenciar Centro de Custo → Categorias" (a mesma escolhida no detalhe do pedido).
     const sc = await db.collection('centro_custo_categorias').get();
     _spgListas.categorias = sc.docs.map(d => ({ id: d.id, ...d.data() })).filter(x => x.nome);
@@ -94,7 +94,7 @@ async function _spgPreparar(lista) {
     const pc = await db.collection('categorias').get();
     _spgListas.catProduto = Object.fromEntries(pc.docs.map(d => [d.id, d.data().nome]));
   }
-  if (!_spgListas.centros.length) {
+  {
     const cc = await db.collection('centros_custo').orderBy('nome', 'asc').get();
     _spgListas.centros = cc.docs.map(d => ({ id: d.id, ...d.data() }));
   }

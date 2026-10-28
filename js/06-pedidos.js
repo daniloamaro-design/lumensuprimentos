@@ -1892,6 +1892,13 @@ async function saveAttachment() {
   if (!currentDetailOrderId) return;
   const orderId = currentDetailOrderId; // captura já aqui: currentDetailOrderId pode mudar
                                          // (usuário abre outro pedido) enquanto o upload roda
+  // NF complementar sem valor não vira lançamento no Financeiro (fica de fora
+  // sem aviso) — exige o valor antes de salvar.
+  const nfExtraSemValor = _attachNfExtras.findIndex(r => (r.file || r.fileName) && !(parseFloat(r.valor) > 0));
+  if (nfExtraSemValor >= 0) {
+    showToast(`⚠️ Informe o valor da NF complementar ${nfExtraSemValor + 2} — sem valor ela não entra no Financeiro.`);
+    return;
+  }
   setBtnLoading('btn-save-attach', true);
   const parteIdx = _attachDividido() ? _attachParteIdx : null;
   const parteAtual = parteIdx != null ? detailOrderData.divisaoFornecedores.partes[parteIdx] : null;

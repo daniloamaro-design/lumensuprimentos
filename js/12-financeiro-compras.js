@@ -74,6 +74,53 @@ function _finNormalizarMes(rawMes, dataSerial) {
   return _FIN_MES_ABREV[up] || up;
 }
 
+// Data do lançamento em ms, qualquer que seja o formato gravado: ISO (dataCompra),
+// texto dd/mm/aaaa ou m/d/aa (Passagens), ou dataCompraSerial — que veio em
+// serial Excel (dias) da importação e em ms dos lançamentos automáticos.
+function _finDataMs(d) {
+  if (d.dataCompra) {
+    const t = new Date(String(d.dataCompra)).getTime();
+    if (!isNaN(t)) return t;
+  }
+  const m = /^(\d{1,2})\/(\d{1,2})\/(\d{2}|\d{4})$/.exec(String(d.dataCompraStr || '').trim());
+  if (m) {
+    let a = +m[1], b = +m[2], y = +m[3];
+    const curto = m[3].length === 2;
+    if (curto) y += 2000;
+    const usa = a > 12 ? false : b > 12 ? true : curto;
+    const t = new Date(y, (usa ? a : b) - 1, usa ? b : a).getTime();
+    if (!isNaN(t)) return t;
+  }
+  const s = Number(d.dataCompraSerial);
+  if (s > 0) return s > 1e7 ? s : (s - 25569) * 86400000;
+  return 0;
+}
+
+// Mês/ano do lançamento: o gravado, ou derivado da data quando vier vazio
+// (sem isso o lançamento some de qualquer filtro de mês/ano).
+function _finMes(d) {
+  const raw = String(d.mes || '').toUpperCase().trim();
+  if (raw) return _FIN_MES_ABREV[raw] || raw;
+  const t = _finDataMs(d);
+  return t ? _FIN_MESES_UP[new Date(t).getMonth()] : '';
+}
+function _finAno(d) {
+  if (d.ano) return String(d.ano);
+  const t = _finDataMs(d);
+  return t ? String(new Date(t).getFullYear()) : '';
+}
+function _finDataExibicao(d) {
+  const t = _finDataMs(d);
+  return t ? new Date(t).toLocaleDateString('pt-BR') : (d.dataCompraStr || '—');
+}
+
+// Classificação chega com variações de acento/caixa/plural ("Proteína"/
+// "Proteina", "Gás"/"GÁS", "Diverso"/"Diversas"/"Diversos").
+function _finClassNorm(s) {
+  const n = String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
+  return /^divers[oa]s?$/.test(n) ? 'diversos' : n;
+}
+
 // ── Inicializa a página ────────────────────────────────────
 async function initFinanceiroCompras() {
   finSetTab('painel', document.getElementById('fin-tab-painel'));
@@ -182,15 +229,48 @@ function _finNomeResolvido(nomeTexto) {
 }
 
 function finPopularFiltrosDinamicos() {
-  const forns = [...new Set(finDados.map(d => _finNomeResolvido(d.fornecedor)).filter(Boolean))].sort();
-  const casas  = [...new Set(finDados.map(d => d.destinatario).filter(Boolean))].sort();
+  // Todos os fornecedores do cadastro entram no filtro, mesmo sem lançamento
+  // ainda, mais os nomes em texto livre que aparecem nos lançamentos.
+  const cadastrados = (typeof suppliersCache !== 'undefined' ? suppliersCache : []).map(s => (s.nome || '').trim());
+  const forns = [...new Set([...finDados.map(d => _finNomeResolvido(d.fornecedor)), ...cadastrados].filter(Boolean))]
+    .sort((a, b) => a.localeCompare(b, 'pt-BR'));
+  const casas  =[...new Set(finDados.map(d => d.destinatario).filter(Boolean))].sort();
 
   const selF = document.getElementById('fin-filtro-forn');
   const selC = document.getElementById('fin-filtro-casa');
   const selNFc = document.getElementById('fin-nf-casa');
-  if (selF) { selF.innerHTML = '<option value="">Todos</option>' + forns.map(f => `<option>${f}</option>`).join(''); }
+  if (selF) {
+    const atual = selF.value;
+    const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+    selF.innerHTML = '<option value="">Todos</option>' + forns.map(f => `<option value="${esc(f)}">${esc(f)}</option>`).join('');
+    if (atual && forns.includes(atual)) selF.value = atual;
+  }
   if (selC) { selC.innerHTML = '<option value="">Todas</option>' + casas.map(c => `<option>${c}</option>`).join(''); }
   if (selNFc) { selNFc.innerHTML = '<option value="">Todas</option>' + casas.map(c => `<option>${c}</option>`).join(''); }
+
+  // Ano e Classificação saíam de listas fixas (2024–2026 / 6 classes) que não
+  // cobriam os dados reais — lançamentos de Passagem, Frete, Material de
+  // Limpeza etc. nunca eram filtráveis e 2027 não existiria.
+  const anos = [...new Set([...finDados.map(_finAno).filter(Boolean), String(new Date().getFullYear())])].sort();
+  ['fin-filtro-ano', 'pag-filtro-ano'].forEach(id => {
+    const el = document.getElementById(id); if (!el) return;
+    const atual = el.value;
+    el.innerHTML = '<option value="">Todos</option>' + anos.map(a => `<option>${a}</option>`).join('');
+    if (atual && anos.includes(atual)) el.value = atual;
+  });
+  const selCls = document.getElementById('fin-filtro-class');
+  if (selCls) {
+    const porChave = new Map();
+    finDados.forEach(d => {
+      const c = String(d.classificacao || '').trim(); if (!c) return;
+      const k = _finClassNorm(c);
+      if (!porChave.has(k) || (/[^\x00-\x7f]/.test(c) && !/[^\x00-\x7f]/.test(porChave.get(k)))) porChave.set(k, c);
+    });
+    const opts = [...porChave.values()].sort((a, b) => a.localeCompare(b, 'pt-BR'));
+    const atual = selCls.value;
+    selCls.innerHTML = '<option value="">Todas</option>' + opts.map(c => `<option>${c}</option>`).join('');
+    if (atual && opts.includes(atual)) selCls.value = atual;
+  }
 }
 
 function v(id) { const el = document.getElementById(id); return el ? el.value : ''; }
@@ -205,11 +285,11 @@ function finFiltrarBase(dados, { semModulo } = {}) {
   const modulo = semModulo ? '' : v('fin-filtro-modulo');
 
   return dados.filter(d => {
-    if (mes  && d.mes  !== mes)  return false;
-    if (ano  && String(d.ano) !== String(ano)) return false;
+    if (mes  && _finMes(d) !== mes)  return false;
+    if (ano  && _finAno(d) !== String(ano)) return false;
     if (forn && _finNomeResolvido(d.fornecedor) !== forn) return false;
     if (casa && d.destinatario !== casa) return false;
-    if (cls  && d.classificacao !== cls)  return false;
+    if (cls  && _finClassNorm(d.classificacao) !== _finClassNorm(cls))  return false;
     if (pago === 'Sim' && !FIN_PAGO(d.pago)) return false;
     if (pago === 'nao' && FIN_PAGO(d.pago)) return false;
     if (modulo && (d.modulo || 'suprimentos') !== modulo) return false;
@@ -273,8 +353,8 @@ function finAtualizarStats(dados) {
   elStyle('fin-s-pend-bar', 'width', pctPend.toFixed(1) + '%');
 
   // Período
-  const meses = [...new Set(dados.map(d => d.mes).filter(Boolean))];
-  const anos  = [...new Set(dados.map(d => d.ano).filter(Boolean))];
+  const meses = [...new Set(dados.map(_finMes).filter(Boolean))];
+  const anos  = [...new Set(dados.map(_finAno).filter(Boolean))];
   const el2 = document.getElementById('fin-s-periodo');
   if (el2) el2.textContent = meses.length > 0 ? meses.join(', ') + ' / ' + anos.join(', ') : '—';
 
@@ -292,11 +372,11 @@ function finRenderizarTabela(dados) {
   }
   const sort = document.getElementById('fin-sort')?.value || 'data-desc';
   dados = dados.slice().sort((a, b) => {
-    if (sort === 'data-asc')   return String(a.dataCompraStr||'').localeCompare(String(b.dataCompraStr||''));
+    if (sort === 'data-asc')   return _finDataMs(a) - _finDataMs(b);
     if (sort === 'alpha')      return String(a.fornecedor||'').localeCompare(String(b.fornecedor||''), 'pt-BR');
     if (sort === 'valor-desc') return (Number(b.valor)||0) - (Number(a.valor)||0);
     if (sort === 'valor-asc')  return (Number(a.valor)||0) - (Number(b.valor)||0);
-    return String(b.dataCompraStr||'').localeCompare(String(a.dataCompraStr||'')); // data-desc
+    return _finDataMs(b) - _finDataMs(a); // data-desc
   });
   const pagObj = paginar(dados, finPage);
   tb.innerHTML = pagObj.itens.map(d => {
@@ -314,8 +394,8 @@ function finRenderizarTabela(dados) {
       <td style="font-weight:700;">${d.fornecedor||'—'} <button onclick="finVerOrigem('${d.id}')" title="Ver detalhes do pedido" style="background:var(--surface);border:1px solid var(--border);border-radius:5px;cursor:pointer;font-size:13px;padding:2px 6px;vertical-align:middle;color:#fff;">👁️ Ver</button> <button onclick="finAbrirEdicaoLancamento('${d.id}')" title="Editar lançamento" style="background:var(--surface);border:1px solid var(--border);border-radius:5px;cursor:pointer;font-size:13px;padding:2px 6px;vertical-align:middle;color:#fff;">✏️ Editar</button></td>
       <td><span class="block-badge">${d.classificacao||'—'}</span></td>
       <td>${d.destinatario||'—'}</td>
-      <td style="font-size:11px;color:var(--text-muted);">${d.mes||''}/${d.ano||''}</td>
-      <td style="font-size:11px;">${d.dataCompraStr||'—'}</td>
+      <td style="font-size:11px;color:var(--text-muted);">${_finMes(d)}/${_finAno(d)}</td>
+      <td style="font-size:11px;">${_finDataExibicao(d)}</td>
       <td style="font-size:11px;">${vencBR(d.vencimentoStr)||'—'}</td>
       <td style="text-align:center;font-size:11px;color:var(--text-muted);">${d.diasPrazo||'—'}d</td>
       <td class="td-r" style="color:var(--lumen);">${FMT_FIN(d.valor)}</td>
@@ -371,7 +451,8 @@ function finAtualizarGraficos(dados) {
   const ORDEM_MESES = ['JANEIRO','FEVEREIRO','MARÇO','ABRIL','MAIO','JUNHO','JULHO','AGOSTO','SETEMBRO','OUTUBRO','NOVEMBRO','DEZEMBRO'];
   const porMes = {};
   dados.forEach(d => {
-    const chave = (d.mes||'').toUpperCase() + '/' + (d.ano||'');
+    if (!_finMes(d) || !_finAno(d)) return;
+    const chave = _finMes(d) + '/' + _finAno(d);
     porMes[chave] = (porMes[chave]||0) + (parseFloat(d.valor)||0);
   });
   const mensalEntries = Object.entries(porMes).sort(([a],[b]) => {
@@ -1188,7 +1269,7 @@ function finExportarExcel() {
   if (!dados.length) { showToast('Nenhum dado para exportar!'); return; }
   const rows = [['Fornecedor','Classificação','Destinatário','Mês','Ano','Data Compra','Vencimento','Prazo','Valor','Pago','Lançado SP']];
   dados.forEach(d => {
-    rows.push([d.fornecedor||'',d.classificacao||'',d.destinatario||'',d.mes||'',d.ano||'',d.dataCompraStr||'',vencBR(d.vencimentoStr)||'',d.diasPrazo||0,parseFloat(d.valor)||0,d.pago||'',d.lancadoSP||'']);
+    rows.push([d.fornecedor||'',d.classificacao||'',d.destinatario||'',_finMes(d),_finAno(d),_finDataExibicao(d),vencBR(d.vencimentoStr)||'',d.diasPrazo||0,parseFloat(d.valor)||0,d.pago||'',d.lancadoSP||'']);
   });
   const ws = XLSX.utils.aoa_to_sheet(rows);
   ws['!cols'] = rows[0].map(() => ({ wch: 18 }));
@@ -1263,8 +1344,8 @@ function _pagBaseFiltrada() {
   return finDados.filter(d => {
     if (modulo && (d.modulo || 'suprimentos') !== modulo) return false;
     if (forn && _finNomeResolvido(d.fornecedor) !== forn) return false;
-    if (mes  && d.mes !== mes)         return false;
-    if (ano  && String(d.ano) !== ano) return false;
+    if (mes  && _finMes(d) !== mes)         return false;
+    if (ano  && _finAno(d) !== String(ano)) return false;
     return true;
   });
 }
@@ -1278,7 +1359,7 @@ function pagAtualizarResumo() {
   const pendentes = base.filter(d => !FIN_PAGO(d.pago));
   const vencidos  = pendentes.filter(d => d.vencimentoSerial && d.vencimentoSerial < hoje);
   const pagosMes  = base.filter(d => FIN_PAGO(d.pago) &&
-    String(d.mes).toUpperCase() === mesAtual && parseInt(d.ano) === anoAtual);
+    _finMes(d) === mesAtual && parseInt(_finAno(d)) === anoAtual);
 
   const el = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };
 
@@ -1350,8 +1431,8 @@ function _pagValorOrdenacao(d, col) {
     case 'classificacao':  return (d.classificacao || '').toLowerCase();
     case 'destinatario':   return (d.destinatario || '').toLowerCase();
     case 'mesAno': {
-      const idxMes = (MESES_PT || []).findIndex(m => (m || '').toUpperCase() === String(d.mes || '').toUpperCase());
-      return (Number(d.ano) || 0) * 100 + (idxMes >= 0 ? idxMes + 1 : 0);
+      const idxMes = _FIN_MESES_UP.indexOf(_finMes(d));
+      return (Number(_finAno(d)) || 0) * 100 + (idxMes >= 0 ? idxMes + 1 : 0);
     }
     case 'vencimento':     return d.vencimentoSerial ?? null;
     case 'valor':          return Number(d.valor) || 0;
@@ -1436,7 +1517,7 @@ function pagRenderizarTabela() {
       <td style="font-weight:700;white-space:nowrap;">${d.fornecedor||'—'} <button onclick="finVerOrigem('${d.id}')" title="Ver detalhes do pedido" style="background:var(--surface);border:1px solid var(--border);border-radius:5px;cursor:pointer;font-size:13px;padding:2px 6px;vertical-align:middle;color:#fff;">👁️ Ver</button> <button onclick="finAbrirEdicaoLancamento('${d.id}')" title="Editar lançamento" style="background:var(--surface);border:1px solid var(--border);border-radius:5px;cursor:pointer;font-size:13px;padding:2px 6px;vertical-align:middle;color:#fff;">✏️ Editar</button></td>
       <td><span class="block-badge">${d.classificacao||'—'}</span></td>
       <td style="font-size:12px;">${d.destinatario||'—'}</td>
-      <td style="font-size:11px;color:var(--text-muted);white-space:nowrap;">${d.mes||''}/${d.ano||''}</td>
+      <td style="font-size:11px;color:var(--text-muted);white-space:nowrap;">${_finMes(d)}/${_finAno(d)}</td>
       <td style="font-size:12px;white-space:nowrap;">${vencLabel}</td>
       <td style="text-align:right;font-weight:700;color:var(--lumen);white-space:nowrap;">${FMT_FIN(d.valor)}</td>
       <td style="font-size:11px;color:var(--text-muted);max-width:120px;">${d.pedidoRealizado||'—'}</td>
@@ -1550,6 +1631,7 @@ function finAbrirEdicaoLancamento(id) {
   document.getElementById('fin-edit-destinatario').value = reg.destinatario || '';
   document.getElementById('fin-edit-valor').value = reg.valor || '';
   document.getElementById('fin-edit-vencimento').value = vencBR(reg.vencimentoStr);
+  document.getElementById('fin-edit-obs').value = reg.pedidoRealizado || '';
   const aviso = document.getElementById('fin-edit-aviso');
   const modulo = reg.modulo || 'suprimentos';
   if (aviso) {
@@ -1571,6 +1653,7 @@ async function finSalvarEdicaoLancamento() {
   const classificacao = document.getElementById('fin-edit-classificacao').value.trim();
   const destinatario  = document.getElementById('fin-edit-destinatario').value.trim();
   const valor         = Number(document.getElementById('fin-edit-valor').value);
+  const pedidoRealizado = document.getElementById('fin-edit-obs').value.trim();
   let vencimentoStr = document.getElementById('fin-edit-vencimento').value.trim();
   // Mantém o formato de gravação do registro (ISO nos lançamentos novos, que outras telas leem assim)
   const _mBR = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(vencimentoStr);
@@ -1581,13 +1664,13 @@ async function finSalvarEdicaoLancamento() {
   const valorMudou  = Math.abs(valor - valorAntigo) > 0.005;
 
   try {
-    await db.collection('compras_financeiro').doc(id).update({ fornecedor, classificacao, destinatario, valor, vencimentoStr });
+    await db.collection('compras_financeiro').doc(id).update({ fornecedor, classificacao, destinatario, valor, vencimentoStr, pedidoRealizado });
     if (valorMudou) await _syncValorParaOrigem(reg, valor);
     // Lançamento ainda em aberto: a correção de valor muda o quanto o
     // fornecedor tem pendente (o pago não entra em "utilizado" — ver
     // _ajustarLimiteFornecedor).
     if (valorMudou && !FIN_PAGO(reg.pago)) await _ajustarLimiteFornecedor(reg.fornecedorId, valor - valorAntigo);
-    Object.assign(reg, { fornecedor, classificacao, destinatario, valor, vencimentoStr });
+    Object.assign(reg, { fornecedor, classificacao, destinatario, valor, vencimentoStr, pedidoRealizado });
 
     closeModal('modal-editar-lancamento');
     pagPopularFiltroFornecedor();
@@ -1779,7 +1862,7 @@ function pagExportarExcel() {
   if (!pagDadosFiltrados.length) { showToast('Nenhum dado para exportar!'); return; }
   const rows = [['Fornecedor','Classificação','Casa/Destinatário','Mês','Ano','Vencimento','Valor','Status','Lançado SP','Obs']];
   pagDadosFiltrados.forEach(d => {
-    rows.push([d.fornecedor||'',d.classificacao||'',d.destinatario||'',d.mes||'',d.ano||'',vencBR(d.vencimentoStr)||'',parseFloat(d.valor)||0,d.pago==='Sim'?'Pago':'Pendente',d.lancadoSP||'',d.pedidoRealizado||'']);
+    rows.push([d.fornecedor||'',d.classificacao||'',d.destinatario||'',_finMes(d),_finAno(d),vencBR(d.vencimentoStr)||'',parseFloat(d.valor)||0,FIN_PAGO(d.pago)?'Pago':'Pendente',d.lancadoSP||'',d.pedidoRealizado||'']);
   });
   const ws = XLSX.utils.aoa_to_sheet(rows);
   ws['!cols'] = rows[0].map((_,i) => ({ wch: i===0?22:i===6?14:16 }));

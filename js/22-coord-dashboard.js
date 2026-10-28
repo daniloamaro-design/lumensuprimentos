@@ -636,7 +636,7 @@ const _CD_FORN_ALIASES = {
   'GRANDES VIAGENS': 'Grandes Viagens', 'GRANDES VIAGENS TURISMO LTDA': 'Grandes Viagens',
   'CHIP VIAGENS': 'Chip Viagens',
   'GAMA E CRUZ COMERCIO': 'Gama e Cruz Comercio', 'GAMA E CRUZ COMERCIO VAREJISTA DE CARNES LTDA': 'Gama e Cruz Comercio',
-  'QUADROS CRIATIVOS': 'Quadros Criativos', 'FRANCISCA LINDALVA LIMA DE OLIVEIRA': 'Quadros Criativos',
+  'QUADROS CRIATIVOS': 'Quadros Criativos',
 };
 
 const _cdNormCNPJ = s => String(s || '').replace(/\D/g, '');

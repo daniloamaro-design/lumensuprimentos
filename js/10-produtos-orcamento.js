@@ -2079,8 +2079,25 @@ async function saveSupplier() {
 
   try {
     if (supplierEditId) {
+      // O Financeiro guarda uma cópia em texto do nome do fornecedor; renomear
+      // só o cadastro deixava os lançamentos com o nome antigo. Guarda o nome
+      // antigo como apelido (pedidos/cotações antigas continuam resolvendo) e
+      // propaga o novo nome pros lançamentos.
+      const antigo = ((suppliersCache.find(x => x.id === supplierEditId) || {}).nome || '').trim();
+      const renomeado = !!antigo && antigo !== nome;
+      if (renomeado && !data.apelidos.some(a => a.toLowerCase() === antigo.toLowerCase())) data.apelidos.push(antigo);
       await db.collection('suppliers').doc(supplierEditId).update(data);
-      showToast('✅ Fornecedor atualizado!');
+      let propagados = 0, falhou = false;
+      if (renomeado && window._sb) {
+        const novo = { fornecedor: nome, fornecedor_id: supplierEditId };
+        const porId   = await window._sb.from('compras_financeiro').update(novo).eq('fornecedor_id', supplierEditId).select('id');
+        const porNome = await window._sb.from('compras_financeiro').update(novo).is('fornecedor_id', null).eq('fornecedor', antigo).select('id');
+        falhou = !!(porId.error || porNome.error);
+        propagados = (porId.data || []).length + (porNome.data || []).length;
+      }
+      showToast(falhou ? '⚠️ Fornecedor atualizado, mas não consegui renomear nos lançamentos do Financeiro.'
+        : renomeado ? `✅ Fornecedor atualizado! Nome também alterado em ${propagados} lançamento(s) do Financeiro.`
+        : '✅ Fornecedor atualizado!');
     } else {
       data.createdAt = firebase.firestore.FieldValue.serverTimestamp();
       data.createdBy = currentUserData.name;
