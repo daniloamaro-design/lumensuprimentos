@@ -423,3 +423,6 @@ async function _caRenderHistorico() {
     <div style="font-size:12px;color:var(--text-muted);margin-bottom:10px;">Cada baixa guarda o consumo <b>previsto</b> (plano da casa) e o <b>real</b> lançado (com pessoas/itens editados). A comparação com a contagem física (auditoria) entra na próxima etapa.</div>
     ${linhas ? `<table style="width:100%;border-collapse:collapse;font-size:13px;"><thead><tr><th style="${th}text-align:left;">Dia</th><th style="${th}text-align:right;">Pessoas</th><th style="${th}text-align:right;">Previsto (soma)</th><th style="${th}text-align:right;">Lançado (soma)</th><th style="${th}text-align:right;">Diferença</th><th style="${th}text-align:center;">Editado</th><th style="${th}">Por</th></tr></thead><tbody>${linhas}</tbody></table>` : '<div class="cardapio-empty">Nenhuma baixa registrada para esta casa ainda.</div>'}</div>` + await _caHtmlAuditorias();
 }
+
+// A página precisa existir antes do primeiro clique no menu (goPage ignora páginas inexistentes).
+_caMontarPagina();
