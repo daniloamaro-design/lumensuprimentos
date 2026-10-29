@@ -1,7 +1,7 @@
 /* ══════════════════════════════════════════════════════════════════════
    Consumo Alimentar — novo método de cálculo dos suprimentos (Cereais e Proteínas)
    • Por casa: quantidade de cada cereal em 6 refeições (total diário e mensal).
-   • Cardápio semanal de proteínas (seg–dom × 6 refeições: proteína + quantidade).
+   • Proteínas: total da SEMANA (ex.: 80 Kg) dividido entre as proteínas (X Kg de frango, X Kg de carré…).
    • Baixa de estoque por dia (ou vários dias, ex.: sáb+dom na segunda), com opção de
      editar pessoas/quantidades para um evento isolado.
    • Cada baixa guarda previsto x real em consumo_baixas (base de gráficos/%).
@@ -91,7 +91,7 @@ async function caTrocarCasa() {
   const d = ps.empty ? null : ps.docs[0];
   _ca.planoId = d ? d.id : null;
   const p = d ? d.data() : {};
-  _ca.plano = { pessoasBase: p.pessoasBase || _ca.pessoasCasa || 0, diasMes: p.diasMes || 30, itens: p.itens || {}, cardapio: p.cardapio || {} };
+  _ca.plano = { pessoasBase: p.pessoasBase || _ca.pessoasCasa || 0, diasMes: p.diasMes || 30, itens: p.itens || {}, cardapio: p.cardapio || {}, proteinasSemana: p.proteinasSemana || { total: 0, itens: {} } };
   document.getElementById('ca-info-casa').innerHTML = `👥 Pessoas cadastradas na casa: <b>${_ca.pessoasCasa}</b>`;
   cont.style.display = '';
   caAba(_ca.aba);
@@ -100,7 +100,7 @@ window.caTrocarCasa = caTrocarCasa;
 
 function caAba(aba) {
   _ca.aba = aba;
-  const abas = [['consumo', '📋 Consumo por refeição'], ['cardapio', '🍗 Cardápio semanal de proteínas'], ['baixa', '📦 Baixa de estoque'], ['compras', '🛒 Compras sugeridas'], ['auditoria', '🔍 Auditoria'], ['historico', '📈 Previsto × Real']];
+  const abas = [['consumo', '📋 Consumo por refeição'], ['cardapio', '🥩 Proteínas da semana'], ['baixa', '📦 Baixa de estoque'], ['compras', '🛒 Compras sugeridas'], ['auditoria', '🔍 Auditoria'], ['historico', '📈 Previsto × Real']];
   document.getElementById('ca-abas').innerHTML = abas.map(([k, n]) =>
     `<button class="btn ${k === aba ? 'btn-primary' : 'btn-outline'} btn-sm" onclick="caAba('${k}')">${n}</button>`).join('');
   ({ consumo: _caRenderConsumo, cardapio: _caRenderCardapio, baixa: _caRenderBaixa, compras: _caRenderCompras, auditoria: _caRenderAuditoria, historico: _caRenderHistorico })[aba]();
@@ -116,11 +116,21 @@ function _caConsumoDia(dia /* 'seg'… */, fator = 1) {
     const q = _CA_REFEICOES.reduce((s, r) => s + _caNum(m?.[r.k]), 0);
     if (q > 0) out[key] = q * fator;
   });
-  const cd = pl.cardapio?.[dia] || {};
-  _CA_REFEICOES.forEach(r => {
-    const c = cd[r.k];
-    if (c && c.key && _caNum(c.qtd) > 0) out[c.key] = (out[c.key] || 0) + _caNum(c.qtd) * fator;
-  });
+  const sem = _caProtSemana();
+  Object.entries(sem).forEach(([k, kg]) => { if (kg > 0) out[k] = (out[k] || 0) + kg / 7 * fator; });
+  return out;
+}
+
+// Proteínas por semana {key: kg}. Vem do total semanal; se a casa só tiver o cardápio antigo
+// (seg–dom × refeição), usa a soma dele.
+function _caProtSemana() {
+  const pl = _ca.plano, out = {};
+  Object.entries(pl.proteinasSemana?.itens || {}).forEach(([k, kg]) => { if (_caNum(kg) > 0) out[k] = _caNum(kg); });
+  if (Object.keys(out).length) return out;
+  _CA_DIAS.forEach(d => _CA_REFEICOES.forEach(r => {
+    const c = pl.cardapio?.[d.k]?.[r.k];
+    if (c && c.key && _caNum(c.qtd) > 0) out[c.key] = (out[c.key] || 0) + _caNum(c.qtd);
+  }));
   return out;
 }
 
@@ -135,20 +145,13 @@ function _caRenderConsumo() {
       <td id="ca-d-${p.key}" style="text-align:right;font-weight:700;padding:0 8px;"></td><td id="ca-m-${p.key}" style="text-align:right;font-weight:700;padding:0 8px;"></td></tr>`;
   }).join('');
 
-  // proteínas: derivado do cardápio semanal (média diária por refeição)
-  const dias = pl.diasMes || 30;
-  const prot = {};
-  _CA_DIAS.forEach(d => _CA_REFEICOES.forEach(r => {
-    const c = pl.cardapio?.[d.k]?.[r.k];
-    if (c && c.key && _caNum(c.qtd) > 0) { (prot[c.key] = prot[c.key] || {})[r.k] = (prot[c.key][r.k] || 0) + _caNum(c.qtd); }
-  }));
+  // proteínas: derivado do total semanal
+  const dias = pl.diasMes || 30, prot = _caProtSemana();
   const linhasProt = Object.keys(prot).sort((a, b) => _caInfoProduto(a).nome.localeCompare(_caInfoProduto(b).nome, 'pt-BR')).map(key => {
-    const p = _caInfoProduto(key), semana = _CA_REFEICOES.reduce((s, r) => s + (prot[key][r.k] || 0), 0);
+    const p = _caInfoProduto(key), semana = prot[key];
     return `<tr><td style="padding:5px 8px;font-size:13px;">${_caEsc(p.nome)}</td><td style="text-align:center;font-size:12px;color:var(--text-muted);">${_caEsc(p.unidade)}</td>
-      ${_CA_REFEICOES.map(r => `<td style="text-align:center;font-size:12.5px;">${prot[key][r.k] ? _caFmt(prot[key][r.k] / 7) : ''}</td>`).join('')}
-      <td style="text-align:right;font-weight:700;padding:0 8px;">${_caFmt(semana / 7)}</td><td style="text-align:right;font-weight:700;padding:0 8px;">${_caFmt(semana / 7 * dias)}</td></tr>`;
+      <td style="text-align:right;font-weight:700;padding:0 8px;">${_caFmt(semana)}</td><td style="text-align:right;padding:0 8px;">${_caFmt(semana / 7)}</td><td style="text-align:right;font-weight:700;padding:0 8px;">${_caFmt(semana / 7 * dias)}</td></tr>`;
   }).join('');
-
   document.getElementById('ca-aba').innerHTML = `
     <div class="cardapio-card">
       <div style="display:flex;gap:18px;align-items:flex-end;flex-wrap:wrap;margin-bottom:10px;">
@@ -160,9 +163,9 @@ function _caRenderConsumo() {
     </div>
     <div class="cardapio-card" style="overflow-x:auto;"><h3>🌾 Cereais</h3>
       <table style="width:100%;border-collapse:collapse;"><thead><tr><th style="${th}text-align:left;">Item</th><th style="${th}">Unid.</th>${cab}<th style="${th}">Total diário</th><th style="${th}">Total mensal</th></tr></thead><tbody>${linhasCereal}</tbody></table></div>
-    <div class="cardapio-card" style="overflow-x:auto;"><h3>🥩 Proteínas <span style="font-size:12px;font-weight:400;color:var(--text-muted);">(calculadas pelo cardápio semanal — média por dia)</span></h3>
-      ${linhasProt ? `<table style="width:100%;border-collapse:collapse;"><thead><tr><th style="${th}text-align:left;">Item</th><th style="${th}">Unid.</th>${cab}<th style="${th}">Total diário</th><th style="${th}">Total mensal</th></tr></thead><tbody>${linhasProt}</tbody></table>`
-        : '<div class="cardapio-empty">Monte o cardápio semanal na aba "🍗 Cardápio semanal de proteínas".</div>'}</div>`;
+    <div class="cardapio-card" style="overflow-x:auto;"><h3>🥩 Proteínas <span style="font-size:12px;font-weight:400;color:var(--text-muted);">(definidas na aba "🥩 Proteínas da semana")</span></h3>
+      ${linhasProt ? `<table style="width:100%;border-collapse:collapse;"><thead><tr><th style="${th}text-align:left;">Item</th><th style="${th}">Unid.</th><th style="${th}text-align:right;">Total semanal</th><th style="${th}text-align:right;">Total diário</th><th style="${th}text-align:right;">Total mensal</th></tr></thead><tbody>${linhasProt}</tbody></table>`
+        : '<div class="cardapio-empty">Defina as proteínas da semana na aba "🥩 Proteínas da semana".</div>'}</div>`;
   caRecalcTudo();
 }
 
@@ -179,7 +182,7 @@ window.caRecalcLinha = caRecalcLinha; window.caRecalcTudo = caRecalcTudo;
 
 async function _caGravarPlano() {
   const pl = _ca.plano;
-  const dados = { house: _ca.house, pessoasBase: pl.pessoasBase || null, diasMes: pl.diasMes || 30, itens: pl.itens, cardapio: pl.cardapio,
+  const dados = { house: _ca.house, pessoasBase: pl.pessoasBase || null, diasMes: pl.diasMes || 30, itens: pl.itens, cardapio: pl.cardapio, proteinasSemana: pl.proteinasSemana,
     atualizadoPor: currentUserData?.name || '', atualizadoEm: new Date().toISOString() };
   if (_ca.planoId) await db.collection('consumo_planos').doc(_ca.planoId).update(dados);
   else { const r = await db.collection('consumo_planos').add(dados); _ca.planoId = r.id; }
@@ -200,39 +203,62 @@ async function caSalvarPlano() {
 }
 window.caSalvarPlano = caSalvarPlano;
 
-// ── Aba 2: cardápio semanal de proteínas ────────────────────────────────
+// ── Aba 2: proteínas da semana (total semanal dividido entre as proteínas) ──
 function _caRenderCardapio() {
-  const prots = _caProdutos('proteina');
-  const opts = sel => '<option value="">—</option>' + prots.map(p => `<option value="${p.key}" ${p.key === sel ? 'selected' : ''}>${_caEsc(p.nome)} (${_caEsc(p.unidade)})</option>`).join('');
-  const th = 'padding:8px 6px;font-size:12px;text-align:center;border-bottom:1px solid var(--border);background:var(--bg);';
-  const linhas = _CA_REFEICOES.map(r => `<tr><td style="padding:6px 8px;font-size:12.5px;font-weight:700;white-space:nowrap;">${r.n}<br><span style="font-weight:400;color:var(--text-muted);">${r.h}</span></td>
-    ${_CA_DIAS.map(d => { const c = _ca.plano.cardapio?.[d.k]?.[r.k] || {};
-      return `<td style="padding:4px;border-left:1px solid var(--border);min-width:150px;"><select class="cardapio-select" style="width:100%;" data-dia="${d.k}" data-ref="${r.k}" data-campo="key">${opts(c.key)}</select>
-        <input class="cardapio-input" style="width:100%;margin-top:3px;text-align:right;" placeholder="Qtd." inputmode="decimal" data-dia="${d.k}" data-ref="${r.k}" data-campo="qtd" value="${c.qtd ? _caEsc(c.qtd) : ''}"></td>`; }).join('')}</tr>`).join('');
+  const ps = _ca.plano.proteinasSemana || { total: 0, itens: {} };
+  const legado = !Object.keys(ps.itens || {}).length && Object.keys(_caProtSemana()).length;
+  const itens = legado ? _caProtSemana() : (ps.itens || {});
+  const total = ps.total || '';
+  const th = 'padding:8px;font-size:11px;text-transform:uppercase;color:var(--text-muted);border-bottom:1px solid var(--border);';
+  const linhas = _caProdutos('proteina').map(p => `<tr style="border-top:1px solid var(--border);">
+    <td style="padding:6px 8px;font-size:13px;">${_caEsc(p.nome)}</td><td style="text-align:center;font-size:12px;color:var(--text-muted);">${_caEsc(p.unidade)}</td>
+    <td style="text-align:right;"><input class="cardapio-input" style="width:100px;" inputmode="decimal" data-prot="${p.key}" value="${itens[p.key] ? _caEsc(itens[p.key]) : ''}" oninput="caRecalcProt()"></td>
+    <td id="ca-p-pct-${p.key}" style="text-align:right;color:var(--text-muted);"></td><td id="ca-p-dia-${p.key}" style="text-align:right;"></td><td id="ca-p-mes-${p.key}" style="text-align:right;font-weight:700;"></td></tr>`).join('');
   document.getElementById('ca-aba').innerHTML = `
-    <div class="cardapio-card" style="overflow-x:auto;">
-      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:10px;">
-        <div style="font-size:12px;color:var(--text-muted);">Em cada refeição, escolha a proteína e a quantidade que será <b>baixada do estoque</b> (na unidade do item, ex.: Kg).</div>
-        <div style="display:flex;gap:8px;"><button class="btn btn-outline btn-sm" onclick="caCopiarCardapio()">📋 Copiar de outra casa</button><button class="btn btn-primary btn-sm" onclick="caSalvarCardapio()">💾 Salvar cardápio</button></div>
+    <div class="cardapio-card">
+      <div style="display:flex;gap:18px;align-items:flex-end;flex-wrap:wrap;">
+        <div><label class="form-label">Total de proteínas da semana (Kg)</label><input class="cardapio-input" style="width:140px;" id="ca-prot-total" inputmode="decimal" value="${_caEsc(total)}" oninput="caRecalcProt()"></div>
+        <button class="btn btn-outline btn-sm" onclick="caCopiarCardapio()">📋 Copiar de outra casa</button>
+        <button class="btn btn-primary btn-sm" onclick="caSalvarCardapio()">💾 Salvar proteínas</button>
       </div>
-      <table style="width:100%;border-collapse:collapse;"><thead><tr><th style="${th}">Refeição</th>${_CA_DIAS.map(d => `<th style="${th}">${d.n}</th>`).join('')}</tr></thead><tbody>${linhas}</tbody></table>
-    </div>`;
+      <div style="font-size:12px;color:var(--text-muted);margin-top:8px;">Informe o total da semana (ex.: 80 Kg) e quanto de cada proteína entra nele (X Kg de frango, X Kg de carré…). O consumo diário é a quantidade semanal ÷ 7 e o mensal usa os dias do mês definidos em "Consumo por refeição".${legado ? ' <b>Estes valores vieram do cardápio antigo desta casa — confira e salve.</b>' : ''}</div>
+      <div id="ca-prot-aviso" style="margin-top:10px;font-size:13px;font-weight:700;"></div>
+    </div>
+    <div class="cardapio-card" style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;"><thead><tr>
+      <th style="${th}text-align:left;">Proteína</th><th style="${th}text-align:center;">Unid.</th><th style="${th}text-align:right;">Kg na semana</th><th style="${th}text-align:right;">% do total</th><th style="${th}text-align:right;">Por dia</th><th style="${th}text-align:right;">Por mês</th></tr></thead>
+      <tbody>${linhas}</tbody></table></div>`;
+  caRecalcProt();
 }
 
-function _caLerCardapioTela() {
-  const cd = {};
-  document.querySelectorAll('#ca-aba [data-dia]').forEach(el => {
-    const c = ((cd[el.dataset.dia] = cd[el.dataset.dia] || {})[el.dataset.ref] = cd[el.dataset.dia][el.dataset.ref] || {});
-    c[el.dataset.campo] = el.dataset.campo === 'qtd' ? _caNum(el.value) : el.value;
+function caRecalcProt() {
+  const dias = _ca.plano.diasMes || 30;
+  const alvo = _caNum(document.getElementById('ca-prot-total')?.value);
+  let soma = 0;
+  document.querySelectorAll('#ca-aba input[data-prot]').forEach(i => { soma += _caNum(i.value); });
+  document.querySelectorAll('#ca-aba input[data-prot]').forEach(i => {
+    const k = i.dataset.prot, q = _caNum(i.value), base = alvo > 0 ? alvo : soma;
+    document.getElementById('ca-p-pct-' + k).textContent = q > 0 && base > 0 ? _caFmt(q / base * 100, 1) + '%' : '';
+    document.getElementById('ca-p-dia-' + k).textContent = q > 0 ? _caFmt(q / 7) : '';
+    document.getElementById('ca-p-mes-' + k).textContent = q > 0 ? _caFmt(q / 7 * dias) : '';
   });
-  _CA_DIAS.forEach(d => _CA_REFEICOES.forEach(r => { const c = cd[d.k]?.[r.k]; if (c && (!c.key || !(c.qtd > 0))) delete cd[d.k][r.k]; }));
-  return cd;
+  const av = document.getElementById('ca-prot-aviso');
+  if (!av) return;
+  if (alvo > 0) {
+    const dif = Math.round((alvo - soma) * 1000) / 1000;
+    av.style.color = Math.abs(dif) < 0.0005 ? 'var(--ok)' : 'var(--warn,#d97706)';
+    av.textContent = Math.abs(dif) < 0.0005 ? `✓ Distribuído: ${_caFmt(soma)} Kg de ${_caFmt(alvo)} Kg`
+      : dif > 0 ? `Distribuído ${_caFmt(soma)} Kg de ${_caFmt(alvo)} Kg — faltam ${_caFmt(dif)} Kg` : `⚠️ Distribuído ${_caFmt(soma)} Kg — passou ${_caFmt(-dif)} Kg do total de ${_caFmt(alvo)} Kg`;
+  } else { av.style.color = 'var(--text-muted)'; av.textContent = soma > 0 ? `Soma das proteínas: ${_caFmt(soma)} Kg por semana` : ''; }
 }
+window.caRecalcProt = caRecalcProt;
 
 async function caSalvarCardapio() {
   if (!_caPermitido()) return;
-  _ca.plano.cardapio = _caLerCardapioTela();
-  try { await _caGravarPlano(); showToast('✅ Cardápio semanal salvo.'); }
+  const itens = {};
+  document.querySelectorAll('#ca-aba input[data-prot]').forEach(i => { const q = _caNum(i.value); if (q > 0) itens[i.dataset.prot] = q; });
+  _ca.plano.proteinasSemana = { total: _caNum(document.getElementById('ca-prot-total').value) || 0, itens };
+  _ca.plano.cardapio = {};   // o cardápio antigo (seg–dom × refeição) deixa de valer depois de salvar o novo
+  try { await _caGravarPlano(); showToast('✅ Proteínas da semana salvas.'); _caRenderCardapio(); }
   catch (e) { console.error(e); showToast('❌ Erro ao salvar: ' + e.message); }
 }
 window.caSalvarCardapio = caSalvarCardapio;
@@ -240,16 +266,15 @@ window.caSalvarCardapio = caSalvarCardapio;
 async function caCopiarCardapio() {
   const snap = await db.collection('consumo_planos').get();
   const outras = snap.docs.filter(d => d.data().house !== _ca.house);
-  if (!outras.length) { showToast('Nenhuma outra casa tem cardápio salvo ainda.'); return; }
-  const lista = outras.map((d, i) => `${i + 1} — ${d.data().house}`).join('\n');
-  const r = prompt(`Copiar o cardápio (e o consumo por refeição) de qual casa?\n\n${lista}\n\nDigite o número:`);
+  if (!outras.length) { showToast('Nenhuma outra casa tem plano salvo ainda.'); return; }
+  const r = prompt(`Copiar as proteínas (e o consumo por refeição) de qual casa?\n\n${outras.map((d, i) => `${i + 1} — ${d.data().house}`).join('\n')}\n\nDigite o número:`);
   const d = outras[(parseInt(r) || 0) - 1];
   if (!d) return;
-  if (!confirm(`Substituir o cardápio e o consumo por refeição desta tela pelos de "${d.data().house}"? (Só salva quando você clicar em Salvar.)`)) return;
-  _ca.plano.cardapio = JSON.parse(JSON.stringify(d.data().cardapio || {}));
+  if (!confirm(`Substituir as proteínas e o consumo por refeição desta tela pelos de "${d.data().house}"? (Só salva quando você clicar em Salvar.)`)) return;
+  _ca.plano.proteinasSemana = JSON.parse(JSON.stringify(d.data().proteinasSemana || { total: 0, itens: {} }));
   _ca.plano.itens = JSON.parse(JSON.stringify(d.data().itens || {}));
   _caRenderCardapio();
-  showToast('📋 Copiado. Ajuste o que precisar e clique em Salvar cardápio (e Salvar em Consumo por refeição).');
+  showToast('📋 Copiado. Ajuste o que precisar e clique em Salvar (aqui e em "Consumo por refeição").');
 }
 window.caCopiarCardapio = caCopiarCardapio;
 
@@ -281,8 +306,8 @@ function _caNovoDia(iso) {
 
 function _caDesenharBaixa(feitos) {
   const pl = _ca.plano;
-  const vazio = !Object.keys(pl.itens || {}).length && !Object.keys(pl.cardapio || {}).length;
-  const aviso = vazio ? `<div class="cardapio-alert-pop" style="margin-bottom:12px;">⚠️ Esta casa ainda não tem consumo por refeição nem cardápio salvo — cadastre nas abas anteriores antes de dar baixa.</div>` : '';
+  const vazio = !Object.keys(pl.itens || {}).length && !Object.keys(_caProtSemana()).length;
+  const aviso = vazio ? `<div class="cardapio-alert-pop" style="margin-bottom:12px;">⚠️ Esta casa ainda não tem consumo por refeição nem proteínas da semana salvos — cadastre nas abas anteriores antes de dar baixa.</div>` : '';
   const cards = _ca.dias.map((d, i) => {
     const itens = Object.entries(d.qtd).filter(([, q]) => q > 0);
     const wd = _CA_DIAS.find(x => x.k === d.dia)?.n || d.dia;
