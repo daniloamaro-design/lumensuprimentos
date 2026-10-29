@@ -604,7 +604,7 @@ function goPage(page) {
     'percapita':'Per Capita por Casa','manage-houses':'Gerenciar Casas',
     'manage-cities':'Gerenciar Cidades','manage-products':'Gerenciar Produtos',
     'indicadores':'Indicadores','transferencias':'Transferências',
-    'fornecedores-cadastro':'Cadastrar Fornecedor','fornecedores-consulta':'Fornecedores','calc-real':'Previsão de Suprimentos','orcamento-financeiro':'Orçamento Financeiro','orc-historico-fin':'Histórico de Orçamentos','ind-fornecedores':'Indicadores de Fornecedores','orc-pendentes':'Orçamentos Pendentes','financeiro-compras':'Financeiro — Compras','metas':'Metas e Análise Econômica','var-solicitacoes':'Solicitações de Variedades','var-orcamento':'Orçamentos de Variedades','var-proposta':'Proposta Semanal','var-historico':'Histórico de Compras','var-setores':'Gerenciar Setores','rotina-estoque':'Rotina de Estoque','manage-cc':'Gerenciar Centro de Custo','cardapio-diario':'Cardápio Diário','percapita-financeiro':'Per Capita Financeiro','inventario':'Contagem de Inventário','coord-dashboard':'Painel do Coordenador','coord-saldo':'Saldo Devedor','coord-conciliacao':'Conciliação Financeira','coord-guia':'Guia e Atualizações'
+    'fornecedores-cadastro':'Cadastrar Fornecedor','fornecedores-consulta':'Fornecedores','calc-real':'Previsão de Suprimentos','orcamento-financeiro':'Orçamento Financeiro','orc-historico-fin':'Histórico de Orçamentos','ind-fornecedores':'Indicadores de Fornecedores','orc-pendentes':'Orçamentos Pendentes','financeiro-compras':'Financeiro — Compras','metas':'Metas e Análise Econômica','var-solicitacoes':'Solicitações de Variedades','var-orcamento':'Orçamentos de Variedades','var-proposta':'Proposta Semanal','var-historico':'Histórico de Compras','var-setores':'Gerenciar Setores','rotina-estoque':'Rotina de Estoque','manage-cc':'Gerenciar Centro de Custo','cardapio-diario':'Cardápio Diário','consumo-alimentar':'Consumo Alimentar','percapita-financeiro':'Per Capita Financeiro','inventario':'Contagem de Inventário','coord-dashboard':'Painel do Coordenador','coord-saldo':'Saldo Devedor','coord-conciliacao':'Conciliação Financeira','coord-guia':'Guia e Atualizações'
   };
   document.getElementById('topbar-page-title').textContent = titles[page] || '';
 
@@ -631,6 +631,7 @@ function goPage(page) {
   if (page === 'manage-cats')          { initManageCats(); }
   if (page === 'manage-cc')            { initManageCC(); }
   if (page === 'cardapio-diario')      { setTimeout(initCardapioDiario, 50); }
+  if (page === 'consumo-alimentar')    { setTimeout(() => window.loadConsumoAlimentar && window.loadConsumoAlimentar(), 50); }
   if (page === 'percapita-financeiro') { setTimeout(initPercapitaFinanceiro, 50); }
   if (page === 'previsao')             { initPrevisao(); }
   if (page === 'var-orcamento')        { loadVarOrcamento(); }

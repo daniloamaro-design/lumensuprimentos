@@ -562,6 +562,13 @@
           Cardápio Diário
         </button>
       </div>
+      <!-- Consumo Alimentar (novo método): compras + gestão; liberação por perfil na tela Permissões -->
+      <div class="compras-only" style="display:none;">
+        <button class="sidebar-item" data-page="consumo-alimentar" onclick="goPageMobile('consumo-alimentar')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3zm0 0v7"/></svg>
+          Consumo Alimentar
+        </button>
+      </div>
       <!-- Itens visíveis apenas para Compras -->
       <div class="compras-only" style="display:none;">
         <div style="margin:10px 10px 4px;font-size:9px;font-weight:800;color:#14b8a6;text-transform:uppercase;letter-spacing:1px;opacity:0.8;">Gestão</div>
@@ -3969,6 +3976,7 @@
 <script src="js/26-cotacao-matriz.js?v=5"></script>
 <script src="js/27-aprovacao-por-produto.js?v=6"></script>
 <script src="js/28-solicitar-pagamento.js?v=3"></script>
+<script src="js/29-consumo-alimentar.js?v=1"></script>
 
 <!-- MODAL: NOVA SOLICITAÇÃO DE VARIEDADES -->
 <div class="modal-overlay hidden" id="modal-nova-var">
