@@ -852,7 +852,7 @@ const MESES_PT = ['JANEIRO','FEVEREIRO','MARÇO','ABRIL','MAIO','JUNHO',
 // existe lançamento pra essa referência, não duplica — só promove pra pago
 // se for esse o caso. Nunca lança exceção pro chamador — é sempre best-effort, o fluxo
 // principal (salvar o pedido/passagem/frete) não pode travar por isso.
-async function _syncFinanceiroLancar({ pedidoRef, pedidoId, fornecedor, fornecedorId, classificacao, destinatario, valor, pago, valorPago, modulo, dataRef }) {
+async function _syncFinanceiroLancar({ pedidoRef, pedidoId, fornecedor, fornecedorId, classificacao, destinatario, valor, pago, valorPago, modulo, dataRef, vencimentoStr, obs }) {
   if (!pedidoRef || !(Number(valor) > 0)) return;
   try {
     const existSnap = await db.collection('compras_financeiro').where('pedidoRef','==',pedidoRef).limit(1).get();
@@ -877,6 +877,8 @@ async function _syncFinanceiroLancar({ pedidoRef, pedidoId, fornecedor, forneced
       if (fornecedor && fornecedor !== atual.fornecedor) upd.fornecedor = fornecedor;
       if (fornecedorId && fornecedorId !== atual.fornecedorId) upd.fornecedorId = fornecedorId;
       if (destinatario && destinatario !== atual.destinatario) upd.destinatario = destinatario;
+      // vencimento/observação informados na NF (só quando preenchidos — nunca apaga o que já existe)
+      if (vencimentoStr && vencimentoStr !== atual.vencimentoStr) upd.vencimentoStr = vencimentoStr;
       if (Object.keys(upd).length) await db.collection('compras_financeiro').doc(doc.id).update(upd);
       return;
     }
@@ -887,7 +889,8 @@ async function _syncFinanceiroLancar({ pedidoRef, pedidoId, fornecedor, forneced
       mes: MESES_PT[ref.getMonth()], ano: ref.getFullYear(), dataCompraSerial: ref.getTime(),
       valor: Number(valor), pago: pago || '', valorPago: Number(valorPago) || 0,
       pedidoRef, pedidoId: pedidoId || '', modulo,
-      obs: `Lançado automaticamente — ${pedidoRef}`,
+      ...(vencimentoStr ? { vencimentoStr } : {}),
+      obs: obs || `Lançado automaticamente — ${pedidoRef}`,
       createdAt: firebase.firestore.FieldValue.serverTimestamp(),
     });
   } catch (e) {

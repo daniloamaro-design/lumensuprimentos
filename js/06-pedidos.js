@@ -1683,30 +1683,48 @@ function openQuotationModal() {
 
 // Attach NF/Boleto — NFs e boletos complementares (além do principal)
 const _attachEscAttr = s => String(s || '').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
-let _attachNfExtras = [];     // {id, numero, valor, fileUrl, fileName, file}
+let _attachNfExtras = [];     // {id, numero, valor, vencimento, fornecedorId, obs, fileUrl, fileName, file, boletoUrl, boletoName, boletoFile}
 let _attachBoletoExtras = []; // {id, vencimento, fileUrl, fileName, file}
 let _attachExtraSeq = 0;
 
 function _renderAttachExtras() {
   const nfEl = document.getElementById('attach-nf-extras-list');
-  if (nfEl) nfEl.innerHTML = _attachNfExtras.map(r => `
-    <div style="display:grid;grid-template-columns:1fr 1fr 1.4fr auto;gap:8px;align-items:end;margin-bottom:8px;padding:8px;border:1px solid var(--border);border-radius:8px;">
-      <div class="form-group" style="margin:0;">
-        <label class="form-label" style="font-size:11px;">Número da NF</label>
-        <input type="text" class="form-input" value="${_attachEscAttr(r.numero)}" oninput="_updAttachExtra('nf',${r.id},'numero',this.value)">
+  if (nfEl) nfEl.innerHTML = _attachNfExtras.map((r, i) => {
+    const optsForn = '<option value="">Mesmo fornecedor da NF principal</option>' + (typeof suppliersCache !== 'undefined' ? suppliersCache : [])
+      .map(sp => `<option value="${_attachEscAttr(sp.id)}" ${sp.id === r.fornecedorId ? 'selected' : ''}>${_attachEscAttr(sp.nome)}</option>`).join('');
+    const linkAtual = (url, nome) => url ? `<div style="font-size:11px;margin-bottom:4px;"><a href="#" onclick="event.preventDefault();verArquivoPedido('${_attachEscAttr(url)}')">👁 ${_attachEscAttr(nome || 'ver atual')}</a></div>` : '';
+    return `
+    <div style="margin-bottom:14px;padding:12px;border:1px solid var(--border);border-radius:10px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+        <div style="font-weight:700;font-size:13px;">NF ${i + 2}</div>
+        <button type="button" class="btn btn-outline btn-sm" onclick="_removeAttachExtra('nf',${r.id})">✕ Remover</button>
       </div>
-      <div class="form-group" style="margin:0;">
-        <label class="form-label" style="font-size:11px;">Valor (R$)</label>
-        <input type="number" step="0.01" class="form-input" value="${_attachEscAttr(r.valor)}" oninput="_updAttachExtra('nf',${r.id},'valor',this.value)">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:10px;">
+        <div class="form-group" style="margin:0;"><label class="form-label">Número da NF</label>
+          <input type="text" class="form-input" value="${_attachEscAttr(r.numero)}" oninput="_updAttachExtra('nf',${r.id},'numero',this.value)"></div>
+        <div class="form-group" style="margin:0;"><label class="form-label">Valor da Nota (R$)</label>
+          <input type="number" step="0.01" class="form-input" value="${_attachEscAttr(r.valor)}" oninput="_updAttachExtra('nf',${r.id},'valor',this.value)"></div>
       </div>
-      <div class="form-group" style="margin:0;">
-        <label class="form-label" style="font-size:11px;">Arquivo</label>
-        ${r.fileUrl && !r.file ? `<div style="font-size:11px;margin-bottom:4px;"><a href="#" onclick="event.preventDefault();verArquivoPedido('${_attachEscAttr(r.fileUrl)}')">👁 ${_attachEscAttr(r.fileName||'ver atual')}</a></div>` : ''}
-        <input type="file" accept=".pdf,.jpg,.jpeg,.png" onchange="_updAttachExtraFile('nf',${r.id},this.files[0])" style="font-size:11px;">
-        ${r.file ? `<div style="font-size:11px;color:var(--lumen);">${_attachEscAttr(r.file.name)}</div>` : ''}
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:10px;">
+        <div class="form-group" style="margin:0;"><label class="form-label">Vencimento do Boleto</label>
+          <input type="date" class="form-input" value="${_attachEscAttr(r.vencimento)}" oninput="_updAttachExtra('nf',${r.id},'vencimento',this.value)"></div>
+        <div class="form-group" style="margin:0;"><label class="form-label">Fornecedor da Compra</label>
+          <select class="form-select" onchange="_updAttachExtra('nf',${r.id},'fornecedorId',this.value)">${optsForn}</select></div>
       </div>
-      <button type="button" class="btn btn-outline btn-sm" onclick="_removeAttachExtra('nf',${r.id})">✕</button>
-    </div>`).join('');
+      <div class="form-group" style="margin:0 0 10px;"><label class="form-label">Observações</label>
+        <input type="text" class="form-input" placeholder="Informações adicionais..." value="${_attachEscAttr(r.obs)}" oninput="_updAttachExtra('nf',${r.id},'obs',this.value)"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <div><label class="form-label">Arquivo NF (PDF/imagem)</label>
+          ${r.file ? '' : linkAtual(r.fileUrl, r.fileName)}
+          <input type="file" accept=".pdf,.jpg,.jpeg,.png" onchange="_updAttachExtraFile('nf',${r.id},this.files[0])" style="font-size:12px;">
+          ${r.file ? `<div style="font-size:11px;color:var(--lumen);">${_attachEscAttr(r.file.name)}</div>` : ''}</div>
+        <div><label class="form-label">Arquivo Boleto (PDF/imagem)</label>
+          ${r.boletoFile ? '' : linkAtual(r.boletoUrl, r.boletoName)}
+          <input type="file" accept=".pdf,.jpg,.jpeg,.png" onchange="_updAttachExtraFile('nfboleto',${r.id},this.files[0])" style="font-size:12px;">
+          ${r.boletoFile ? `<div style="font-size:11px;color:var(--lumen);">${_attachEscAttr(r.boletoFile.name)}</div>` : ''}</div>
+      </div>
+    </div>`;
+  }).join('');
 
   const bolEl = document.getElementById('attach-boleto-extras-list');
   if (bolEl) bolEl.innerHTML = _attachBoletoExtras.map(r => `
@@ -1726,13 +1744,19 @@ function _renderAttachExtras() {
 }
 
 function _extraList(type) { return type === 'nf' ? _attachNfExtras : _attachBoletoExtras; }
-function addNfExtraRow() { _attachNfExtras.push({ id: ++_attachExtraSeq, numero: '', valor: '' }); _renderAttachExtras(); }
+function addNfExtraRow() { _attachNfExtras.push({ id: ++_attachExtraSeq, numero: '', valor: '', vencimento: '', fornecedorId: '', obs: '' }); _renderAttachExtras(); }
 function addBoletoExtraRow() { _attachBoletoExtras.push({ id: ++_attachExtraSeq, vencimento: '' }); _renderAttachExtras(); }
 function _updAttachExtra(type, id, field, value) {
   const row = _extraList(type).find(r => r.id === id);
   if (row) row[field] = value;
 }
 function _updAttachExtraFile(type, id, file) {
+  if (type === 'nfboleto') {   // boleto da própria NF complementar
+    const rn = _attachNfExtras.find(r => r.id === id);
+    if (rn) rn.boletoFile = file || null;
+    _renderAttachExtras();
+    return;
+  }
   const row = _extraList(type).find(r => r.id === id);
   if (row) row.file = file || null;
   _renderAttachExtras();
@@ -1861,7 +1885,8 @@ function openAttachModal() {
 
   // Carrega NFs/boletos complementares já salvos neste pedido
   _attachExtraSeq = 0;
-  _attachNfExtras = (src?.nfExtras || []).map(ex => ({ id: ++_attachExtraSeq, numero: ex.numero || '', valor: ex.valor || '', fileUrl: ex.fileUrl || '', fileName: ex.fileName || '' }));
+  _attachNfExtras = (src?.nfExtras || []).map(ex => ({ id: ++_attachExtraSeq, numero: ex.numero || '', valor: ex.valor || '', fileUrl: ex.fileUrl || '', fileName: ex.fileName || '',
+    vencimento: ex.vencimento || '', fornecedorId: ex.fornecedorId || '', obs: ex.obs || '', boletoUrl: ex.boletoFileUrl || '', boletoName: ex.boletoFileName || '' }));
   _attachBoletoExtras = (src?.boletoExtras || []).map(ex => ({ id: ++_attachExtraSeq, vencimento: ex.vencimento || '', fileUrl: ex.fileUrl || '', fileName: ex.fileName || '' }));
   _renderAttachExtras();
 
@@ -1955,7 +1980,20 @@ async function saveAttachment() {
         fileName = r.file.name;
         fileUrl  = await snap.ref.getDownloadURL();
       }
-      nfExtrasFinal.push({ numero: r.numero || '', valor: parseFloat(r.valor) || 0, fileUrl, fileName });
+      let boletoFileUrl = r.boletoUrl || '', boletoFileName = r.boletoName || '';
+      if (r.boletoFile) {
+        const refB = storage.ref(`pedidos/${orderId}/boleto_nf_extra_${Date.now()}_${_safeName(r.boletoFile.name)}`);
+        const snapB = await refB.put(r.boletoFile);
+        boletoFileName = r.boletoFile.name;
+        boletoFileUrl  = await snapB.ref.getDownloadURL();
+      }
+      const fornEx = r.fornecedorId ? (suppliersCache.find(sp => sp.id === r.fornecedorId) || null) : null;
+      nfExtrasFinal.push({
+        numero: r.numero || '', valor: parseFloat(r.valor) || 0, fileUrl, fileName,
+        vencimento: r.vencimento || '', obs: r.obs || '',
+        fornecedorId: r.fornecedorId || '', fornecedorNome: fornEx ? fornEx.nome : '',
+        boletoFileUrl, boletoFileName,
+      });
     }
     update.nfExtras = nfExtrasFinal;
 
@@ -2021,6 +2059,7 @@ async function saveAttachment() {
         fornecedor: fornecedorSync, fornecedorId: fornecedorIdSync,
         classificacao: classificacaoBase, destinatario: destinatarioSync,
         valor: nfValorPrincipal, pago: '', modulo: 'suprimentos', dataRef: Date.now(),
+        vencimentoStr: boletoVenc || '', obs: attachObs || '',
       }).catch(e => console.warn('sync financeiro (pedido, NF principal):', e));
     }
 
@@ -2030,9 +2069,11 @@ async function saveAttachment() {
         // pedidoRef próprio por NF complementar — precisa ser distinto do
         // pedidoRef principal pra virar um lançamento separado no Financeiro.
         pedidoRef: `${codeBase}-NF${i + 2}`, pedidoId: orderId,
-        fornecedor: fornecedorSync, fornecedorId: fornecedorIdSync,
+        // fornecedor próprio da NF complementar (ou o da principal quando não escolhido)
+        fornecedor: ex.fornecedorNome || fornecedorSync, fornecedorId: ex.fornecedorId || fornecedorIdSync,
         classificacao: classificacaoBase, destinatario: destinatarioSync,
         valor: ex.valor, pago: '', modulo: 'suprimentos', dataRef: Date.now(),
+        vencimentoStr: ex.vencimento || '', obs: ex.obs || '',
       }).catch(e => console.warn('sync financeiro (pedido, NF complementar):', e));
     });
   }
