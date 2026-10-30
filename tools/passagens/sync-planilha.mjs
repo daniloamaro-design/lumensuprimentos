@@ -405,6 +405,18 @@ async function upsertSolicitacao(db, fornecedores, dados, contadores) {
   return { id, codigo, fornecedorId };
 }
 
+// Mesma regra do cadastro de fornecedores (js/10-produtos-orcamento.js, vencimentoPorRegra).
+function vencimentoPorRegra(dataISO, regras) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(dataISO || ''));
+  if (!m || !Array.isArray(regras)) return null;
+  const y = +m[1], mo = +m[2], d = +m[3];
+  const r = regras.find(x => d >= x.de && d <= x.ate);
+  if (!r) return null;
+  const alvo = new Date(y, mo - 1 + (r.mes ? 1 : 0), 1);
+  const dia = Math.min(r.dia, new Date(alvo.getFullYear(), alvo.getMonth() + 1, 0).getDate());
+  return `${String(dia).padStart(2, '0')}/${String(alvo.getMonth() + 1).padStart(2, '0')}/${alvo.getFullYear()}`;
+}
+
 async function upsertFinanceiro(db, f, contadores) {
   if (!f) return;
   const { rows: existentes } = await db.query('select id from compras_financeiro where chave_unica = $1', [f.chave]);
@@ -419,6 +431,11 @@ async function upsertFinanceiro(db, f, contadores) {
     if (mesmo.length) { contadores.finExistentes++; return; }
   }
   contadores.finNovos++;
+  // Fornecedor com prazo "por período da compra" (ex.: Skyline): o vencimento sai da regra do cadastro, não da planilha.
+  if (f.fornecedorId) {
+    const { rows: fr } = await db.query(`select prazo, prazo_regra from suppliers where id = $1`, [f.fornecedorId]);
+    if (fr[0]?.prazo === 'periodo') { const v = vencimentoPorRegra(f.dataCompra, fr[0].prazo_regra); if (v) f.vencimentoStr = v; }
+  }
   if (DRY_RUN) return;
   await db.query(
     `insert into compras_financeiro

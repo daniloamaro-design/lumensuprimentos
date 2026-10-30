@@ -133,6 +133,7 @@ document.querySelector('.main-content').insertAdjacentHTML('beforeend', `
             <option value="30">30 dias</option>
             <option value="45">45 dias</option>
             <option value="60">60 dias</option>
+            <option value="periodo">Por período da compra (dia do mês)</option>
             <option value="outros">Outros...</option>
           </select>
         </div>
@@ -140,6 +141,12 @@ document.querySelector('.main-content').insertAdjacentHTML('beforeend', `
           <label class="form-label">Prazo Personalizado (dias)</label>
           <input type="number" class="form-input" id="sup-prazo-outros" placeholder="Ex: 35" min="1" max="365">
         </div>
+      </div>
+      <div id="prazo-regra-wrap" style="display:none;margin:0 0 14px;padding:12px;border:1px solid var(--border);border-radius:10px;">
+        <label class="form-label">Vencimento conforme o dia da compra</label>
+        <div id="prazo-regra-linhas"></div>
+        <button type="button" class="btn btn-outline btn-sm" onclick="supRegraAdd()">➕ Adicionar faixa</button>
+        <div style="font-size:11.5px;color:var(--text-muted);margin-top:8px;">Cada faixa diz: compras entre o dia X e o dia Y vencem no dia Z (do mesmo mês ou do mês seguinte). Vale para as passagens lançadas daqui pra frente.</div>
       </div>
       <!-- Linha 3b: tipo de fornecedor (em quais módulos ele aparece) -->
       <div class="form-group" style="margin:0 0 14px;">

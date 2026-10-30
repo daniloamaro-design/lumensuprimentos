@@ -1878,7 +1878,7 @@ async function abrirFornecedorModal(id) {
   const s = suppliersCache.find(x => x.id === id);
   if (!s) return;
 
-  const prazoMap = { a_vista:'À vista', '7':'7 dias', '14':'14 dias', '21':'21 dias', '28':'28 dias', '30':'30 dias', '45':'45 dias', '60':'60 dias' };
+  const prazoMap = { periodo:'Por período da compra', a_vista:'À vista', '7':'7 dias', '14':'14 dias', '21':'21 dias', '28':'28 dias', '30':'30 dias', '45':'45 dias', '60':'60 dias' };
   const limite    = parseFloat(s.limite) || 0;
   const utilizado = parseFloat(s.utilizado) || 0;
   const disponivel = Math.max(0, limite - utilizado);
@@ -2035,7 +2035,56 @@ function onPrazoChange() {
   const val  = document.getElementById('sup-prazo').value;
   const wrap = document.getElementById('prazo-outros-wrap');
   if (wrap) wrap.style.display = val === 'outros' ? 'block' : 'none';
+  const rw = document.getElementById('prazo-regra-wrap');
+  if (rw) {
+    rw.style.display = val === 'periodo' ? 'block' : 'none';
+    if (val === 'periodo' && !document.querySelector('#prazo-regra-linhas [data-regra]')) supRegraRender(SUP_REGRA_PADRAO);
+  }
 }
+
+// Prazo "por período da compra": faixas de dias do mês → dia de vencimento.
+// Padrão pedido pela Skyline: 1–10 vence dia 15; 11–20 vence dia 25; 21–31 vence dia 05 do mês seguinte.
+const SUP_REGRA_PADRAO = [
+  { de: 1, ate: 10, dia: 15, mes: 0 },
+  { de: 11, ate: 20, dia: 25, mes: 0 },
+  { de: 21, ate: 31, dia: 5, mes: 1 },
+];
+function supRegraRender(regras) {
+  const el = document.getElementById('prazo-regra-linhas');
+  if (!el) return;
+  el.innerHTML = (regras || []).map(r => `
+    <div data-regra style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px;font-size:13px;">
+      Compras do dia <input type="number" class="form-input" data-f="de" min="1" max="31" value="${r.de}" style="width:70px;">
+      ao dia <input type="number" class="form-input" data-f="ate" min="1" max="31" value="${r.ate}" style="width:70px;">
+      vencem dia <input type="number" class="form-input" data-f="dia" min="1" max="31" value="${r.dia}" style="width:70px;">
+      <select class="form-select" data-f="mes" style="width:150px;"><option value="0" ${+r.mes === 0 ? 'selected' : ''}>do mesmo mês</option><option value="1" ${+r.mes === 1 ? 'selected' : ''}>do mês seguinte</option></select>
+      <button type="button" class="btn btn-outline btn-sm" onclick="this.closest('[data-regra]').remove()">✕</button>
+    </div>`).join('');
+}
+function supRegraAdd() {
+  const atuais = supRegraLer();
+  atuais.push({ de: 1, ate: 31, dia: 10, mes: 1 });
+  supRegraRender(atuais);
+}
+function supRegraLer() {
+  return [...document.querySelectorAll('#prazo-regra-linhas [data-regra]')].map(l => {
+    const g = f => parseInt(l.querySelector(`[data-f="${f}"]`).value) || 0;
+    return { de: g('de'), ate: g('ate'), dia: g('dia'), mes: g('mes') === 1 ? 1 : 0 };
+  });
+}
+// Data da compra (aaaa-mm-dd) + regra → vencimento aaaa-mm-dd (ou '' se nenhuma faixa cobre o dia)
+function vencimentoPorRegra(dataISO, regras) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(dataISO || ''));
+  if (!m || !Array.isArray(regras)) return '';
+  const y = +m[1], mo = +m[2], d = +m[3];
+  const r = regras.find(x => d >= x.de && d <= x.ate);
+  if (!r) return '';
+  const alvo = new Date(y, mo - 1 + (r.mes ? 1 : 0), 1);
+  const ultimo = new Date(alvo.getFullYear(), alvo.getMonth() + 1, 0).getDate();
+  const dia = Math.min(r.dia, ultimo);
+  return `${alvo.getFullYear()}-${String(alvo.getMonth() + 1).padStart(2, '0')}-${String(dia).padStart(2, '0')}`;
+}
+window.vencimentoPorRegra = vencimentoPorRegra; window.supRegraAdd = supRegraAdd; window.supRegraRender = supRegraRender;
 
 function updateCatStyle(cat) {
   const chk = document.getElementById('sup-cat-' + cat);
@@ -2064,6 +2113,12 @@ async function saveSupplier() {
   const prazo         = prazoBase === 'outros'
     ? (document.getElementById('sup-prazo-outros').value + ' dias')
     : prazoBase;
+  let prazoRegra = null;
+  if (prazoBase === 'periodo') {
+    prazoRegra = supRegraLer();
+    const ruim = prazoRegra.find(r => !(r.de >= 1 && r.ate >= r.de && r.ate <= 31 && r.dia >= 1 && r.dia <= 31));
+    if (!prazoRegra.length || ruim) { showToast('⚠️ Confira as faixas do prazo: "do dia" deve ser menor ou igual a "ao dia", e os dias vão de 1 a 31.'); return; }
+  }
   const obs           = document.getElementById('sup-obs').value.trim();
   const apelidos      = document.getElementById('sup-apelidos').value.split(',').map(s => s.trim()).filter(Boolean);
   const categorias    = ['cereal','higiene','proteina','missa_sf','lanches_csl']
@@ -2074,7 +2129,7 @@ async function saveSupplier() {
   if (!nome) { showToast('Informe o nome do fornecedor!'); return; }
   setBtnLoading('btn-save-supplier', true);
 
-  const data = { nome, cnpj, contato, email, contatoNome, pix, limite, utilizado, prazo, obs, apelidos, categorias, tipos,
+  const data = { nome, cnpj, contato, email, contatoNome, pix, limite, utilizado, prazo, prazoRegra, obs, apelidos, categorias, tipos,
     updatedAt: firebase.firestore.FieldValue.serverTimestamp() };
 
   try {
@@ -2129,7 +2184,13 @@ function editSupplier(id) {
   document.getElementById('sup-apelidos').value      = (s.apelidos || []).join(', ');
   // Handle prazo — if it is a custom value (e.g. "35 dias"), set "outros"
   const prazoValues = ['a_vista','7','14','21','28','30','45','60'];
-  if (prazoValues.includes(s.prazo)) {
+  if (s.prazo === 'periodo') {
+    document.getElementById('sup-prazo').value = 'periodo';
+    document.getElementById('prazo-outros-wrap').style.display = 'none';
+    document.getElementById('prazo-regra-wrap').style.display = 'block';
+    supRegraRender(Array.isArray(s.prazoRegra) && s.prazoRegra.length ? s.prazoRegra : SUP_REGRA_PADRAO);
+  } else if (prazoValues.includes(s.prazo)) {
+    { const rw = document.getElementById('prazo-regra-wrap'); if (rw) rw.style.display = 'none'; }
     document.getElementById('sup-prazo').value = s.prazo;
     document.getElementById('prazo-outros-wrap').style.display = 'none';
   } else {
@@ -2159,6 +2220,7 @@ function cancelEditSupplier() {
   });
   document.getElementById('sup-prazo').value = 'a_vista';
   document.getElementById('prazo-outros-wrap').style.display = 'none';
+  { const rw = document.getElementById('prazo-regra-wrap'); if (rw) rw.style.display = 'none'; }
   ['cereal','higiene','proteina','missa_sf','lanches_csl'].forEach(c => {
     const chk = document.getElementById('sup-cat-' + c);
     if (chk) { chk.checked = false; updateCatStyle(c); }
@@ -2309,7 +2371,7 @@ function exportSuppliersReport() {
     const utilizado = parseFloat(s.utilizado)||0;
     const disp = Math.max(0, limite - utilizado);
     const pct = limite > 0 ? ((utilizado/limite)*100).toFixed(0) : '—';
-    const prazoMap = { a_vista:'À vista', '7':'7d', '14':'14d', '21':'21d', '28':'28d', '30':'30d', '45':'45d', '60':'60d' };
+    const prazoMap = { periodo:'Por período', a_vista:'À vista', '7':'7d', '14':'14d', '21':'21d', '28':'28d', '30':'30d', '45':'45d', '60':'60d' };
 
     doc.setFillColor(230,238,248);
     doc.rect(10,y-5,190,9,'F');

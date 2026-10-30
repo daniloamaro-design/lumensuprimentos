@@ -1558,6 +1558,12 @@ async function pasAtualizar(id, patch, histAcao) {
         fornecedor: s.fornecedor?.nome || '', fornecedorId: s.fornecedor?.id || '',
         classificacao: 'Passagem', destinatario: s.passageiro || '',
         valor: Number(s.valorFinal), pago: '', modulo: 'passagens', dataRef: Date.now(),
+        vencimentoStr: (() => {   // fornecedor com prazo "por período da compra" (ex.: Skyline)
+          const f = (typeof suppliersCache !== 'undefined' ? suppliersCache : []).find(x => x.id === s.fornecedor?.id)
+            || (typeof suppliersCache !== 'undefined' ? suppliersCache : []).find(x => (x.nome || '').trim().toLowerCase() === String(s.fornecedor?.nome || '').trim().toLowerCase());
+          return f && f.prazo === 'periodo' && typeof vencimentoPorRegra === 'function'
+            ? vencimentoPorRegra(s.dataCompra || new Date().toISOString().slice(0, 10), f.prazoRegra) : '';
+        })(),
       }).catch(e => console.warn('sync financeiro (passagem):', e));
     }
     showToast('✅ ' + histAcao);
