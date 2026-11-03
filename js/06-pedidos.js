@@ -313,6 +313,13 @@ async function submitOrder() {
   if (editingOrderId) {
     const orderIdSendoEditado = editingOrderId;
     try {
+      // A tela de detalhe de um pedido já avaliado pelo estoque é montada a partir de
+      // stockEval (e a transferência automática já baixou o estoque), não de items —
+      // então a avaliação antiga precisa ser desfeita, senão a edição não aparece.
+      const atual = await db.collection('orders').doc(orderIdSendoEditado).get();
+      const reavaliar = !!(atual.exists && atual.data().stockEval);
+      if (reavaliar) await _estornarTransferenciasDoPedido(orderIdSendoEditado);
+
       await db.collection('orders').doc(orderIdSendoEditado).update({
         house,
         categories: catsUsed,
@@ -322,12 +329,15 @@ async function submitOrder() {
         recipient: recipient || '',
         centroCustoId:   ccId,
         centroCustoNome: ccNome,
+        ...(reavaliar ? { stockEval: null, stockEvalBy: null, stockEvalAt: null, stockEvalEstoque: null, purchaseItems: null, status: 'aguardando_estoque' } : {}),
         editedAt: firebase.firestore.FieldValue.serverTimestamp(),
         editedBy: currentUserData.name,
       });
       editingOrderId = null;
       clearOrder();
-      showToast('✅ Pedido editado com sucesso!');
+      showToast(reavaliar
+        ? '✅ Pedido editado! A avaliação de estoque anterior foi desfeita — avalie o estoque de novo.'
+        : '✅ Pedido editado com sucesso!');
       goPage('all-orders');
       showOrderDetail(orderIdSendoEditado);
     } catch(e) {
@@ -385,6 +395,26 @@ async function submitOrder() {
   setBtnLoading('btn-submit-order', false);
 }
 
+// Estorna as transferências automáticas confirmadas geradas pela avaliação de estoque
+// do pedido (mesmo estorno de cancelarTransferencia(): movimentos inversos + status cancelada).
+async function _estornarTransferenciasDoPedido(orderId) {
+  const snap = await db.collection('transferencias').where('orderId', '==', orderId).where('status', '==', 'confirmada').get();
+  if (snap.empty) return;
+  if (!TRANSF_CANCEL_ROLES.includes(currentUserData.role)) {
+    throw new Error('Este pedido já teve transferência de estoque. Só admin/diretor/gerente/coordenador podem editá-lo (precisa estornar a transferência).');
+  }
+  const hoje = new Date().toISOString().slice(0, 10), hojeStr = hoje.replace(/-/g, '');
+  const batch = db.batch();
+  snap.docs.forEach(d => {
+    const t = d.data();
+    const base = { date: hoje, dateStr: hojeStr, items: t.items || [], registeredBy: currentUserData.name, registeredUid: currentUser.uid, isTransferencia: true, isEstorno: true, createdAt: firebase.firestore.FieldValue.serverTimestamp() };
+    batch.set(db.collection('movements').doc(), { ...base, code: `${t.code}-EST-ENT`, house: t.origem, type: 'entrada', obs: `Estorno da transferência ${t.code} (pedido ${t.orderCode} editado)` });
+    batch.set(db.collection('movements').doc(), { ...base, code: `${t.code}-EST-SAI`, house: t.destino, type: 'saida', obs: `Estorno da transferência ${t.code} (pedido ${t.orderCode} editado)` });
+    batch.update(db.collection('transferencias').doc(d.id), { status: 'cancelada', canceladoEm: firebase.firestore.FieldValue.serverTimestamp(), canceladoPor: currentUserData.name || '', canceladoPorUid: currentUser.uid });
+  });
+  await batch.commit();
+}
+
 // Abre o pedido atualmente em detalhe (detailOrderData) na tela de Nova
 // Solicitação, pré-preenchido, em modo edição. Só chamado pelo botão
 // "✏️ Editar Pedido" — que já fica escondido fora da janela permitida
@@ -397,6 +427,7 @@ async function editarPedido() {
     showToast('⚠️ Esse pedido já passou da Avaliação de Estoque — não dá mais pra editar.');
     return;
   }
+  if (o.stockEval && !confirm('Este pedido já tem Avaliação de Estoque.\n\nAo salvar a edição, a avaliação será desfeita (a transferência automática, se houver, é estornada) e o pedido volta para "Análise de Estoque" para ser avaliado de novo com as novas quantidades.\n\nContinuar?')) return;
 
   editingOrderId = o.id;
   closeModal('modal-order-detail');
