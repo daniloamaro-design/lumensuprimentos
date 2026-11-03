@@ -22,13 +22,17 @@ const _cotNum = v => { const n = parseFloat(String(v == null ? '' : v).replace('
 function pedidoItensParaCompra(pedido) {
   const vazio = m => !m || !Object.values(m).some(c => c && Object.keys(c).length);
   let m = pedido?.purchaseItems;
-  if (vazio(m) && pedido?.stockEval) {
+  if (pedido?.stockEval) {
+    // Recalcula do stockEval: o purchaseItems salvo em avaliações antigas ignorava o
+    // restante de transferências parciais (seQtdComprar, js/06-pedidos.js).
     m = {};
-    Object.values(pedido.stockEval).filter(ev => !ev.transfer || ev.qty <= 0).forEach(ev => {
+    Object.values(pedido.stockEval).forEach(ev => {
+      const buyQty = seQtdComprar(ev);
+      if (buyQty <= 0) return;
       if (!m[ev.catKey]) m[ev.catKey] = {};
-      const buyQty = ev.needed - (ev.transfer ? (ev.qty || 0) : 0);
-      m[ev.catKey][ev.prodId] = Math.max(0, buyQty || ev.needed);
+      m[ev.catKey][ev.prodId] = buyQty;
     });
+    return m;
   }
   if (vazio(m)) m = pedido?.items || {};
   const out = {};

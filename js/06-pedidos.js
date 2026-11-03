@@ -884,12 +884,12 @@ async function exportarComprasSelecionadasPDF() {
     selecionadas.forEach((o, i) => {
       const itensCompra = o.stockEval
         ? Object.values(o.stockEval)
-            .filter(ev => !ev.transfer || ev.qty <= 0)
+            .filter(ev => seQtdComprar(ev) > 0)
             .map(ev => {
               const cat = CATEGORIAS[ev.catKey];
               const p = cat?.produtos.find(x => x.id === ev.prodId);
               if (!p) return null;
-              return { catKey: ev.catKey, prodNome: p.nome, unidade: p.unidade, qty: ev.needed };
+              return { catKey: ev.catKey, prodNome: p.nome, unidade: p.unidade, qty: seQtdComprar(ev) };
             })
             .filter(Boolean)
         : [];
@@ -1057,10 +1057,10 @@ async function showOrderDetail(docId) {
     // Reconstrói apenas os itens que vão para compra
     const purchaseMap = {};
     Object.values(o.stockEval).forEach(ev => {
-      if (!ev.transfer || ev.qty <= 0) {
+      const buyQty = seQtdComprar(ev);
+      if (buyQty > 0) {
         if (!purchaseMap[ev.catKey]) purchaseMap[ev.catKey] = {};
-        const buyQty = ev.needed - (ev.transfer ? (ev.qty||0) : 0);
-        purchaseMap[ev.catKey][ev.prodId] = Math.max(1, buyQty || ev.needed);
+        purchaseMap[ev.catKey][ev.prodId] = buyQty;
       }
     });
     const hasAnyPurchase = Object.values(purchaseMap).some(c => Object.keys(c).length > 0);
@@ -1383,12 +1383,19 @@ function onSeQtyChange(inp) {
   updateSeCounters();
 }
 
+// Quanto de um item avaliado ainda precisa ser COMPRADO: solicitado menos o que o
+// estoque transfere. Transferência parcial (ex.: pediu 40, estoque cobre 20) deixa o resto para compra.
+function seQtdComprar(ev) {
+  const transf = ev.transfer && ev.qty > 0 ? Number(ev.qty) : 0;
+  return Math.max(0, (Number(ev.needed) || 0) - transf);
+}
+
 function updateSeCounters() {
   let transfer = 0, purchase = 0;
   const total = Object.keys(stockEvalData).length;
   Object.values(stockEvalData).forEach(ev => {
     if (ev.transfer && ev.qty > 0) transfer++;
-    else purchase++;
+    if (seQtdComprar(ev) > 0) purchase++;
   });
   document.getElementById('se-count-transfer').textContent = transfer;
   document.getElementById('se-count-purchase').textContent = purchase;
@@ -1405,7 +1412,7 @@ async function saveStockEval() {
     });
 
     const transferItems = Object.values(evalToSave).filter(ev => ev.transfer && ev.qty > 0);
-    const purchaseItems = Object.values(evalToSave).filter(ev => !ev.transfer || ev.qty <= 0);
+    const purchaseItems = Object.values(evalToSave).filter(ev => seQtdComprar(ev) > 0);
     // Elemento 'se-estoque-select' nunca existiu no HTML (bug antigo): o fallback
     // sempre caía num nome fantasma 'Estoque', separado da casa real onde as
     // doações são recebidas e redistribuídas. Fixado no nome real da casa.
@@ -1421,7 +1428,7 @@ async function saveStockEval() {
     const purchaseItemsMap = {};
     purchaseItems.forEach(ev => {
       if (!purchaseItemsMap[ev.catKey]) purchaseItemsMap[ev.catKey] = {};
-      purchaseItemsMap[ev.catKey][ev.prodId] = ev.needed;
+      purchaseItemsMap[ev.catKey][ev.prodId] = seQtdComprar(ev);
     });
 
     const o = detailOrderData;
@@ -1519,7 +1526,8 @@ function buildStockEvalSummaryHTML(evalData, orderItems) {
     if (!p) return;
     const entry = { nome: p.nome, unidade: p.unidade, needed: ev.needed, qty: ev.qty, cat: cat.nome };
     if (ev.transfer && ev.qty > 0) transferItems.push(entry);
-    else purchaseItems.push(entry);
+    const comprar = seQtdComprar(ev);
+    if (comprar > 0) purchaseItems.push({ ...entry, needed: comprar });
   });
 
   let html = `<div style="margin-top:20px;">
@@ -1625,14 +1633,14 @@ function makeTransferPDF(order, transferItems, evalData) {
 }
 
 function exportPurchaseOnlyPDF() {
-  const purchaseItems = Object.values(stockEvalData).filter(ev => !ev.transfer || ev.qty <= 0);
+  const purchaseItems = Object.values(stockEvalData).filter(ev => seQtdComprar(ev) > 0).map(ev => ({ ...ev, needed: seQtdComprar(ev) }));
   if (!purchaseItems.length) { showToast('Nenhum item para compra!'); return; }
   makePurchasePDF(detailOrderData, purchaseItems);
 }
 
 function exportPurchaseOnlyPDFFromView() {
   if (!detailOrderData?.stockEval) return;
-  const items = Object.values(detailOrderData.stockEval).filter(ev => !ev.transfer || ev.qty <= 0);
+  const items = Object.values(detailOrderData.stockEval).filter(ev => seQtdComprar(ev) > 0).map(ev => ({ ...ev, needed: seQtdComprar(ev) }));
   makePurchasePDF(detailOrderData, items);
 }
 
@@ -2156,22 +2164,15 @@ function generatePDFFromDetail() {
 
   // Se já foi avaliado pelo estoque → PDF só com itens a comprar
   if (detailOrderData.stockEval) {
-    // Prioridade 1: usar purchaseItems já calculados e salvos no Firestore
-    // Prioridade 2: recalcular a partir do stockEval (fallback)
-    let purchaseMap = detailOrderData.purchaseItems || null;
-
-    if (!purchaseMap) {
-      // Fallback: reconstruir a partir do stockEval
-      const purchaseItems = Object.values(detailOrderData.stockEval)
-        .filter(ev => !ev.transfer || ev.qty <= 0);
-      purchaseMap = {};
-      purchaseItems.forEach(ev => {
-        if (!purchaseMap[ev.catKey]) purchaseMap[ev.catKey] = {};
-        // Qtd a comprar = solicitado menos o que será transferido (nunca negativo)
-        const buyQty = ev.needed - (ev.transfer ? (ev.qty || 0) : 0);
-        purchaseMap[ev.catKey][ev.prodId] = Math.max(0, buyQty || ev.needed);
-      });
-    }
+    // Sempre recalcula a partir do stockEval: o purchaseItems salvo em avaliações antigas
+    // ignorava o restante de transferências parciais.
+    const purchaseMap = {};
+    Object.values(detailOrderData.stockEval).forEach(ev => {
+      const buyQty = seQtdComprar(ev);
+      if (buyQty <= 0) return;
+      if (!purchaseMap[ev.catKey]) purchaseMap[ev.catKey] = {};
+      purchaseMap[ev.catKey][ev.prodId] = buyQty;
+    });
 
     // Verifica se há itens de compra
     const hasItems = Object.values(purchaseMap).some(cat => Object.keys(cat).length > 0);
