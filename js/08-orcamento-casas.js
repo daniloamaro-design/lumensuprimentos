@@ -846,28 +846,11 @@ async function checkCriticalStock(manual = false) {
     porCasa[c.house].push(c);
   });
 
-  // Monta corpo do e-mail em texto
-  let emailBody = `ALERTA DE ESTOQUE CRÍTICO — Obra Lumen\nData: ${new Date().toLocaleDateString('pt-BR')}\n\n`;
-  Object.entries(porCasa).forEach(([house, itens]) => {
-    emailBody += `🏠 ${house}:\n`;
-    itens.forEach(i => { emailBody += `  ${i.status} ${i.produto}: ${i.saldoAtual} ${i.unidade} (mín: ${i.minimo})\n`; });
-    emailBody += '\n';
-  });
-
-  // Envia via EmailJS
-  try {
-    await sendAlertEmail(
-      `🚨 ALERTA — ${criticos.length} item(s) crítico(s)`,
-      emailBody
-    );
-    if (manual) showToast(`🚨 Alerta enviado! ${criticos.length} item(s) crítico(s) em ${Object.keys(porCasa).length} casa(s).`);
-  } catch(e) {
-    if (manual) showToast('Erro ao enviar alerta: ' + e.message);
-  }
+  // Resultado na própria tela — o envio por e-mail foi desativado (ninguém usava
+  // o alerta por e-mail e o disparo automático a cada 6h, por sessão aberta,
+  // lotava a caixa de entrada). O botão "Estoque Crítico" agora só informa aqui.
+  showToast(`🚨 ${criticos.length} item(s) crítico(s) em ${Object.keys(porCasa).length} casa(s).`);
 }
-
-// Verifica estoque crítico automaticamente a cada 6 horas
-setInterval(() => checkCriticalStock(false), 6 * 60 * 60 * 1000);
 
 // ─────────────────────────────────────────────
 // 🏠  GERENCIAR CASAS
