@@ -49,13 +49,15 @@ function _spgMontarPaginas() {
       <div class="stat-card stat-card-warn"><div class="stat-label">💰 Valor total</div><div class="stat-value" id="spg-${k}-total">—</div></div>
     </div>
     <div class="card"><div class="card-body">
+      ${c.nf ? `<div id="spg-${k}-banner"></div>` : ''}
       <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;flex-wrap:wrap;">
         <label style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--text-muted);cursor:pointer;">
           <input type="checkbox" id="spg-${k}-todos" onchange="spgMarcarTodos('${k}', this.checked)"> Selecionar todos
         </label>
         <button class="btn btn-outline btn-sm" id="spg-${k}-exportar" onclick="spgExportar('${k}')" disabled>📊 Exportar planilha (0)</button>
         <button class="btn btn-primary btn-sm" id="spg-${k}-solicitar" onclick="spgMarcarSolicitados('${k}')" disabled>Marcar selecionados como solicitados (0)</button>
-        ${c.nf ? `<div id="spg-${k}-filtronf" style="display:flex;gap:4px;margin-left:auto;">
+        ${c.nf ? `<button class="btn btn-outline btn-sm" onclick="spgRecarregarSup()" title="Recarregar (ver NFs anexadas agora)">🔄 Atualizar</button>
+        <div id="spg-${k}-filtronf" style="display:flex;gap:4px;margin-left:auto;">
           <button class="btn btn-primary btn-sm" data-f="todos" onclick="spgFiltrarNF('${k}','todos')">Todos</button>
           <button class="btn btn-outline btn-sm" data-f="com" onclick="spgFiltrarNF('${k}','com')">📄 Com NF</button>
           <button class="btn btn-outline btn-sm" data-f="sem" onclick="spgFiltrarNF('${k}','sem')">⚠️ Sem NF</button>
@@ -92,16 +94,16 @@ async function spgCarregar(k) {
 
 // Busca, em lote, o status de nota fiscal (nfFileURL) do pedido de cada lançamento.
 async function _spgCarregarNF(lista) {
-  lista.forEach(l => { l._temNF = false; l._nfUrl = ''; l._nfName = ''; });
+  lista.forEach(l => { l._temNF = false; l._nfUrl = ''; l._nfName = ''; l._nfValor = 0; l._nfNumero = ''; });
   const ids = [...new Set(lista.map(l => l.pedidoId).filter(Boolean))];
   if (!ids.length) return;
   try {
     const mapa = {}, lote = 100;
     for (let i = 0; i < ids.length; i += lote) {
       const snap = await db.collection('orders').where(firebase.firestore.FieldPath.documentId(), 'in', ids.slice(i, i + lote)).get();
-      snap.docs.forEach(d => { const o = d.data(); mapa[d.id] = { url: o.nfFileURL || '', nome: o.nfFileName || '' }; });
+      snap.docs.forEach(d => { const o = d.data(); mapa[d.id] = { url: o.nfFileURL || '', nome: o.nfFileName || '', valor: Number(o.nfValor) || 0, numero: o.nfNumero || '' }; });
     }
-    lista.forEach(l => { const m = mapa[l.pedidoId]; if (m) { l._nfUrl = m.url; l._nfName = m.nome; l._temNF = !!m.url; } });
+    lista.forEach(l => { const m = mapa[l.pedidoId]; if (m) { l._nfUrl = m.url; l._nfName = m.nome; l._nfValor = m.valor; l._nfNumero = m.numero; l._temNF = !!m.url; } });
   } catch (e) { console.error('_spgCarregarNF', e); }
 }
 window.loadSupSolPagamento = () => spgCarregar('sup');
@@ -176,17 +178,48 @@ function _spgBloquear(k) {
   return true;
 }
 
-// Badge da nota fiscal: link "Ver NF" (verde) quando o pedido tem arquivo, aviso quando não.
+// Dias que o lançamento está aguardando (desde a criação do lançamento).
+function _spgDiasEspera(l) {
+  let d = l.createdAt;
+  if (d && d.toDate) d = d.toDate(); else if (typeof d === 'string') d = new Date(d);
+  if (!(d instanceof Date) || isNaN(d)) return null;
+  return Math.max(0, Math.floor((Date.now() - d.getTime()) / 86400000));
+}
+
+// Abre o detalhe do pedido (onde fica o botão "Anexar NF" com leitura por IA).
+function spgAnexarNF(pedidoId) {
+  if (!pedidoId) return showToast('⚠️ Este lançamento não tem pedido vinculado para anexar NF.');
+  if (typeof showOrderDetail === 'function') showOrderDetail(pedidoId);
+  else showToast('Abra o pedido para anexar a nota fiscal.');
+}
+window.spgAnexarNF = spgAnexarNF;
+function spgRecarregarSup() { spgCarregar('sup'); }
+window.spgRecarregarSup = spgRecarregarSup;
+
+// Badge da nota fiscal:
+//  - com NF: link "Ver NF" + valor da NF (destaca em vermelho se diferir do lançamento)
+//  - sem NF: aviso + dias aguardando + botão "Anexar"
 function _spgNfBadge(l) {
-  if (l._temNF) return `<a href="${frtEsc(l._nfUrl)}" target="_blank" rel="noopener" title="${frtEsc(l._nfName || 'Ver NF')}" style="color:var(--ok,#16a34a);font-weight:700;white-space:nowrap;text-decoration:none;">📄 Ver NF</a>`;
-  return `<span style="color:var(--warn,#d97706);font-weight:600;white-space:nowrap;">⚠️ Sem NF</span>`;
+  if (l._temNF) {
+    let html = `<a href="${frtEsc(l._nfUrl)}" target="_blank" rel="noopener" title="${frtEsc(l._nfName || 'Ver NF')}" style="color:var(--ok,#16a34a);font-weight:700;white-space:nowrap;text-decoration:none;">📄 Ver NF</a>`;
+    if (l._nfValor > 0) {
+      const dif = Math.abs(l._nfValor - (Number(l.valor) || 0)) >= 0.01;
+      html += `<div style="font-size:11px;margin-top:2px;${dif ? 'color:var(--danger,#dc2626);font-weight:700;' : 'color:var(--text-muted);'}" ${dif ? `title="Valor da NF (${frtBRL(l._nfValor)}) diferente do valor do lançamento (${frtBRL(l.valor)})"` : ''}>${dif ? '⚠️ ' : ''}NF ${frtBRL(l._nfValor)}${dif ? ' ≠ ' + frtBRL(l.valor) : ''}</div>`;
+    }
+    return html;
+  }
+  const dias = _spgDiasEspera(l);
+  const btn = l.pedidoId ? ` <button class="btn btn-outline btn-sm" style="padding:1px 6px;font-size:11px;" onclick="spgAnexarNF('${l.pedidoId}')">➕ Anexar</button>` : '';
+  return `<span style="color:var(--warn,#d97706);font-weight:600;white-space:nowrap;">⚠️ Sem NF${dias != null ? ` · ${dias}d` : ''}</span>${btn}`;
 }
 
 // Lista visível conforme o filtro de NF (só Suprimentos tem filtro).
 function _spgVisiveis(k) {
   const st = _spgEstado[k], c = _SPG[k];
   if (!c.nf || !st.filtroNF || st.filtroNF === 'todos') return st.lista;
-  return st.lista.filter(l => st.filtroNF === 'com' ? l._temNF : !l._temNF);
+  if (st.filtroNF === 'com') return st.lista.filter(l => l._temNF);
+  // "Sem NF": mostra os que aguardam há mais tempo primeiro (para cobrar a nota).
+  return st.lista.filter(l => !l._temNF).sort((a, b) => (_spgDiasEspera(b) || 0) - (_spgDiasEspera(a) || 0));
 }
 
 function spgFiltrarNF(k, f) {
@@ -209,9 +242,18 @@ function spgRenderizar(k) {
   document.getElementById(`spg-${k}-qtd`).textContent = st.lista.length;
   document.getElementById(`spg-${k}-total`).textContent = frtBRL(total);
   if (c.nf) {
-    const com = st.lista.filter(l => l._temNF).length;
+    const semList = st.lista.filter(l => !l._temNF);
+    const com = st.lista.length - semList.length;
     const cnt = document.getElementById(`spg-${k}-nfcount`);
-    if (cnt) cnt.textContent = st.lista.length ? `📄 ${com} com NF · ⚠️ ${st.lista.length - com} sem NF` : '';
+    if (cnt) cnt.textContent = st.lista.length ? `📄 ${com} com NF · ⚠️ ${semList.length} sem NF` : '';
+    const banner = document.getElementById(`spg-${k}-banner`);
+    if (banner) {
+      if (semList.length) {
+        const dias = semList.map(_spgDiasEspera).filter(x => x != null);
+        const maxD = dias.length ? Math.max(...dias) : null;
+        banner.innerHTML = `<div style="border:1px solid var(--warn,#d97706);border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:13px;color:var(--text);">⚠️ <b>${semList.length}</b> pagamento(s) aguardando nota fiscal${maxD != null ? ` — o mais antigo há <b>${maxD} dia(s)</b>` : ''}. Cobre a NF do fornecedor para conferir o valor e liberar o pagamento. <a onclick="spgFiltrarNF('${k}','sem')" style="color:var(--lumen);cursor:pointer;font-weight:600;">Ver sem NF →</a></div>`;
+      } else banner.innerHTML = '';
+    }
   }
   const vis = _spgVisiveis(k);
   if (!vis.length) {
