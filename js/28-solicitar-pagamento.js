@@ -14,6 +14,7 @@ const _SPG = {
     // Categoria (Conta Azul) e centro de custo variam por pedido: escolhidos aqui, linha a linha.
     colunas: ['Pedido', 'Fornecedor', 'Casa / Destinatário', 'Categoria (Conta Azul) *', 'Centro de custo *', 'Vencimento', 'Valor'],
     editaveis: true,
+    nf: true,  // mostra status da nota fiscal do pedido + filtro
     linha: l => [l.pedidoRef || '—', l.fornecedor || '—', l.destinatario || '—', vencBR(l.vencimentoStr) || '—'],
   },
   pas: {
@@ -30,7 +31,9 @@ const _SPG = {
   },
 };
 const _spgListas = { categorias: [], centros: [] };
-const _spgEstado = { sup: { lista: [], sel: new Set() }, pas: { lista: [], sel: new Set() } };
+const _spgEstado = { sup: { lista: [], sel: new Set(), filtroNF: 'todos' }, pas: { lista: [], sel: new Set() } };
+// nº de colunas da tabela (checkbox + colunas + coluna NF quando houver)
+const _spgColspan = c => c.colunas.length + 1 + (c.nf ? 1 : 0);
 
 function _spgMontarPaginas() {
   const ancora = document.getElementById('page-frt-pagamento');
@@ -52,10 +55,16 @@ function _spgMontarPaginas() {
         </label>
         <button class="btn btn-outline btn-sm" id="spg-${k}-exportar" onclick="spgExportar('${k}')" disabled>📊 Exportar planilha (0)</button>
         <button class="btn btn-primary btn-sm" id="spg-${k}-solicitar" onclick="spgMarcarSolicitados('${k}')" disabled>Marcar selecionados como solicitados (0)</button>
+        ${c.nf ? `<div id="spg-${k}-filtronf" style="display:flex;gap:4px;margin-left:auto;">
+          <button class="btn btn-primary btn-sm" data-f="todos" onclick="spgFiltrarNF('${k}','todos')">Todos</button>
+          <button class="btn btn-outline btn-sm" data-f="com" onclick="spgFiltrarNF('${k}','com')">📄 Com NF</button>
+          <button class="btn btn-outline btn-sm" data-f="sem" onclick="spgFiltrarNF('${k}','sem')">⚠️ Sem NF</button>
+        </div>
+        <span id="spg-${k}-nfcount" style="font-size:12px;color:var(--text-muted);width:100%;"></span>` : ''}
       </div>
       <div class="table-wrap"><table class="fin-table">
-        <thead><tr><th style="width:30px;"></th>${c.colunas.map((h, i) => `<th${i === c.colunas.length - 1 ? ' style="text-align:right;"' : ''}>${h}</th>`).join('')}</tr></thead>
-        <tbody id="spg-${k}-tbody"><tr><td colspan="${c.colunas.length + 1}" style="text-align:center;padding:24px;color:var(--text-muted);">Carregando…</td></tr></tbody>
+        <thead><tr><th style="width:30px;"></th>${c.nf ? '<th>NF</th>' : ''}${c.colunas.map((h, i) => `<th${i === c.colunas.length - 1 ? ' style="text-align:right;"' : ''}>${h}</th>`).join('')}</tr></thead>
+        <tbody id="spg-${k}-tbody"><tr><td colspan="${_spgColspan(c)}" style="text-align:center;padding:24px;color:var(--text-muted);">Carregando…</td></tr></tbody>
       </table></div>
     </div></div>
   </div>`);
@@ -65,7 +74,7 @@ function _spgMontarPaginas() {
 async function spgCarregar(k) {
   const c = _SPG[k], st = _spgEstado[k];
   const tb = document.getElementById(`spg-${k}-tbody`);
-  if (tb) tb.innerHTML = `<tr><td colspan="${c.colunas.length + 1}" style="text-align:center;padding:24px;color:var(--text-muted);">Carregando…</td></tr>`;
+  if (tb) tb.innerHTML = `<tr><td colspan="${_spgColspan(c)}" style="text-align:center;padding:24px;color:var(--text-muted);">Carregando…</td></tr>`;
   st.sel = new Set();
   try {
     if (k === 'pas' && typeof _pasCache !== 'undefined' && !_pasCache.length && typeof loadPasSolic === 'function') { try { await loadPasSolic(); } catch (e) { /* só enriquece a lista */ } }
@@ -73,11 +82,27 @@ async function spgCarregar(k) {
     st.lista = snap.docs.map(d => ({ id: d.id, ...d.data() })).filter(l => !l.pagamentoSolicitadoEm)
       .sort((a, b) => String(a.vencimentoStr || '9999').localeCompare(String(b.vencimentoStr || '9999')));
     if (c.editaveis) await _spgPreparar(st.lista);
+    if (c.nf) await _spgCarregarNF(st.lista);
     spgRenderizar(k);
   } catch (e) {
     console.error('spgCarregar', e);
-    if (tb) tb.innerHTML = `<tr><td colspan="${c.colunas.length + 1}" style="text-align:center;padding:24px;color:var(--danger,#dc2626);">Erro ao carregar: ${frtEsc(e.message)}</td></tr>`;
+    if (tb) tb.innerHTML = `<tr><td colspan="${_spgColspan(c)}" style="text-align:center;padding:24px;color:var(--danger,#dc2626);">Erro ao carregar: ${frtEsc(e.message)}</td></tr>`;
   }
+}
+
+// Busca, em lote, o status de nota fiscal (nfFileURL) do pedido de cada lançamento.
+async function _spgCarregarNF(lista) {
+  lista.forEach(l => { l._temNF = false; l._nfUrl = ''; l._nfName = ''; });
+  const ids = [...new Set(lista.map(l => l.pedidoId).filter(Boolean))];
+  if (!ids.length) return;
+  try {
+    const mapa = {}, lote = 100;
+    for (let i = 0; i < ids.length; i += lote) {
+      const snap = await db.collection('orders').where(firebase.firestore.FieldPath.documentId(), 'in', ids.slice(i, i + lote)).get();
+      snap.docs.forEach(d => { const o = d.data(); mapa[d.id] = { url: o.nfFileURL || '', nome: o.nfFileName || '' }; });
+    }
+    lista.forEach(l => { const m = mapa[l.pedidoId]; if (m) { l._nfUrl = m.url; l._nfName = m.nome; l._temNF = !!m.url; } });
+  } catch (e) { console.error('_spgCarregarNF', e); }
 }
 window.loadSupSolPagamento = () => spgCarregar('sup');
 window.loadPasSolPagamento = () => spgCarregar('pas');
@@ -151,6 +176,31 @@ function _spgBloquear(k) {
   return true;
 }
 
+// Badge da nota fiscal: link "Ver NF" (verde) quando o pedido tem arquivo, aviso quando não.
+function _spgNfBadge(l) {
+  if (l._temNF) return `<a href="${frtEsc(l._nfUrl)}" target="_blank" rel="noopener" title="${frtEsc(l._nfName || 'Ver NF')}" style="color:var(--ok,#16a34a);font-weight:700;white-space:nowrap;text-decoration:none;">📄 Ver NF</a>`;
+  return `<span style="color:var(--warn,#d97706);font-weight:600;white-space:nowrap;">⚠️ Sem NF</span>`;
+}
+
+// Lista visível conforme o filtro de NF (só Suprimentos tem filtro).
+function _spgVisiveis(k) {
+  const st = _spgEstado[k], c = _SPG[k];
+  if (!c.nf || !st.filtroNF || st.filtroNF === 'todos') return st.lista;
+  return st.lista.filter(l => st.filtroNF === 'com' ? l._temNF : !l._temNF);
+}
+
+function spgFiltrarNF(k, f) {
+  _spgEstado[k].filtroNF = f;
+  const grp = document.getElementById(`spg-${k}-filtronf`);
+  if (grp) grp.querySelectorAll('button').forEach(b => {
+    const on = b.dataset.f === f;
+    b.classList.toggle('btn-primary', on);
+    b.classList.toggle('btn-outline', !on);
+  });
+  spgRenderizar(k);
+}
+window.spgFiltrarNF = spgFiltrarNF;
+
 function spgRenderizar(k) {
   const c = _SPG[k], st = _spgEstado[k];
   const tb = document.getElementById(`spg-${k}-tbody`);
@@ -158,13 +208,21 @@ function spgRenderizar(k) {
   const total = st.lista.reduce((s, l) => s + (Number(l.valor) || 0), 0);
   document.getElementById(`spg-${k}-qtd`).textContent = st.lista.length;
   document.getElementById(`spg-${k}-total`).textContent = frtBRL(total);
-  if (!st.lista.length) {
-    tb.innerHTML = `<tr><td colspan="${c.colunas.length + 1}" style="text-align:center;padding:24px;color:var(--text-muted);">Nenhum pagamento aguardando solicitação. 🎉</td></tr>`;
+  if (c.nf) {
+    const com = st.lista.filter(l => l._temNF).length;
+    const cnt = document.getElementById(`spg-${k}-nfcount`);
+    if (cnt) cnt.textContent = st.lista.length ? `📄 ${com} com NF · ⚠️ ${st.lista.length - com} sem NF` : '';
+  }
+  const vis = _spgVisiveis(k);
+  if (!vis.length) {
+    const msg = st.lista.length ? 'Nenhum pedido neste filtro.' : 'Nenhum pagamento aguardando solicitação. 🎉';
+    tb.innerHTML = `<tr><td colspan="${_spgColspan(c)}" style="text-align:center;padding:24px;color:var(--text-muted);">${msg}</td></tr>`;
   } else {
-    tb.innerHTML = st.lista.map(l => {
+    tb.innerHTML = vis.map(l => {
       const cel = c.linha(l);
       return `<tr>
         <td><input type="checkbox" ${st.sel.has(l.id) ? 'checked' : ''} onchange="spgToggle('${k}','${l.id}',this.checked)"></td>
+        ${c.nf ? `<td>${_spgNfBadge(l)}</td>` : ''}
         ${cel.slice(0, 3).map(v => `<td>${frtEsc(v)}</td>`).join('')}
         ${c.editaveis ? _spgSelects(k, l) : ''}
         ${cel.slice(3).map(v => `<td>${frtEsc(v)}</td>`).join('')}
@@ -181,12 +239,12 @@ function spgAtualizarBotoes(k) {
   if (ex) { ex.disabled = !n; ex.innerHTML = `📊 Exportar planilha (${n})`; }
   if (so) { so.disabled = !n; so.innerHTML = `Marcar selecionados como solicitados (${n})`; }
   const todos = document.getElementById(`spg-${k}-todos`);
-  if (todos) todos.checked = st.lista.length > 0 && st.lista.every(l => st.sel.has(l.id));
+  if (todos) { const vis = _spgVisiveis(k); todos.checked = vis.length > 0 && vis.every(l => st.sel.has(l.id)); }
 }
 function spgToggle(k, id, marcado) { const st = _spgEstado[k]; if (marcado) st.sel.add(id); else st.sel.delete(id); spgAtualizarBotoes(k); }
 function spgMarcarTodos(k, marcar) {
   const st = _spgEstado[k];
-  st.lista.forEach(l => { if (marcar) st.sel.add(l.id); else st.sel.delete(l.id); });
+  _spgVisiveis(k).forEach(l => { if (marcar) st.sel.add(l.id); else st.sel.delete(l.id); });
   spgRenderizar(k);
 }
 window.spgToggle = spgToggle; window.spgMarcarTodos = spgMarcarTodos;
@@ -229,6 +287,10 @@ async function spgMarcarSolicitados(k) {
   const c = _SPG[k], st = _spgEstado[k];
   const ids = [...st.sel];
   if (!ids.length || _spgBloquear(k)) return;
+  if (c.nf) {
+    const semNf = st.lista.filter(l => st.sel.has(l.id) && !l._temNF);
+    if (semNf.length && !confirm(`⚠️ ${semNf.length} pedido(s) selecionado(s) estão SEM nota fiscal anexada.\n\nSem a NF você não confere o valor real. Deseja solicitar o pagamento mesmo assim?`)) return;
+  }
   if (!confirm(`Marcar ${ids.length} lançamento(s) como "pagamento solicitado"? Eles passam a aparecer no Financeiro.`)) return;
   const nome = (typeof currentUserData !== 'undefined' && currentUserData?.name) || null;
   const agora = new Date().toISOString();
