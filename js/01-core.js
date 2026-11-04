@@ -20,41 +20,76 @@ const GEMINI_URL = "/api/gemini"; // chave segura no servidor Vercel
 // na hora e os catches existentes mostram "IA indisponível". Recarregar reativa.
 window._geminiIndisponivel = false;
 
-// Limite diário gratuito da API Gemini: quando o Google responde 429
-// (RESOURCE_EXHAUSTED), guardamos a data de hoje e bloqueamos QUALQUER nova
-// chamada de IA até o dia seguinte — evita ficar tentando de novo (o que, se
-// a conta do Google Cloud tiver faturamento ativado, poderia gerar cobrança).
-// O aviso na tela é fixo (não some sozinho) para o usuário não continuar
-// tentando anexar/ler NF achando que é um bug.
-const _IA_LIMITE_KEY = 'ia_limite_diario_data';
-function _iaHojeStr() { return new Date().toISOString().slice(0, 10); }
-function _iaLimiteAtingidoHoje() {
-  try { return localStorage.getItem(_IA_LIMITE_KEY) === _iaHojeStr(); }
-  catch { return false; }
+// Limite gratuito da API Gemini: quando o Google responde 429 (RESOURCE_EXHAUSTED),
+// guardamos ATÉ QUANDO a IA fica bloqueada e bloqueamos QUALQUER nova chamada até lá —
+// evita insistir (o que, se a conta do Google Cloud tiver faturamento ativado, poderia
+// gerar cobrança). Limite por minuto: volta em segundos (RetryInfo do Google). Limite
+// diário: volta à meia-noite do fuso do Pacífico, quando o Google zera a cota.
+// O aviso na tela é fixo (não some sozinho) e mostra a hora de volta.
+const _IA_LIMITE_KEY = 'ia_limite_ate';
+let _iaLimiteTimer = null;
+function _iaLimiteAte() {
+  try { return Number(localStorage.getItem(_IA_LIMITE_KEY)) || 0; }
+  catch { return 0; }
 }
+function _iaLimiteAtingido() { return _iaLimiteAte() > Date.now(); }
+
+// Segundos até 00:00 no fuso America/Los_Angeles (zera a cota diária do Google).
+function _iaSegAteMeiaNoitePacifico() {
+  const partes = new Intl.DateTimeFormat('en-US', { timeZone: 'America/Los_Angeles', hour12: false, hour: 'numeric', minute: 'numeric', second: 'numeric' }).formatToParts(new Date());
+  const n = t => Number(partes.find(p => p.type === t).value) % 24;
+  return 86400 - (n('hour') * 3600 + n('minute') * 60 + n('second'));
+}
+
+// Lê o corpo do 429: limite por minuto → retryDelay; limite diário (ou sem detalhe) → meia-noite do Pacífico.
+async function _iaSegundosDeEspera(resp) {
+  let seg = 0, diario = false;
+  try {
+    const detalhes = (await resp.clone().json())?.error?.details || [];
+    detalhes.forEach(d => {
+      const tipo = d['@type'] || '';
+      if (/RetryInfo/.test(tipo)) seg = parseFloat(d.retryDelay) || 0;
+      if (/QuotaFailure/.test(tipo)) (d.violations || []).forEach(v => { if (/PerDay/i.test(`${v.quotaId} ${v.quotaMetric}`)) diario = true; });
+    });
+  } catch {}
+  return (diario || !seg) ? _iaSegAteMeiaNoitePacifico() : Math.ceil(seg) + 2;
+}
+
+function _iaTextoVolta() {
+  const ate = new Date(_iaLimiteAte());
+  const falta = Math.max(0, Math.round((ate - Date.now()) / 1000));
+  if (falta < 120) return `daqui a ${falta} segundos`;
+  const hora = ate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+  return `${ate.toDateString() === new Date().toDateString() ? 'hoje' : 'amanhã'} às ${hora}`;
+}
+
 function _iaMostrarAvisoLimite() {
-  if (document.getElementById('ia-limite-banner')) return; // já visível
-  const b = document.createElement('div');
-  b.id = 'ia-limite-banner';
+  let b = document.getElementById('ia-limite-banner');
+  if (!b) {
+    b = document.createElement('div');
+    b.id = 'ia-limite-banner';
+    Object.assign(b.style, {
+      position: 'fixed', top: '0', left: '0', right: '0', zIndex: '99999',
+      background: '#fff3cd', color: '#7a5c00', borderBottom: '2px solid #f0c419',
+      padding: '10px 20px', fontSize: '13px', fontWeight: '600',
+      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+      textAlign: 'center', boxShadow: '0 2px 8px rgba(0,0,0,0.15)'
+    });
+    document.body.appendChild(b);
+  }
   b.innerHTML = `
-    <span>⚠️ <strong>Limite diário gratuito de IA atingido.</strong> As funções de IA (leitura de NF, chat, etc.) ficam indisponíveis até amanhã — isso evita qualquer cobrança.</span>
+    <span>⚠️ <strong>Limite gratuito de IA atingido.</strong> As funções de IA (leitura de NF, chat, previsões, etc.) voltam a funcionar <strong>${_iaTextoVolta()}</strong>. Para usar além do limite gratuito seria preciso ativar o plano pago do Google (cobrança por uso).</span>
     <button type="button" style="background:none;border:none;color:inherit;font-size:18px;font-weight:700;cursor:pointer;line-height:1;margin-left:12px;" onclick="document.getElementById('ia-limite-banner').remove()">×</button>`;
-  Object.assign(b.style, {
-    position: 'fixed', top: '0', left: '0', right: '0', zIndex: '99999',
-    background: '#fff3cd', color: '#7a5c00', borderBottom: '2px solid #f0c419',
-    padding: '10px 20px', fontSize: '13px', fontWeight: '600',
-    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
-    textAlign: 'center', boxShadow: '0 2px 8px rgba(0,0,0,0.15)'
-  });
-  document.body.appendChild(b);
+  clearTimeout(_iaLimiteTimer);
+  _iaLimiteTimer = setTimeout(() => { document.getElementById('ia-limite-banner')?.remove(); }, Math.max(0, _iaLimiteAte() - Date.now()) + 500);
 }
-function _iaMarcarLimiteAtingido() {
-  try { localStorage.setItem(_IA_LIMITE_KEY, _iaHojeStr()); } catch {}
+async function _iaMarcarLimiteAtingido(resp) {
+  const seg = await _iaSegundosDeEspera(resp);
+  try { localStorage.setItem(_IA_LIMITE_KEY, String(Date.now() + seg * 1000)); } catch {}
   _iaMostrarAvisoLimite();
 }
-// Se a página foi recarregada no mesmo dia em que o limite já bateu, mostra
-// o aviso de novo assim que o DOM estiver pronto (não só na hora do erro).
-document.addEventListener('DOMContentLoaded', () => { if (_iaLimiteAtingidoHoje()) _iaMostrarAvisoLimite(); });
+// Se a página foi recarregada enquanto o limite ainda vale, mostra o aviso de novo.
+document.addEventListener('DOMContentLoaded', () => { if (_iaLimiteAtingido()) _iaMostrarAvisoLimite(); });
 
 // ─────────────────────────────────────────────
 // 📄  PAGINAÇÃO (helper genérico, usado por toda lista/tabela do sistema)
@@ -91,14 +126,14 @@ function paginacaoHTML(pag, goToPageFn) {
 
 async function geminiFetch(init) {
   if (window._geminiIndisponivel) throw new Error('IA indisponível (verifique a GEMINI_API_KEY na Vercel).');
-  if (_iaLimiteAtingidoHoje()) { _iaMostrarAvisoLimite(); throw new Error('Limite diário gratuito de IA atingido. Tente novamente amanhã.'); }
+  if (_iaLimiteAtingido()) { _iaMostrarAvisoLimite(); throw new Error('Limite gratuito de IA atingido. As funções de IA voltam ' + _iaTextoVolta() + '.'); }
   const resp = await fetch(GEMINI_URL, init);
   if (!resp.ok && (resp.status === 401 || resp.status === 403)) {
     window._geminiIndisponivel = true;
     console.warn('IA (Gemini) desativada nesta sessão — verifique a GEMINI_API_KEY na Vercel.');
   }
   if (!resp.ok && resp.status === 429) {
-    _iaMarcarLimiteAtingido();
+    await _iaMarcarLimiteAtingido(resp);
   }
   return resp;
 }
