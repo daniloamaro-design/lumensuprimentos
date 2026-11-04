@@ -102,6 +102,25 @@ window.cotMatrizAbrir = cotMatrizAbrir;
 function _cotNovaColuna() {
   _cot.cols.push({ uid: ++_cot.seq, id: null, fornecedorId: '', fornecedorNome: '', validade: '', obs: '', status: 'pendente', modo: 'itens', precos: {}, qtds: {}, obsItens: {}, totalManual: '' });
 }
+// PDF do pedido de um fornecedor já aprovado: só os itens que foram escolhidos pra ele
+// (divisão salva pelo coordenador/gerente); sem divisão, todos os itens que ele cotou.
+function cotBaixarPdf(uid) {
+  const c = _cotCol(uid);
+  if (!c || !c.id) return;
+  const div = _cot.pedido?.divisaoFornecedores || null;
+  let chaves = null;
+  if (div?.partes) { const p = div.partes.find(x => x.quotationId === c.id); if (p) chaves = p.itens || []; }
+  else if (div?.porItem) chaves = Object.keys(div.porItem).filter(k => div.porItem[k] === c.id);
+  const linhas = _cot.itens
+    .filter(i => (chaves ? chaves.includes(i.key) : true) && _cotNum(c.precos[i.key]) > 0)
+    .map(i => ({ nome: i.nome, unidade: i.unidade, qtd: _cotQtd(c, i), preco: _cotNum(c.precos[i.key]), obs: c.obsItens?.[i.key] || '' }));
+  if (!linhas.length) { showToast('Esse fornecedor não tem produtos escolhidos neste pedido.'); return; }
+  if (typeof apfGerarPdfPedido !== 'function') { showToast('Recarregue a página (Ctrl+F5) e tente de novo.'); return; }
+  const valor = Math.round(linhas.reduce((s, l) => s + l.preco * l.qtd, 0) * 100) / 100;
+  apfGerarPdfPedido({ pedido: _cot.pedido, fornecedorNome: c.fornecedorNome, linhas, valor });
+}
+window.cotBaixarPdf = cotBaixarPdf;
+
 function cotAddCol() { _cotNovaColuna(); _cotRenderizar(); }
 window.cotAddCol = cotAddCol;
 
@@ -169,7 +188,7 @@ function _cotRenderizar() {
   const obs = cols.map(c => `<td style="padding:6px 8px;border-left:1px solid var(--border);">
       <input type="text" class="form-input" placeholder="Obs.: frete, desconto, itens que não tem…" style="font-size:12px;padding:5px 8px;" value="${_cotEsc(c.obs)}" ${_cotEditavel(c) ? '' : 'disabled'} oninput="cotSetMeta(${c.uid},'obs',this.value)"></td>`).join('');
   const acoes = cols.map(c => `<td style="padding:8px;border-left:1px solid var(--border);text-align:right;">
-      ${_cotEditavel(c) ? `<button class="btn btn-primary btn-sm" onclick="cotSalvarCol(${c.uid})">💾 ${c.id ? 'Salvar alterações' : 'Salvar cotação'}</button>` : '<span style="font-size:11px;color:var(--text-muted);">Cotação já decidida — não editável</span>'}
+      ${_cotEditavel(c) ? `<button class="btn btn-primary btn-sm" onclick="cotSalvarCol(${c.uid})">💾 ${c.id ? 'Salvar alterações' : 'Salvar cotação'}</button>` : `${c.status === 'aprovado' ? `<button class="btn btn-outline btn-sm" style="margin-bottom:6px;" onclick="cotBaixarPdf(${c.uid})">📄 Baixar pedido (PDF)</button><br>` : ''}<span style="font-size:11px;color:var(--text-muted);">Cotação já decidida — não editável</span>`}
     </td>`).join('');
 
   wrap.innerHTML = `

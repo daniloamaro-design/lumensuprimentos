@@ -189,28 +189,32 @@ function _apfRecalcular() {
 // ── PDF do pedido por fornecedor (pra enviar a cada empresa) ────────────
 // Usa a seleção atual da tela: só os itens escolhidos pra aquele fornecedor,
 // com a quantidade e o preço que ele cotou. Sem o preço de outros fornecedores.
-function _apfPdfFornecedor(parte) {
+// Nome do arquivo: só a casa e o fornecedor (ex.: "Três Pastorinhos - Boifest.pdf").
+// Tira apenas o que o Windows não aceita em nome de arquivo.
+function apfNomeArquivoPedido(casa, fornecedor) {
+  const limpa = t => String(t || '').replace(/[\/:*?"<>|]+/g, ' ').replace(/\s+/g, ' ').trim();
+  return [limpa(casa), limpa(fornecedor)].filter(Boolean).join(' - ') + '.pdf';
+}
+
+// Gerador único do PDF de pedido por fornecedor (usado aqui e na tela de preços por produto, js/26).
+// linhas = [{ nome, unidade, qtd, preco, obs }]
+function apfGerarPdfPedido({ pedido, fornecedorNome, linhas, valor }) {
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF();
   const blue = [0, 56, 117], gray = [107, 114, 128];
-  const { pedido } = _apf, q = parte.cot;
   const fmt = n => 'R$ ' + (Number(n) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   doc.setFillColor(...blue); doc.rect(0, 0, 210, 30, 'F');
   doc.setTextColor(255, 255, 255); doc.setFont('helvetica', 'bold'); doc.setFontSize(15);
   doc.text('Obra Lumen — Pedido de Compra', 14, 13);
   doc.setFont('helvetica', 'normal'); doc.setFontSize(9);
-  doc.text(`Fornecedor: ${q.fornecedorNome || ''}`, 14, 21);
-  doc.text(`Pedido: ${pedido.code || pedido.id}   |   Casa de entrega: ${pedido.house || ''}   |   Data: ${new Date().toLocaleDateString('pt-BR')}`, 14, 27);
-  const body = parte.chaves.map(k => {
-    const it = _apf.itens.find(x => x.key === k);
-    const f = _apfQ(q, k, it.qty), p = _apfPreco(q, k);
-    return [it.nome + (f.obs ? `\n${f.obs}` : ''), it.unidade, String(f.qtd), fmt(p), fmt(p * f.qtd)];
-  });
+  doc.text('Fornecedor: ' + (fornecedorNome || ''), 14, 21);
+  doc.text('Pedido: ' + (pedido.code || pedido.id) + '   |   Casa de entrega: ' + (pedido.house || '') + '   |   Data: ' + new Date().toLocaleDateString('pt-BR'), 14, 27);
+  const body = linhas.map(l => [l.nome + (l.obs ? '\n' + l.obs : ''), l.unidade, String(l.qtd), fmt(l.preco), fmt(l.preco * l.qtd)]);
   doc.autoTable({
     startY: 38,
     head: [['Produto', 'Unid.', 'Qtd.', 'Valor unit.', 'Total']],
     body,
-    foot: [[{ content: 'TOTAL DO PEDIDO', colSpan: 4, styles: { halign: 'right' } }, fmt(parte.valor)]],
+    foot: [[{ content: 'TOTAL DO PEDIDO', colSpan: 4, styles: { halign: 'right' } }, fmt(valor)]],
     theme: 'grid',
     styles: { fontSize: 9, cellPadding: 2.5 },
     headStyles: { fillColor: blue, textColor: 255 },
@@ -220,8 +224,18 @@ function _apfPdfFornecedor(parte) {
   });
   doc.setTextColor(...gray); doc.setFontSize(7);
   doc.text('Gerado pelo Sistema Suprimentos Obra Lumen — lumenserfeliz.org', 14, 290);
-  const slug = s => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9]+/g, '-').replace(/^-|-$/g, '');
-  doc.save(`Pedido-${slug(pedido.code || pedido.id)}-${slug(q.fornecedorNome)}.pdf`);
+  doc.save(apfNomeArquivoPedido(pedido.house, fornecedorNome));
+}
+window.apfGerarPdfPedido = apfGerarPdfPedido;
+
+function _apfPdfFornecedor(parte) {
+  const { pedido } = _apf, q = parte.cot;
+  const linhas = parte.chaves.map(k => {
+    const it = _apf.itens.find(x => x.key === k);
+    const f = _apfQ(q, k, it.qty);
+    return { nome: it.nome, unidade: it.unidade, qtd: f.qtd, preco: _apfPreco(q, k), obs: f.obs };
+  });
+  apfGerarPdfPedido({ pedido, fornecedorNome: q.fornecedorNome, linhas, valor: parte.valor });
 }
 
 function apfBaixarPedido(qid) {
