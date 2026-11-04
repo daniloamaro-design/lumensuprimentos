@@ -309,7 +309,11 @@ async function spgExportar(k) {
     const cel = c.linha(l);
     const dtComp = iso(l.dataCompra && l.dataCompra.toDate ? l.dataCompra.toDate().toISOString() : l.dataCompra) || iso(l.createdAt && l.createdAt.toDate ? l.createdAt.toDate().toISOString() : l.createdAt) || new Date();
     const dtVenc = iso(l.vencimentoStr) || new Date(dtComp.getTime() + 7 * 86400000);
-    const desc = k === 'pas' ? `Passagem ${cel[0]} — ${cel[1]} (${cel[2]})` : `Pedido ${cel[0]} — ${l.fornecedor || ''}`;
+    // Suprimentos: mesmo padrão da planilha antiga → "FORNECEDOR - Casa - Classificação - Pedido dia dd/mm/aaaa"
+    const dd = String(dtComp.getDate()).padStart(2, '0'), mm = String(dtComp.getMonth() + 1).padStart(2, '0');
+    const desc = k === 'pas' ? `Passagem ${cel[0]} — ${cel[1]} (${cel[2]})`
+      : [l.fornecedor, l.destinatario, l.classificacao].map(v => String(v || '').trim()).filter(Boolean)
+          .concat(`Pedido dia ${dd}/${mm}/${dtComp.getFullYear()}`).join(' - ');
     linhas.push([dtComp, dtVenc, '', -Math.abs(Number(l.valor) || 0), c.fixos ? c.fixos.categoriaConta : (l.categoriaConta || ''), desc,
       l.fornecedor || '', mapaDocs.get(_caNorm(l.fornecedor)) || '', c.fixos ? c.fixos.centroCustoNome : (l.centroCustoNome || ''), l.obs || '']);
   });
