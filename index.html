@@ -411,6 +411,10 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
         Conciliação Financeira
       </button>
+      <button class="sidebar-item" data-page="coord-ferias" onclick="goPageMobile('coord-ferias')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        Planejamento de Férias
+      </button>
       <button class="sidebar-item" data-page="coord-guia" onclick="goPageMobile('coord-guia')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
         Guia e Atualizações
@@ -3072,6 +3076,15 @@
     </div>
   </div>
 
+  <!-- PAGE: PLANEJAMENTO DE FÉRIAS (Coordenador) -->
+  <div class="page" id="page-coord-ferias">
+    <div class="page-header">
+      <div class="page-title">🏖️ Planejamento de Férias</div>
+      <div class="page-sub">Feriados nacionais, do Ceará e de Fortaleza, e as férias da equipe, para evitar choques</div>
+    </div>
+    <div id="fer-root"></div>
+  </div>
+
   <!-- PAGE: GUIA E HISTÓRICO DE ATUALIZAÇÕES (Coordenador) -->
   <div class="page" id="page-coord-guia">
     <div class="page-header">
@@ -3978,6 +3991,7 @@
 <script src="js/28-solicitar-pagamento.js?v=5"></script>
 <script src="js/29-consumo-alimentar.js?v=4"></script>
 <script src="js/30-consumo-alimentar-etapa2.js?v=1"></script>
+<script src="js/31-coord-ferias.js?v=1"></script>
 
 <!-- MODAL: NOVA SOLICITAÇÃO DE VARIEDADES -->
 <div class="modal-overlay hidden" id="modal-nova-var">

@@ -604,7 +604,7 @@ function goPage(page) {
     'percapita':'Per Capita por Casa','manage-houses':'Gerenciar Casas',
     'manage-cities':'Gerenciar Cidades','manage-products':'Gerenciar Produtos',
     'indicadores':'Indicadores','transferencias':'Transferências',
-    'fornecedores-cadastro':'Cadastrar Fornecedor','fornecedores-consulta':'Fornecedores','calc-real':'Previsão de Suprimentos','orcamento-financeiro':'Orçamento Financeiro','orc-historico-fin':'Histórico de Orçamentos','ind-fornecedores':'Indicadores de Fornecedores','orc-pendentes':'Orçamentos Pendentes','financeiro-compras':'Financeiro — Compras','metas':'Metas e Análise Econômica','var-solicitacoes':'Solicitações de Variedades','var-orcamento':'Orçamentos de Variedades','var-proposta':'Proposta Semanal','var-historico':'Histórico de Compras','var-setores':'Gerenciar Setores','rotina-estoque':'Rotina de Estoque','manage-cc':'Gerenciar Centro de Custo','cardapio-diario':'Cardápio Diário','consumo-alimentar':'Consumo Alimentar','percapita-financeiro':'Per Capita Financeiro','inventario':'Contagem de Inventário','coord-dashboard':'Painel do Coordenador','coord-saldo':'Saldo Devedor','coord-conciliacao':'Conciliação Financeira','coord-guia':'Guia e Atualizações'
+    'fornecedores-cadastro':'Cadastrar Fornecedor','fornecedores-consulta':'Fornecedores','calc-real':'Previsão de Suprimentos','orcamento-financeiro':'Orçamento Financeiro','orc-historico-fin':'Histórico de Orçamentos','ind-fornecedores':'Indicadores de Fornecedores','orc-pendentes':'Orçamentos Pendentes','financeiro-compras':'Financeiro — Compras','metas':'Metas e Análise Econômica','var-solicitacoes':'Solicitações de Variedades','var-orcamento':'Orçamentos de Variedades','var-proposta':'Proposta Semanal','var-historico':'Histórico de Compras','var-setores':'Gerenciar Setores','rotina-estoque':'Rotina de Estoque','manage-cc':'Gerenciar Centro de Custo','cardapio-diario':'Cardápio Diário','consumo-alimentar':'Consumo Alimentar','percapita-financeiro':'Per Capita Financeiro','inventario':'Contagem de Inventário','coord-dashboard':'Painel do Coordenador','coord-saldo':'Saldo Devedor','coord-conciliacao':'Conciliação Financeira','coord-guia':'Guia e Atualizações','coord-ferias':'Planejamento de Férias'
   };
   document.getElementById('topbar-page-title').textContent = titles[page] || '';
 
@@ -645,6 +645,7 @@ function goPage(page) {
   if (page === 'coord-saldo')          { if (typeof initCoordSaldo === 'function') initCoordSaldo(); }
   if (page === 'coord-conciliacao')    { if (typeof initCoordConciliacao === 'function') initCoordConciliacao(); }
   if (page === 'coord-guia')           { if (typeof initCoordGuia === 'function') initCoordGuia(); }
+  if (page === 'coord-ferias')         { if (typeof initCoordFerias === 'function') initCoordFerias(); }
   if (page === 'importar-precos')      { if (typeof initPageImportarPrecos === 'function') initPageImportarPrecos(); }
 }
 

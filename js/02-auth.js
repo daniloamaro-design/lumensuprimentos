@@ -423,7 +423,10 @@ async function showApp() {
   });
 
   // Painel do Coordenador: visível para coordenador, gerente, diretor, admin
-  const isCoordNivel = isAdminLevel || role === 'coordenador';
+  // + perfis que o admin liberou só para consultar o Planejamento de Férias (tela Permissões)
+  const _psFerias = (typeof permSetDe === 'function') ? permSetDe(role) : null;
+  const veFerias = !!(_psFerias && _psFerias !== 'ALL' && _psFerias.has('coord-ferias'));
+  const isCoordNivel = isAdminLevel || role === 'coordenador' || veFerias;
   // sidebar section
   document.querySelectorAll('.coord-dash-section').forEach(el => {
     el.style.display = isCoordNivel ? '' : 'none';
