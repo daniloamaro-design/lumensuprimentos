@@ -264,6 +264,41 @@ function guestVarNovaSolicitacao() {
 }
 
 // ── Carregar solicitações ─────────────────────────────────
+// ── Lista de pedidos de variedades: UM cartão por pedido (lote), com os itens dentro ──
+// No banco cada item continua sendo uma linha de var_solicitacoes; os itens enviados
+// juntos compartilham o mesmo grupoId e aqui viram um único "pedido". Item avulso = pedido de 1 item.
+const _varEsc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const _varBRL = n => 'R$ ' + (Number(n) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const _VAR_TERMINAIS = ['concluido', 'cancelado'];
+const _VAR_ORDEM_STATUS = ['pendente', 'em_proposta', 'pedido_liberado', 'compra_realizada', 'concluido'];
+let _varGrupos = {};   // chave do pedido → { key, itens:[docs] } (usado pelos botões e pelo detalhe)
+
+function _varStatusNorm(s) { return s === 'comprada' ? 'compra_realizada' : s === 'entregue' ? 'concluido' : s; }
+
+function _varAgrupar(docs) {
+  const mapa = new Map();
+  docs.forEach(d => {
+    const key = d.grupoId || d.id;
+    if (!mapa.has(key)) mapa.set(key, { key, itens: [] });
+    mapa.get(key).itens.push(d);
+  });
+  const grupos = [...mapa.values()];
+  grupos.forEach(g => {
+    g.itens.sort((a, b) => String(a.codigo || '').localeCompare(String(b.codigo || '')));
+    const p = g.itens[0];
+    g.base = p;
+    g.codigo = g.itens.length > 1 ? (p.codigo || '—') + ' a ' + (g.itens[g.itens.length - 1].codigo || '—') : (p.codigo || '—');
+    const vivos = g.itens.filter(i => i.status !== 'cancelado');
+    // status do pedido = o mais atrasado entre os itens ainda ativos (todos cancelados → cancelado)
+    if (!vivos.length) g.status = 'cancelado';
+    else g.status = vivos.map(i => _varStatusNorm(i.status)).sort((a, b) => _VAR_ORDEM_STATUS.indexOf(a) - _VAR_ORDEM_STATUS.indexOf(b))[0];
+    g.cancelados = g.itens.length - vivos.length;
+    g.valor = g.itens.reduce((s, i) => s + (Number(i.valorEstimado) || 0), 0);
+    g.criadoEm = Math.max(...g.itens.map(i => (i.criadoEm && i.criadoEm.toMillis ? i.criadoEm.toMillis() : (i.criadoEm && i.criadoEm.seconds ? i.criadoEm.seconds * 1000 : 0))));
+  });
+  return grupos.sort((a, b) => b.criadoEm - a.criadoEm);
+}
+
 async function loadVarSolicitacoes() {
   await populateVarSetorSelects();
   const listEl = document.getElementById('var-sol-list');
@@ -271,9 +306,7 @@ async function loadVarSolicitacoes() {
   if (!listEl) return;
 
   // Só mostra o spinner no primeiro carregamento: em atualizações automáticas
-  // (onSnapshot a cada 30s) trocar o conteúdo por um placeholder colapsa a
-  // altura da lista e "puxa" a página pra cima — parece o scroll se mexendo
-  // sozinho enquanto o usuário está rolando.
+  // trocar o conteúdo por um placeholder colapsa a altura da lista e "puxa" a página.
   if (!listEl.dataset.loaded) {
     listEl.innerHTML = '<div class="loading-state"><div class="spinner spinner-dark"></div>Carregando...</div>';
   }
@@ -282,15 +315,13 @@ async function loadVarSolicitacoes() {
   const isEscritorio = role === 'escritorio';
 
   try {
-    let query = db.collection('var_solicitacoes').orderBy('criadoEm','desc');
-    const snap = await query.get();
+    const snap = await db.collection('var_solicitacoes').orderBy('criadoEm', 'desc').get();
     let docs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     if (isEscritorio) {
       const uid = currentUserData.uid || currentUser?.uid || '';
       docs = docs.filter(d => d.solicitanteUid === uid);
     }
 
-    // Filtros
     const fSetor = document.getElementById('var-filtro-setor')?.value;
     const fStatus = document.getElementById('var-filtro-status')?.value;
     const fPrior = document.getElementById('var-filtro-prioridade')?.value;
@@ -299,87 +330,164 @@ async function loadVarSolicitacoes() {
     if (fPrior)  docs = docs.filter(d => d.prioridade === fPrior);
     if (_varFiltroGrupo) docs = docs.filter(d => d.grupoId === _varFiltroGrupo);
 
+    const grupos = _varAgrupar(docs);
+    _varGrupos = {};
+    grupos.forEach(g => { _varGrupos[g.key] = g; });
+
     if (countEl) {
-      countEl.innerHTML = docs.length + ' solicitação(ões)' + (_varFiltroGrupo
-        ? ` <span class="badge badge-info" style="cursor:pointer;" onclick="limparFiltroGrupoVar()">📦 filtrando por lote — limpar ✕</span>`
-        : '');
+      countEl.innerHTML = grupos.length + ' pedido(s) · ' + docs.length + ' item(ns)' + (_varFiltroGrupo
+        ? ' <span class="badge badge-info" style="cursor:pointer;" onclick="limparFiltroGrupoVar()">filtrando um pedido — limpar ✕</span>' : '');
     }
 
-    if (!docs.length) {
+    if (!grupos.length) {
       listEl.dataset.loaded = '1';
-      listEl.innerHTML = '<div class="empty-state"><div class="empty-state-icon">📋</div><div class="empty-state-title">Nenhuma solicitação encontrada</div></div>';
+      listEl.innerHTML = '<div class="empty-state"><div class="empty-state-icon">📋</div><div class="empty-state-title">Nenhum pedido encontrado</div></div>';
       return;
     }
 
-    const _isAdminLvl = ['admin','diretor','gerente','coordenador'].includes(role);
-    const canAvancar = _isAdminLvl || ['compras','estoque'].includes(role);
-    const canEditDelete = ['admin','diretor','gerente'].includes(role);
+    const _isAdminLvl = ['admin', 'diretor', 'gerente', 'coordenador'].includes(role);
+    const canAvancar = _isAdminLvl || ['compras', 'estoque'].includes(role);
+    const canEditDelete = ['admin', 'diretor', 'gerente'].includes(role);
 
     const priorBadge = { normal: 'badge-gray', alta: 'badge-warn', urgente: 'badge-danger' };
     const priorLabel = { normal: '🟢 Normal', alta: '🟠 Alta', urgente: '🔴 Urgente' };
     const statusBadge = {
-      pendente:'badge-warn', em_proposta:'badge-info',
-      pedido_liberado:'badge-ok', compra_realizada:'badge-brand', comprada:'badge-brand', concluido:'badge-gray', entregue:'badge-gray', cancelado:'badge-danger'
+      pendente: 'badge-warn', em_proposta: 'badge-info', pedido_liberado: 'badge-ok',
+      compra_realizada: 'badge-brand', concluido: 'badge-gray', cancelado: 'badge-danger',
     };
     const statusLabel = {
-      pendente:'🟡 Pendente', em_proposta:'📋 Em Proposta',
-      pedido_liberado:'🟢 Pedido Liberado',
-      compra_realizada:'✅ Compra Realizada', comprada:'✅ Compra Realizada', concluido:'🏁 Concluído', entregue:'🏁 Concluído', cancelado:'⛔ Cancelado'
+      pendente: '🟡 Pendente', em_proposta: '📋 Em Proposta', pedido_liberado: '🟢 Pedido Liberado',
+      compra_realizada: '✅ Compra Realizada', concluido: '🏁 Concluído', cancelado: '⛔ Cancelado',
     };
 
     listEl.dataset.loaded = '1';
-    const pagObjVar = paginar(docs, varSolPage);
-    listEl.innerHTML = pagObjVar.itens.map(d => {
+    const pag = paginar(grupos, varSolPage);
+    listEl.innerHTML = pag.itens.map(g => {
+      const d = g.base, k = _varEsc(g.key);
       const dt = d.dataLimite ? new Date(d.dataLimite + 'T00:00:00').toLocaleDateString('pt-BR') : '—';
-      const valor = d.valorEstimado > 0 ? 'R$ ' + d.valorEstimado.toLocaleString('pt-BR',{minimumFractionDigits:2}) : '—';
-      const forn = d.fornecedor?.empresa ? `<span style="font-size:11px;color:var(--text-muted);">🏪 ${d.fornecedor.empresa}</span>` : '';
-      const terminais = ['concluido','cancelado'];
-      const btnAvancar = canAvancar && !terminais.includes(d.status) ?
-        `<button class="btn btn-secondary btn-sm" onclick="avancarStatusVar('${d.id}','${d.status}')">▶ Avançar</button>` : '';
-      const btnCancelar = canAvancar && !terminais.includes(d.status)
-        ? `<button class="btn btn-danger btn-sm" onclick="cancelarVarSol('${d.id}')">⛔ Cancelar</button>` : '';
-      const btnEditar = canEditDelete
-        ? `<button class="btn btn-outline btn-sm" style="color:var(--warn);border-color:var(--warn);" onclick="abrirEditarVarSol('${d.id}')">✏️ Editar</button>` : '';
-      const btnExcluir = canEditDelete
-        ? `<button class="btn btn-danger btn-sm" onclick="excluirVarSol('${d.id}','${(d.codigo||'').replace(/'/g,"\\'")}')">🗑 Excluir</button>` : '';
-      return `<div class="card" style="margin-bottom:10px;">
-        <div class="card-body" style="padding:14px 18px;">
-          <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;">
-            <div style="flex:1;min-width:200px;">
-              <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap;">
-                <span style="font-size:12px;font-weight:700;color:var(--lumen);">${d.codigo || '—'}</span>
-                ${d.grupoId && d.grupoTotal > 1 ? `<span class="badge badge-info" title="Enviada junto com outros itens no mesmo pedido" style="cursor:pointer;" onclick="filtrarVarPorGrupo('${d.grupoId}')">📦 lote de ${d.grupoTotal}</span>` : ''}
-                <span class="badge ${priorBadge[d.prioridade]||'badge-gray'}">${priorLabel[d.prioridade]||d.prioridade}</span>
-                <span class="badge ${statusBadge[d.status]||'badge-gray'}">${statusLabel[d.status]||d.status}</span>
-              </div>
-              ${buildVarPipelineBar(d.status)}
-              <div style="font-size:14px;font-weight:600;margin-bottom:4px;">${d.material}${d.quantidade ? `<span style="font-size:12px;font-weight:700;color:var(--lumen);margin-left:8px;background:var(--lumen-lt);padding:2px 8px;border-radius:6px;">${d.quantidade} ${d.unidade||'un'}</span>` : ''}</div>
-              <div style="font-size:12px;color:var(--text-muted);margin-bottom:4px;">
-                🏢 ${d.setor} &nbsp;·&nbsp; 📅 Até ${dt} &nbsp;·&nbsp; 💰 ${valor}
-              </div>
-              ${d.obs ? `<div style="font-size:12px;color:var(--text-muted);font-style:italic;">"${d.obs}"</div>` : ''}
-              ${forn}
-            </div>
-            <div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end;">
-              <span style="font-size:11px;color:var(--text-muted);">por ${d.solicitanteNome||'—'}</span>
-              <button class="btn btn-outline btn-sm" onclick="verVarSolicitacao('${d.id}')">👁 Ver</button>
-              <button class="btn btn-outline btn-sm" style="color:var(--lumen);border-color:var(--lumen);" onclick="goPage('var-orcamento');setTimeout(()=>abrirModalOrcVar('${d.id}','${(d.codigo||'').replace(/'/g,"\\'")}','${(d.material||'').replace(/'/g,"\\'")}',${d.quantidade||1},'${d.unidade||'un'}'),400)">💲 Orçar</button>
-              ${btnAvancar}
-              ${btnCancelar}
-              ${btnEditar}
-              ${btnExcluir}
-            </div>
-          </div>
-        </div>
-      </div>`;
-    }).join('') + paginacaoHTML(pagObjVar, 'varSolGoToPage');
-  } catch(e) {
-    listEl.innerHTML = '<div class="empty-state"><div class="empty-state-icon">⚠️</div><div class="empty-state-title">Erro ao carregar: ' + e.message + '</div></div>';
+      const terminal = _VAR_TERMINAIS.includes(g.status);
+      const forn = d.fornecedor?.empresa ? ' &nbsp;·&nbsp; 🏪 ' + _varEsc(d.fornecedor.empresa) : '';
+      const linhasItens = g.itens.map(i => {
+        const cancel = i.status === 'cancelado';
+        const sIt = _varStatusNorm(i.status);
+        return '<tr style="' + (cancel ? 'opacity:.5;text-decoration:line-through;' : '') + '">'
+          + '<td style="padding:6px 8px;border-bottom:1px solid var(--border);font-size:13px;">' + _varEsc(i.material) + '</td>'
+          + '<td style="padding:6px 8px;border-bottom:1px solid var(--border);text-align:right;font-weight:700;white-space:nowrap;">' + (i.quantidade ? _varEsc(i.quantidade) + ' ' + _varEsc(i.unidade || 'un') : '—') + '</td>'
+          + '<td style="padding:6px 8px;border-bottom:1px solid var(--border);text-align:right;font-size:12px;color:var(--text-muted);white-space:nowrap;">' + (i.valorEstimado > 0 ? _varBRL(i.valorEstimado) : '—') + '</td>'
+          + '<td style="padding:6px 8px;border-bottom:1px solid var(--border);font-size:11px;color:var(--text-muted);white-space:nowrap;">' + _varEsc(i.codigo || '') + (g.itens.length > 1 && !cancel && sIt !== g.status ? ' · ' + _varEsc((statusLabel[sIt] || sIt)) : '') + (cancel && g.itens.length > 1 ? ' · cancelado' : '') + '</td>'
+          + (canEditDelete ? '<td style="padding:6px 4px;border-bottom:1px solid var(--border);white-space:nowrap;text-align:right;">'
+            + '<button class="btn btn-outline btn-sm" title="Editar item" style="padding:2px 7px;" onclick="abrirEditarVarSol(\'' + i.id + '\')">✏️</button> '
+            + '<button class="btn btn-danger btn-sm" title="Excluir item" style="padding:2px 7px;" onclick="excluirVarSol(\'' + i.id + '\',\'' + _varEsc((i.codigo || '').replace(/'/g, '')) + '\')">🗑</button></td>' : '')
+          + '</tr>';
+      }).join('');
+      const nItens = g.itens.length;
+      return '<div class="card" style="margin-bottom:12px;"><div class="card-body" style="padding:14px 18px;">'
+        + '<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;">'
+        +   '<div style="flex:1;min-width:260px;">'
+        +     '<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;flex-wrap:wrap;">'
+        +       '<span style="font-size:13px;font-weight:800;color:var(--lumen);">' + _varEsc(g.codigo) + '</span>'
+        +       '<span class="badge badge-info">' + nItens + (nItens === 1 ? ' item' : ' itens') + '</span>'
+        +       '<span class="badge ' + (priorBadge[d.prioridade] || 'badge-gray') + '">' + (priorLabel[d.prioridade] || _varEsc(d.prioridade)) + '</span>'
+        +       '<span class="badge ' + (statusBadge[g.status] || 'badge-gray') + '">' + (statusLabel[g.status] || _varEsc(g.status)) + '</span>'
+        +       (g.cancelados && g.status !== 'cancelado' ? '<span class="badge badge-danger">' + g.cancelados + ' cancelado(s)</span>' : '')
+        +     '</div>'
+        +     buildVarPipelineBar(g.status)
+        +     '<div style="font-size:12px;color:var(--text-muted);margin:2px 0 8px;">🏢 ' + _varEsc(d.setor) + ' &nbsp;·&nbsp; 📅 Até ' + dt + (g.valor > 0 ? ' &nbsp;·&nbsp; 💰 Est. ' + _varBRL(g.valor) : '') + forn + ' &nbsp;·&nbsp; por ' + _varEsc(d.solicitanteNome || '—') + '</div>'
+        +     (d.obs ? '<div style="font-size:12px;color:var(--text-muted);font-style:italic;margin-bottom:8px;">"' + _varEsc(d.obs) + '"</div>' : '')
+        +     '<div style="overflow-x:auto;border:1px solid var(--border);border-radius:8px;"><table style="width:100%;border-collapse:collapse;">'
+        +       '<thead><tr><th style="padding:5px 8px;text-align:left;font-size:10.5px;text-transform:uppercase;color:var(--text-muted);">Material</th><th style="padding:5px 8px;text-align:right;font-size:10.5px;text-transform:uppercase;color:var(--text-muted);">Qtd.</th><th style="padding:5px 8px;text-align:right;font-size:10.5px;text-transform:uppercase;color:var(--text-muted);">Estimado</th><th style="padding:5px 8px;font-size:10.5px;text-transform:uppercase;color:var(--text-muted);">Código</th>' + (canEditDelete ? '<th></th>' : '') + '</tr></thead>'
+        +       '<tbody>' + linhasItens + '</tbody></table></div>'
+        +   '</div>'
+        +   '<div style="display:flex;flex-direction:column;gap:6px;align-items:stretch;min-width:150px;">'
+        +     '<button class="btn btn-outline btn-sm" onclick="verVarPedido(\'' + k + '\')">👁 Ver pedido</button>'
+        +     (_isAdminLvl && !terminal ? '<button class="btn btn-outline btn-sm" style="color:var(--lumen);border-color:var(--lumen);" onclick="varOrcarPedido(\'' + k + '\')">💲 Orçar</button>' : '')
+        +     (canAvancar && !terminal ? '<button class="btn btn-secondary btn-sm" onclick="avancarLoteVar(\'' + k + '\')">▶ Avançar pedido</button>' : '')
+        +     (canAvancar && !terminal ? '<button class="btn btn-danger btn-sm" onclick="cancelarLoteVar(\'' + k + '\')">⛔ Cancelar pedido</button>' : '')
+        +   '</div>'
+        + '</div></div></div>';
+    }).join('') + paginacaoHTML(pag, 'varSolGoToPage');
+  } catch (e) {
+    listEl.innerHTML = '<div class="empty-state"><div class="empty-state-icon">⚠️</div><div class="empty-state-title">Erro ao carregar: ' + _varEsc(e.message) + '</div></div>';
   }
 }
 let varSolPage = 1;
 function varSolGoToPage(p) { varSolPage = p; loadVarSolicitacoes(); }
 window.varSolGoToPage = varSolGoToPage;
+
+// Etapa 2 troca este atalho pela tabela de preços do pedido; por enquanto abre o orçamento do 1º item pendente.
+function varOrcarPedido(key) {
+  const g = _varGrupos[key]; if (!g) return;
+  const it = g.itens.find(i => i.status !== 'cancelado') || g.itens[0];
+  goPage('var-orcamento');
+  setTimeout(() => abrirModalOrcVar(it.id, it.codigo || '', it.material || '', it.quantidade || 1, it.unidade || 'un'), 400);
+}
+window.varOrcarPedido = varOrcarPedido;
+
+// Avança TODOS os itens ativos do pedido para a próxima fase (cada um para o seu próximo status)
+async function avancarLoteVar(key) {
+  const g = _varGrupos[key]; if (!g) return;
+  const ativos = g.itens.filter(i => !_VAR_TERMINAIS.includes(i.status));
+  if (!ativos.length) return;
+  try {
+    const batch = db.batch();
+    const agora = firebase.firestore.FieldValue.serverTimestamp();
+    ativos.forEach(i => {
+      const novo = proximoStatusVar(i.status, 'avancar');
+      if (novo === i.status) return;
+      batch.update(db.collection('var_solicitacoes').doc(i.id), { status: novo, [novo + 'Em']: agora, [novo + 'Por']: currentUserData.name || '' });
+    });
+    await batch.commit();
+    if (typeof registrarAuditoria === 'function') ativos.forEach(i => registrarAuditoria('var_solicitacoes', i.id, 'status_alterado', i.status + ' → ' + proximoStatusVar(i.status, 'avancar')));
+    showToast('✅ Pedido avançado para a próxima fase.');
+    loadVarSolicitacoes();
+    atualizarBadgeVar();
+  } catch (e) { showToast('Erro ao avançar: ' + e.message); }
+}
+
+async function cancelarLoteVar(key) {
+  const g = _varGrupos[key]; if (!g) return;
+  const ativos = g.itens.filter(i => !_VAR_TERMINAIS.includes(i.status));
+  if (!ativos.length) return;
+  if (!confirm('Cancelar o pedido inteiro (' + ativos.length + (ativos.length === 1 ? ' item' : ' itens') + ')?')) return;
+  try {
+    const batch = db.batch();
+    const agora = firebase.firestore.FieldValue.serverTimestamp();
+    ativos.forEach(i => batch.update(db.collection('var_solicitacoes').doc(i.id), { status: 'cancelado', canceladoEm: agora, canceladoPor: currentUserData.name || '' }));
+    await batch.commit();
+    showToast('⛔ Pedido cancelado.');
+    loadVarSolicitacoes();
+    atualizarBadgeVar();
+  } catch (e) { showToast('Erro ao cancelar: ' + e.message); }
+}
+
+// Detalhe do pedido: dados gerais + todos os itens
+function verVarPedido(key) {
+  const g = _varGrupos[key]; if (!g) return;
+  const d = g.base;
+  const dt = d.dataLimite ? new Date(d.dataLimite + 'T00:00:00').toLocaleDateString('pt-BR') : '—';
+  document.getElementById('modal-ver-var-title').textContent = 'Pedido ' + g.codigo;
+  const linhas = g.itens.map(i => '<tr style="' + (i.status === 'cancelado' ? 'opacity:.5;text-decoration:line-through;' : '') + '">'
+    + '<td style="padding:7px 8px;border-bottom:1px solid var(--border);">' + _varEsc(i.material) + '<div style="font-size:11px;color:var(--text-muted);">' + _varEsc(i.codigo || '') + '</div></td>'
+    + '<td style="padding:7px 8px;border-bottom:1px solid var(--border);text-align:right;font-weight:700;white-space:nowrap;">' + (i.quantidade ? _varEsc(i.quantidade) + ' ' + _varEsc(i.unidade || 'un') : '—') + '</td>'
+    + '<td style="padding:7px 8px;border-bottom:1px solid var(--border);text-align:right;white-space:nowrap;">' + (i.valorEstimado > 0 ? _varBRL(i.valorEstimado) : '—') + '</td></tr>').join('');
+  document.getElementById('modal-ver-var-body').innerHTML = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;">'
+    + '<div><div class="form-label">Setor</div><div style="font-size:14px;">' + _varEsc(d.setor) + '</div></div>'
+    + '<div><div class="form-label">Prioridade</div><div style="font-size:14px;">' + _varEsc(d.prioridade) + '</div></div>'
+    + '<div><div class="form-label">Fase</div><div style="font-size:14px;">' + _varEsc(String(g.status).replace(/_/g, ' ')) + '</div></div>'
+    + '<div><div class="form-label">Data limite</div><div style="font-size:14px;">' + dt + '</div></div></div>'
+    + buildVarPipelineBar(g.status)
+    + '<div class="form-label" style="margin-top:10px;">Itens (' + g.itens.length + ')</div>'
+    + '<div style="border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-bottom:12px;"><table style="width:100%;border-collapse:collapse;"><thead><tr>'
+    + '<th style="padding:6px 8px;text-align:left;font-size:11px;color:var(--text-muted);">MATERIAL</th><th style="padding:6px 8px;text-align:right;font-size:11px;color:var(--text-muted);">QTD.</th><th style="padding:6px 8px;text-align:right;font-size:11px;color:var(--text-muted);">ESTIMADO</th></tr></thead><tbody>' + linhas + '</tbody>'
+    + (g.valor > 0 ? '<tfoot><tr><td colspan="2" style="padding:7px 8px;text-align:right;font-weight:700;">Total estimado</td><td style="padding:7px 8px;text-align:right;font-weight:800;color:var(--lumen);">' + _varBRL(g.valor) + '</td></tr></tfoot>' : '') + '</table></div>'
+    + (d.obs ? '<div class="form-group"><div class="form-label">Observação</div><div style="font-size:13px;color:var(--text-muted);">' + _varEsc(d.obs) + '</div></div>' : '')
+    + (d.fornecedor?.empresa ? '<div style="border:1px solid var(--border);border-radius:8px;padding:12px;"><div class="form-label" style="margin-bottom:8px;">Fornecedor sugerido</div><div>🏪 ' + _varEsc(d.fornecedor.empresa) + '</div>'
+      + (d.fornecedor.atendente ? '<div>👤 ' + _varEsc(d.fornecedor.atendente) + '</div>' : '') + (d.fornecedor.tel ? '<div>📞 ' + _varEsc(d.fornecedor.tel) + '</div>' : '') + '</div>' : '')
+    + '<div style="margin-top:12px;font-size:11px;color:var(--text-muted);">Solicitado por ' + _varEsc(d.solicitanteNome || '—') + '</div>';
+  document.getElementById('modal-ver-var').classList.remove('hidden');
+}
+window.verVarPedido = verVarPedido; window.avancarLoteVar = avancarLoteVar; window.cancelarLoteVar = cancelarLoteVar;
+
 
 async function avancarStatusVar(docId, statusAtual) {
   const novo = proximoStatusVar(statusAtual, 'avancar');
