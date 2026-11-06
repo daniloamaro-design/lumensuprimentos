@@ -43,7 +43,8 @@ window.selecionarModulo = selecionarModulo;
 function sincronizarModuloDaPagina(page) {
   const nav = document.getElementById('sidebar');
   if (!nav || !page) return;
-  const alvo = String(page).startsWith('var-') ? 'variedades' : (nav.dataset.mod === 'variedades' ? 'suprimentos' : null);
+  // Gerenciar Setores (var-setores) fica no módulo Coordenador; as demais telas var-* são do módulo Variedades
+  const alvo = page === 'var-setores' ? 'coord' : String(page).startsWith('var-') ? 'variedades' : (nav.dataset.mod === 'variedades' ? 'suprimentos' : null);
   if (!alvo || nav.dataset.mod === alvo) return;
   nav.dataset.mod = alvo;
   document.querySelectorAll('.modulo-btn').forEach(b => b.classList.toggle('ativo', b.dataset.mod === alvo));

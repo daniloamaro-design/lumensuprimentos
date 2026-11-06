@@ -356,56 +356,32 @@ async function loadVarSolicitacoes() {
       compra_realizada: 'badge-brand', concluido: 'badge-gray', cancelado: 'badge-danger',
     };
     const statusLabel = {
-      pendente: '🟡 Pendente', em_proposta: '📋 Em Proposta', pedido_liberado: '🟢 Pedido Liberado',
+      pendente: '🟡 Pendente', em_proposta: '📝 Em Aprovação', pedido_liberado: '🟢 Pedido Liberado',
       compra_realizada: '✅ Compra Realizada', concluido: '🏁 Concluído', cancelado: '⛔ Cancelado',
     };
 
     listEl.dataset.loaded = '1';
     const pag = paginar(grupos, varSolPage);
-    listEl.innerHTML = pag.itens.map(g => {
+    const rows = pag.itens.map(g => {
       const d = g.base, k = _varEsc(g.key);
       const dt = d.dataLimite ? new Date(d.dataLimite + 'T00:00:00').toLocaleDateString('pt-BR') : '—';
-      const terminal = _VAR_TERMINAIS.includes(g.status);
-      const forn = d.fornecedor?.empresa ? ' &nbsp;·&nbsp; 🏪 ' + _varEsc(d.fornecedor.empresa) : '';
-      const linhasItens = g.itens.map(i => {
-        const cancel = i.status === 'cancelado';
-        const sIt = _varStatusNorm(i.status);
-        return '<tr style="' + (cancel ? 'opacity:.5;text-decoration:line-through;' : '') + '">'
-          + '<td style="padding:6px 8px;border-bottom:1px solid var(--border);font-size:13px;">' + _varEsc(i.material) + '</td>'
-          + '<td style="padding:6px 8px;border-bottom:1px solid var(--border);text-align:right;font-weight:700;white-space:nowrap;">' + (i.quantidade ? _varEsc(i.quantidade) + ' ' + _varEsc(i.unidade || 'un') : '—') + '</td>'
-          + '<td style="padding:6px 8px;border-bottom:1px solid var(--border);text-align:right;font-size:12px;color:var(--text-muted);white-space:nowrap;">' + (i.valorEstimado > 0 ? _varBRL(i.valorEstimado) : '—') + '</td>'
-          + '<td style="padding:6px 8px;border-bottom:1px solid var(--border);font-size:11px;color:var(--text-muted);white-space:nowrap;">' + _varEsc(i.codigo || '') + (g.itens.length > 1 && !cancel && sIt !== g.status ? ' · ' + _varEsc((statusLabel[sIt] || sIt)) : '') + (cancel && g.itens.length > 1 ? ' · cancelado' : '') + '</td>'
-          + (canEditDelete ? '<td style="padding:6px 4px;border-bottom:1px solid var(--border);white-space:nowrap;text-align:right;">'
-            + '<button class="btn btn-outline btn-sm" title="Editar item" style="padding:2px 7px;" onclick="abrirEditarVarSol(\'' + i.id + '\')">✏️</button> '
-            + '<button class="btn btn-danger btn-sm" title="Excluir item" style="padding:2px 7px;" onclick="excluirVarSol(\'' + i.id + '\',\'' + _varEsc((i.codigo || '').replace(/'/g, '')) + '\')">🗑</button></td>' : '')
-          + '</tr>';
-      }).join('');
-      const nItens = g.itens.length;
-      return '<div class="card" style="margin-bottom:12px;"><div class="card-body" style="padding:14px 18px;">'
-        + '<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;">'
-        +   '<div style="flex:1;min-width:260px;">'
-        +     '<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;flex-wrap:wrap;">'
-        +       '<span style="font-size:13px;font-weight:800;color:var(--lumen);">' + _varEsc(g.codigo) + '</span>'
-        +       '<span class="badge badge-info">' + nItens + (nItens === 1 ? ' item' : ' itens') + '</span>'
-        +       '<span class="badge ' + (priorBadge[d.prioridade] || 'badge-gray') + '">' + (priorLabel[d.prioridade] || _varEsc(d.prioridade)) + '</span>'
-        +       '<span class="badge ' + (statusBadge[g.status] || 'badge-gray') + '">' + (statusLabel[g.status] || _varEsc(g.status)) + '</span>'
-        +       (g.cancelados && g.status !== 'cancelado' ? '<span class="badge badge-danger">' + g.cancelados + ' cancelado(s)</span>' : '')
-        +     '</div>'
-        +     buildVarPipelineBar(g.status)
-        +     '<div style="font-size:12px;color:var(--text-muted);margin:2px 0 8px;">🏢 ' + _varEsc(d.setor) + ' &nbsp;·&nbsp; 📅 Até ' + dt + (g.valor > 0 ? ' &nbsp;·&nbsp; 💰 Est. ' + _varBRL(g.valor) : '') + forn + ' &nbsp;·&nbsp; por ' + _varEsc(d.solicitanteNome || '—') + '</div>'
-        +     (d.obs ? '<div style="font-size:12px;color:var(--text-muted);font-style:italic;margin-bottom:8px;">"' + _varEsc(d.obs) + '"</div>' : '')
-        +     '<div style="overflow-x:auto;border:1px solid var(--border);border-radius:8px;"><table style="width:100%;border-collapse:collapse;">'
-        +       '<thead><tr><th style="padding:5px 8px;text-align:left;font-size:10.5px;text-transform:uppercase;color:var(--text-muted);">Material</th><th style="padding:5px 8px;text-align:right;font-size:10.5px;text-transform:uppercase;color:var(--text-muted);">Qtd.</th><th style="padding:5px 8px;text-align:right;font-size:10.5px;text-transform:uppercase;color:var(--text-muted);">Estimado</th><th style="padding:5px 8px;font-size:10.5px;text-transform:uppercase;color:var(--text-muted);">Código</th>' + (canEditDelete ? '<th></th>' : '') + '</tr></thead>'
-        +       '<tbody>' + linhasItens + '</tbody></table></div>'
-        +   '</div>'
-        +   '<div style="display:flex;flex-direction:column;gap:6px;align-items:stretch;min-width:150px;">'
-        +     '<button class="btn btn-outline btn-sm" onclick="verVarPedido(\'' + k + '\')">👁 Ver pedido</button>'
-        +     (_isAdminLvl && !terminal ? '<button class="btn btn-outline btn-sm" style="color:var(--lumen);border-color:var(--lumen);" onclick="varOrcarPedido(\'' + k + '\')">💲 Orçar</button>' : '')
-        +     (canAvancar && !terminal ? '<button class="btn btn-secondary btn-sm" onclick="avancarLoteVar(\'' + k + '\')">▶ Avançar pedido</button>' : '')
-        +     (canAvancar && !terminal ? '<button class="btn btn-danger btn-sm" onclick="cancelarLoteVar(\'' + k + '\')">⛔ Cancelar pedido</button>' : '')
-        +   '</div>'
-        + '</div></div></div>';
-    }).join('') + paginacaoHTML(pag, 'varSolGoToPage');
+      const nomes = g.itens.filter(i => i.status !== 'cancelado').map(i => _varEsc(i.material));
+      const resumo = nomes.slice(0, 2).join(', ') + (nomes.length > 2 ? ' <span style="color:var(--text-muted);">+' + (nomes.length - 2) + '</span>' : '');
+      const urgente = d.prioridade === 'urgente';
+      return '<tr style="cursor:pointer;" onclick="verVarPedido(\'' + k + '\')">'
+        + '<td><span class="order-code">' + _varEsc(g.codigo) + '</span></td>'
+        + '<td>' + (resumo || '—') + '<div style="font-size:11px;color:var(--text-muted);">' + g.itens.length + (g.itens.length === 1 ? ' item' : ' itens')
+          + (g.cancelados && g.status !== 'cancelado' ? ' · ' + g.cancelados + ' cancelado(s)' : '') + '</div></td>'
+        + '<td>' + _varEsc(d.setor) + '</td>'
+        + '<td>' + _varEsc(d.solicitanteNome || '—') + '</td>'
+        + '<td style="white-space:nowrap;">' + dt + '</td>'
+        + '<td><span class="badge ' + (priorBadge[d.prioridade] || 'badge-gray') + '">' + (priorLabel[d.prioridade] || _varEsc(d.prioridade)) + '</span></td>'
+        + '<td><span class="badge ' + (statusBadge[g.status] || 'badge-gray') + '">' + (statusLabel[g.status] || _varEsc(g.status)) + '</span></td>'
+        + '<td style="text-align:right;white-space:nowrap;">' + (g.valor > 0 ? _varBRL(g.valor) : '—') + '</td>'
+        + '<td><button class="btn btn-secondary btn-sm" onclick="event.stopPropagation();verVarPedido(\'' + k + '\')">Ver</button></td></tr>';
+    }).join('');
+    listEl.innerHTML = '<div class="card"><div class="table-wrap"><table><thead><tr><th>Pedido</th><th>Itens</th><th>Setor</th><th>Solicitante</th><th>Até</th><th>Prioridade</th><th>Status</th><th style="text-align:right;">Estimado</th><th></th></tr></thead>'
+      + '<tbody>' + rows + '</tbody></table></div></div>' + paginacaoHTML(pag, 'varSolGoToPage');
   } catch (e) {
     listEl.innerHTML = '<div class="empty-state"><div class="empty-state-icon">⚠️</div><div class="empty-state-title">Erro ao carregar: ' + _varEsc(e.message) + '</div></div>';
   }
@@ -414,14 +390,6 @@ let varSolPage = 1;
 function varSolGoToPage(p) { varSolPage = p; loadVarSolicitacoes(); }
 window.varSolGoToPage = varSolGoToPage;
 
-// Etapa 2 troca este atalho pela tabela de preços do pedido; por enquanto abre o orçamento do 1º item pendente.
-function varOrcarPedido(key) {
-  const g = _varGrupos[key]; if (!g) return;
-  const it = g.itens.find(i => i.status !== 'cancelado') || g.itens[0];
-  goPage('var-orcamento');
-  setTimeout(() => abrirModalOrcVar(it.id, it.codigo || '', it.material || '', it.quantidade || 1, it.unidade || 'un'), 400);
-}
-window.varOrcarPedido = varOrcarPedido;
 
 // Avança TODOS os itens ativos do pedido para a próxima fase (cada um para o seu próximo status)
 async function avancarLoteVar(key) {
@@ -434,7 +402,9 @@ async function avancarLoteVar(key) {
     ativos.forEach(i => {
       const novo = proximoStatusVar(i.status, 'avancar');
       if (novo === i.status) return;
-      batch.update(db.collection('var_solicitacoes').doc(i.id), { status: novo, [novo + 'Em']: agora, [novo + 'Por']: currentUserData.name || '' });
+      const upd = { status: novo };
+      if (['pedido_liberado', 'compra_realizada', 'concluido'].includes(novo)) { upd[novo + 'Em'] = agora; upd[novo + 'Por'] = currentUserData.name || ''; }   // só essas fases têm coluna de data/autor
+      batch.update(db.collection('var_solicitacoes').doc(i.id), upd);
     });
     await batch.commit();
     if (typeof registrarAuditoria === 'function') ativos.forEach(i => registrarAuditoria('var_solicitacoes', i.id, 'status_alterado', i.status + ' → ' + proximoStatusVar(i.status, 'avancar')));
@@ -460,33 +430,7 @@ async function cancelarLoteVar(key) {
   } catch (e) { showToast('Erro ao cancelar: ' + e.message); }
 }
 
-// Detalhe do pedido: dados gerais + todos os itens
-function verVarPedido(key) {
-  const g = _varGrupos[key]; if (!g) return;
-  const d = g.base;
-  const dt = d.dataLimite ? new Date(d.dataLimite + 'T00:00:00').toLocaleDateString('pt-BR') : '—';
-  document.getElementById('modal-ver-var-title').textContent = 'Pedido ' + g.codigo;
-  const linhas = g.itens.map(i => '<tr style="' + (i.status === 'cancelado' ? 'opacity:.5;text-decoration:line-through;' : '') + '">'
-    + '<td style="padding:7px 8px;border-bottom:1px solid var(--border);">' + _varEsc(i.material) + '<div style="font-size:11px;color:var(--text-muted);">' + _varEsc(i.codigo || '') + '</div></td>'
-    + '<td style="padding:7px 8px;border-bottom:1px solid var(--border);text-align:right;font-weight:700;white-space:nowrap;">' + (i.quantidade ? _varEsc(i.quantidade) + ' ' + _varEsc(i.unidade || 'un') : '—') + '</td>'
-    + '<td style="padding:7px 8px;border-bottom:1px solid var(--border);text-align:right;white-space:nowrap;">' + (i.valorEstimado > 0 ? _varBRL(i.valorEstimado) : '—') + '</td></tr>').join('');
-  document.getElementById('modal-ver-var-body').innerHTML = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;">'
-    + '<div><div class="form-label">Setor</div><div style="font-size:14px;">' + _varEsc(d.setor) + '</div></div>'
-    + '<div><div class="form-label">Prioridade</div><div style="font-size:14px;">' + _varEsc(d.prioridade) + '</div></div>'
-    + '<div><div class="form-label">Fase</div><div style="font-size:14px;">' + _varEsc(String(g.status).replace(/_/g, ' ')) + '</div></div>'
-    + '<div><div class="form-label">Data limite</div><div style="font-size:14px;">' + dt + '</div></div></div>'
-    + buildVarPipelineBar(g.status)
-    + '<div class="form-label" style="margin-top:10px;">Itens (' + g.itens.length + ')</div>'
-    + '<div style="border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-bottom:12px;"><table style="width:100%;border-collapse:collapse;"><thead><tr>'
-    + '<th style="padding:6px 8px;text-align:left;font-size:11px;color:var(--text-muted);">MATERIAL</th><th style="padding:6px 8px;text-align:right;font-size:11px;color:var(--text-muted);">QTD.</th><th style="padding:6px 8px;text-align:right;font-size:11px;color:var(--text-muted);">ESTIMADO</th></tr></thead><tbody>' + linhas + '</tbody>'
-    + (g.valor > 0 ? '<tfoot><tr><td colspan="2" style="padding:7px 8px;text-align:right;font-weight:700;">Total estimado</td><td style="padding:7px 8px;text-align:right;font-weight:800;color:var(--lumen);">' + _varBRL(g.valor) + '</td></tr></tfoot>' : '') + '</table></div>'
-    + (d.obs ? '<div class="form-group"><div class="form-label">Observação</div><div style="font-size:13px;color:var(--text-muted);">' + _varEsc(d.obs) + '</div></div>' : '')
-    + (d.fornecedor?.empresa ? '<div style="border:1px solid var(--border);border-radius:8px;padding:12px;"><div class="form-label" style="margin-bottom:8px;">Fornecedor sugerido</div><div>🏪 ' + _varEsc(d.fornecedor.empresa) + '</div>'
-      + (d.fornecedor.atendente ? '<div>👤 ' + _varEsc(d.fornecedor.atendente) + '</div>' : '') + (d.fornecedor.tel ? '<div>📞 ' + _varEsc(d.fornecedor.tel) + '</div>' : '') + '</div>' : '')
-    + '<div style="margin-top:12px;font-size:11px;color:var(--text-muted);">Solicitado por ' + _varEsc(d.solicitanteNome || '—') + '</div>';
-  document.getElementById('modal-ver-var').classList.remove('hidden');
-}
-window.verVarPedido = verVarPedido; window.avancarLoteVar = avancarLoteVar; window.cancelarLoteVar = cancelarLoteVar;
+window.avancarLoteVar = avancarLoteVar; window.cancelarLoteVar = cancelarLoteVar;
 
 
 async function avancarStatusVar(docId, statusAtual) {

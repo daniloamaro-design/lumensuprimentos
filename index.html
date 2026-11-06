@@ -416,6 +416,10 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
         Planejamento de Férias
       </button>
+      <button class="sidebar-item" data-page="var-setores" onclick="goPageMobile('var-setores')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+        Gerenciar Setores
+      </button>
       <button class="sidebar-item" data-page="coord-guia" onclick="goPageMobile('coord-guia')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
         Guia e Atualizações
@@ -673,24 +677,12 @@
       <div class="sidebar-section-title">Compras de Variedades</div>
       <button class="sidebar-item" data-page="var-solicitacoes" onclick="goPageMobile('var-solicitacoes')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
-        Solicitações
+        Pedidos
         <span id="var-badge-count" style="display:none;background:var(--danger);color:#fff;border-radius:99px;font-size:10px;font-weight:700;padding:1px 7px;margin-left:auto;"></span>
-      </button>
-      <button class="sidebar-item var-admin-only" data-page="var-orcamento" onclick="goPageMobile('var-orcamento')">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
-        Orçamentos
-      </button>
-      <button class="sidebar-item var-admin-only" data-page="var-proposta" onclick="goPageMobile('var-proposta')">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
-        Proposta Semanal
       </button>
       <button class="sidebar-item var-admin-only" data-page="var-historico" onclick="goPageMobile('var-historico')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
         Histórico de Compras
-      </button>
-      <button class="sidebar-item var-admin-only" data-page="var-setores" onclick="goPageMobile('var-setores')">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
-        Gerenciar Setores
       </button>
     </div>
 
@@ -2159,7 +2151,7 @@
           <select class="form-select" id="var-filtro-status" onchange="varSolPage=1;loadVarSolicitacoes()" style="width:160px;">
             <option value="">Todos</option>
             <option value="pendente">🟡 Pendente</option>
-            <option value="em_proposta">📋 Em Proposta</option>
+            <option value="em_proposta">📝 Em Aprovação</option>
             <option value="pedido_liberado">🟢 Pedido Liberado</option>
             <option value="compra_realizada">✅ Compra Realizada</option>
             <option value="concluido">🏁 Concluído</option>
@@ -2205,7 +2197,7 @@
           <select class="form-select" id="var-orc-filtro-status" onchange="loadVarOrcamento()" style="width:180px;">
             <option value="">Todos</option>
             <option value="pendente">🟡 Pendente</option>
-            <option value="em_proposta">📋 Em Proposta</option>
+            <option value="em_proposta">📝 Em Aprovação</option>
             <option value="pedido_liberado">🟢 Pedido Liberado</option>
             <option value="compra_realizada">✅ Compra Realizada</option>
             <option value="concluido">🏁 Concluído</option>
@@ -3895,7 +3887,7 @@
 <script src="js/16-chat-ia.js?v=2"></script>
 <script src="js/17-metas-wrappers.js?v=2"></script>
 <script src="js/cidades-brasil.js?v=1"></script>
-<script src="js/18-erp.js?v=65"></script>
+<script src="js/18-erp.js?v=66"></script>
 <script src="js/19-dashboard-diretoria.js?v=10"></script>
 <script src="js/20-percapita-diretoria.js?v=2"></script>
 <!-- CHAT IA FLUTUANTE -->
@@ -3981,7 +3973,7 @@
   </div>
 </div>
 
-<script src="js/variedades.js?v=5"></script>
+<script src="js/variedades.js?v=6"></script>
 <script src="js/21-inventario.js?v=3"></script>
 <script src="js/22-coord-dashboard.js?v=17"></script>
 <script src="js/23-importar-precos-nf.js?v=1"></script>
@@ -4091,7 +4083,7 @@
         <label class="form-label">Status</label>
         <select class="form-select" id="edit-var-status">
           <option value="pendente">🟡 Pendente</option>
-          <option value="em_proposta">📋 Em Proposta</option>
+          <option value="em_proposta">📝 Em Aprovação</option>
           <option value="pedido_liberado">🟢 Pedido Liberado</option>
           <option value="compra_realizada">✅ Compra Realizada</option>
           <option value="concluido">🏁 Concluído</option>
@@ -4230,6 +4222,7 @@
 </div>
 
 <script src="js/melhorias.js?v=5"></script>
+<script src="js/32-var-pedidos.js?v=1"></script>
 
 
 
