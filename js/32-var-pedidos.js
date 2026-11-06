@@ -73,6 +73,24 @@ async function verVarPedido(key) {
   const orcs = await _vcBuscarOrcamentos(g.itens.map(i => i.id)).catch(() => []);
   const porItem = {};
   orcs.forEach(o => { (porItem[o.solicitacaoId] = porItem[o.solicitacaoId] || []).push(o); });
+  // fornecedores escolhidos (de cada item ativo) → valor, itens e PDF
+  const porForn = {};
+  g.itens.filter(i => i.status !== 'cancelado').forEach(it => {
+    (porItem[it.id] || []).forEach(o => {
+      const e = Array.isArray(o.cotacoes) && o.opcaoEscolhida != null ? o.cotacoes[o.opcaoEscolhida] : null;
+      if (!e || !e.fornecedor) return;
+      const x = porForn[e.fornecedor] = porForn[e.fornecedor] || { linhas: [], valor: 0 };
+      x.linhas.push({ nome: it.material, unidade: it.unidade || 'un', qtd: Number(e.qtd) > 0 ? Number(e.qtd) : (Number(it.quantidade) || 1), preco: Number(e.valorUnitario) || 0, obs: e.obs || '' });
+      x.valor += Number(e.valorTotal) || 0;
+    });
+  });
+  _vc.pdf = { key, porForn };
+  const nomesForn = Object.keys(porForn);
+  const blocoForn = nomesForn.length ? '<div class="form-label">Fornecedores escolhidos</div><div style="border:1px solid var(--border);border-radius:8px;margin-bottom:12px;">'
+    + nomesForn.map((n, ix) => '<div style="display:flex;align-items:center;gap:10px;padding:8px 12px;' + (ix ? 'border-top:1px solid var(--border);' : '') + '">'
+      + '<div style="flex:1;"><b>' + _varEsc(n) + '</b><div style="font-size:11px;color:var(--text-muted);">' + porForn[n].linhas.length + ' item(ns)</div></div>'
+      + '<div style="font-weight:800;">' + _varBRL(_vcRound(porForn[n].valor)) + '</div>'
+      + '<button class="btn btn-outline btn-sm" onclick="varPdfFornecedor(' + ix + ')">📄 Baixar pedido (PDF)</button></div>').join('') + '</div>' : '';
   const escolha = it => {
     for (const o of (porItem[it.id] || [])) {
       const e = Array.isArray(o.cotacoes) ? o.cotacoes[o.opcaoEscolhida] : null;
@@ -101,17 +119,61 @@ async function verVarPedido(key) {
     + '<div style="border:1px solid var(--border);border-radius:8px;overflow-x:auto;margin-bottom:12px;"><table style="width:100%;border-collapse:collapse;"><thead><tr>'
     + ['MATERIAL', 'QTD.', 'ESTIMADO', 'FORNECEDOR ESCOLHIDO'].map((h, n) => '<th style="padding:6px 8px;text-align:' + (n === 1 || n === 2 ? 'right' : 'left') + ';font-size:11px;color:var(--text-muted);">' + h + '</th>').join('')
     + (canEditDelete ? '<th></th>' : '') + '</tr></thead><tbody>' + linhas + '</tbody></table></div>'
+    + blocoForn
     + (d.obs ? '<div class="form-group"><div class="form-label">Observação</div><div style="font-size:13px;color:var(--text-muted);">' + _varEsc(d.obs) + '</div></div>' : '')
     + (d.fornecedor?.empresa ? '<div style="border:1px solid var(--border);border-radius:8px;padding:12px;"><div class="form-label" style="margin-bottom:8px;">Fornecedor sugerido pelo solicitante</div><div>🏪 ' + _varEsc(d.fornecedor.empresa) + '</div>'
       + (d.fornecedor.atendente ? '<div>👤 ' + _varEsc(d.fornecedor.atendente) + '</div>' : '') + (d.fornecedor.tel ? '<div>📞 ' + _varEsc(d.fornecedor.tel) + '</div>' : '') + '</div>' : '');
 
   document.getElementById('vp-footer').innerHTML = '<button class="btn btn-outline" onclick="closeModal(\'modal-var-pedido\')">Fechar</button>'
+    + (nomesForn.length > 1 ? '<button class="btn btn-outline" onclick="varPdfTodos()">📄 Baixar todos os PDFs</button>' : '')
     + (_vcPodeOrcar() && !terminal ? '<button class="btn btn-primary" onclick="varOrcarPedido(\'' + _varEsc(key) + '\')">💲 Orçamentos</button>' : '')
     + (canAvancar && !terminal ? '<button class="btn btn-secondary" onclick="closeModal(\'modal-var-pedido\');avancarLoteVar(\'' + _varEsc(key) + '\')">▶ Avançar pedido</button>' : '')
     + (canAvancar && !terminal ? '<button class="btn btn-danger" onclick="closeModal(\'modal-var-pedido\');cancelarLoteVar(\'' + _varEsc(key) + '\')">⛔ Cancelar pedido</button>' : '');
   openModal('modal-var-pedido');
 }
 window.verVarPedido = verVarPedido;
+
+// PDF de um fornecedor do pedido: nome do arquivo "Setor - Fornecedor.pdf"
+function varPdfFornecedor(ix) {
+  const p = _vc.pdf; if (!p) return;
+  const nome = Object.keys(p.porForn)[ix], x = p.porForn[nome], g = _varGrupos[p.key];
+  if (!x || !g) return;
+  if (typeof apfGerarPdfPedido !== 'function') { showToast('Recarregue a página (Ctrl+F5) e tente de novo.'); return; }
+  apfGerarPdfPedido({ pedido: { code: g.codigo, id: g.key, house: g.base.setor || '' }, fornecedorNome: nome, linhas: x.linhas, valor: _vcRound(x.valor), rotuloLocal: 'Setor' });
+}
+async function varPdfTodos() {
+  const p = _vc.pdf; if (!p) return;
+  for (let i = 0; i < Object.keys(p.porForn).length; i++) { varPdfFornecedor(i); await new Promise(r => setTimeout(r, 600)); }
+}
+window.varPdfFornecedor = varPdfFornecedor; window.varPdfTodos = varPdfTodos;
+
+// Ao liberar: um lançamento por fornecedor em compras_financeiro (módulo 'variedades'), que aparece em
+// "Solicitar Pagamento" do módulo. Vencimento pelo prazo do cadastro do fornecedor. Sem duplicar (pedidoRef).
+async function _vcCriarLancamentos(g, porForn) {
+  const hoje = new Date(), cod = (g.itens[0] && g.itens[0].codigo) || g.key, setor = g.base.setor || '';
+  const partes = Object.entries(porForn).sort((a, b) => b[1].v - a[1].v);
+  const lista = typeof suppliersCache !== 'undefined' ? suppliersCache : [];
+  let criados = 0;
+  for (let idx = 0; idx < partes.length; idx++) {
+    const [forn, x] = partes[idx], ref = idx === 0 ? cod : cod + '-F' + (idx + 1), valor = _vcRound(x.v);
+    const sup = lista.find(s => _vcNorm(s.nome) === _vcNorm(forn));
+    let venc = '';
+    if (sup) {
+      const dias = sup.prazo === 'a_vista' ? 0 : (parseInt(sup.prazo) || 0);
+      if (dias > 0) { const d = new Date(); d.setDate(d.getDate() + dias); venc = d.toISOString().slice(0, 10); }
+    }
+    const ja = await db.collection('compras_financeiro').where('pedidoRef', '==', ref).limit(1).get();
+    if (!ja.empty) continue;
+    await db.collection('compras_financeiro').add({
+      fornecedor: forn, fornecedorId: sup ? sup.id : '', classificacao: 'Variedades', catKey: '', destinatario: setor,
+      mes: MESES_PT[hoje.getMonth()], ano: hoje.getFullYear(), dataCompraSerial: hoje.getTime(), vencimentoStr: venc, valor,
+      pago: '', pedidoRef: ref, pedidoId: g.key, modulo: 'variedades', lancadoSP: false, createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+    });
+    if (sup) await db.collection('suppliers').doc(sup.id).update({ utilizado: firebase.firestore.FieldValue.increment(valor) }).catch(() => {});
+    criados++;
+  }
+  return criados;
+}
 
 // ── Tabela de cotações (produto × fornecedor) ───────────────────────────
 async function varOrcarPedido(key) {
@@ -354,6 +416,15 @@ async function vcAprovar(liberar) {
   if (!confirm((liberar ? 'Aprovar e liberar o pedido assim?' : 'Salvar a seleção do pedido assim?') + '\n\n' + resumo
     + (cancelados.length ? '\n\n' + cancelados.length + ' item(ns) cancelado(s)' : '') + '\n\nTotal: ' + _varBRL(total))) return;
   try {
+    let criados = 0;
+    if (liberar) {
+      try { criados = await _vcCriarLancamentos(_varGrupos[_vc.key], porForn); }
+      catch (e) {
+        console.error('lançamentos', e);
+        showToast('❌ Não consegui criar o lançamento no Financeiro (' + e.message + '). O pedido NÃO foi liberado. Confira se a migração 054 foi aplicada no Supabase.');
+        return;
+      }
+    }
     const { batch } = _vcMontarBatch('Aprovado');
     const agora = firebase.firestore.FieldValue.serverTimestamp(), nome = currentUserData?.name || '';
     _vc.itens.forEach(it => {
@@ -363,7 +434,7 @@ async function vcAprovar(liberar) {
       else batch.update(ref, { status: 'em_proposta' });
     });
     await batch.commit();
-    showToast(liberar ? '✅ Pedido liberado.' : '✅ Seleção salva — falta o gerente aprovar e liberar.');
+    showToast(liberar ? '✅ Pedido liberado' + (criados ? ' — ' + criados + ' pagamento(s) em Solicitar Pagamento.' : '.') : '✅ Seleção salva — falta o gerente aprovar e liberar.');
     closeModal('modal-var-cot');
     if (typeof atualizarBadgeVar === 'function') atualizarBadgeVar();
     await loadVarSolicitacoes();

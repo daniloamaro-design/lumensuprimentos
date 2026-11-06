@@ -30,8 +30,18 @@ const _SPG = {
     },
   },
 };
+// Variedades: lançamentos criados ao liberar o pedido (js/32-var-pedidos.js). Categoria e centro de custo
+// escolhidos aqui, linha a linha, como em Suprimentos. A NF fica no próprio lançamento (um pedido pode ter vários fornecedores).
+_SPG.var = {
+  modulo: 'variedades', pagina: 'var-sol-pagamento', titulo: '📨 Solicitar Pagamento — Variedades',
+  sub: 'Compras de variedades liberadas cujo pagamento ainda não foi solicitado. Depois de solicitado, o lançamento segue para o Financeiro.',
+  colunas: ['Pedido', 'Fornecedor', 'Setor', 'Categoria (Conta Azul) *', 'Centro de custo *', 'Vencimento', 'Valor'],
+  editaveis: true,
+  nf: true, nfNoLancamento: true,
+  linha: l => [l.pedidoRef || '—', l.fornecedor || '—', l.destinatario || '—', vencBR(l.vencimentoStr) || '—'],
+};
 const _spgListas = { categorias: [], centros: [] };
-const _spgEstado = { sup: { lista: [], sel: new Set(), filtroNF: 'todos' }, pas: { lista: [], sel: new Set() } };
+const _spgEstado = { sup: { lista: [], sel: new Set(), filtroNF: 'todos' }, pas: { lista: [], sel: new Set() }, var: { lista: [], sel: new Set(), filtroNF: 'todos' } };
 // nº de colunas da tabela (checkbox + colunas + coluna NF quando houver)
 const _spgColspan = c => c.colunas.length + 1 + (c.nf ? 1 : 0);
 
@@ -55,8 +65,9 @@ function _spgMontarPaginas() {
           <input type="checkbox" id="spg-${k}-todos" onchange="spgMarcarTodos('${k}', this.checked)"> Selecionar todos
         </label>
         <button class="btn btn-outline btn-sm" id="spg-${k}-exportar" onclick="spgExportar('${k}')" disabled>📊 Exportar planilha (0)</button>
+        <button class="btn btn-outline btn-sm" id="spg-${k}-pix" onclick="spgPagoPix('${k}')" disabled title="Pagamento já feito via PIX: vai para o Financeiro como pago, não fica em aberto">💸 Pago via PIX (0)</button>
         <button class="btn btn-primary btn-sm" id="spg-${k}-solicitar" onclick="spgMarcarSolicitados('${k}')" disabled>Marcar selecionados como solicitados (0)</button>
-        ${c.nf ? `<button class="btn btn-outline btn-sm" onclick="spgRecarregarSup()" title="Recarregar (ver NFs anexadas agora)">🔄 Atualizar</button>
+        ${c.nf ? `<button class="btn btn-outline btn-sm" onclick="spgCarregar('${k}')" title="Recarregar (ver NFs anexadas agora)">🔄 Atualizar</button>
         <div id="spg-${k}-filtronf" style="display:flex;gap:4px;margin-left:auto;">
           <button class="btn btn-primary btn-sm" data-f="todos" onclick="spgFiltrarNF('${k}','todos')">Todos</button>
           <button class="btn btn-outline btn-sm" data-f="com" onclick="spgFiltrarNF('${k}','com')">📄 Com NF</button>
@@ -84,7 +95,7 @@ async function spgCarregar(k) {
     st.lista = snap.docs.map(d => ({ id: d.id, ...d.data() })).filter(l => !l.pagamentoSolicitadoEm)
       .sort((a, b) => String(a.vencimentoStr || '9999').localeCompare(String(b.vencimentoStr || '9999')));
     if (c.editaveis) await _spgPreparar(st.lista);
-    if (c.nf) await _spgCarregarNF(st.lista);
+    if (c.nf) await _spgCarregarNF(st.lista, c);
     spgRenderizar(k);
   } catch (e) {
     console.error('spgCarregar', e);
@@ -93,8 +104,12 @@ async function spgCarregar(k) {
 }
 
 // Busca, em lote, o status de nota fiscal (nfFileURL) do pedido de cada lançamento.
-async function _spgCarregarNF(lista) {
+async function _spgCarregarNF(lista, cfg) {
   lista.forEach(l => { l._temNF = false; l._nfUrl = ''; l._nfName = ''; l._nfValor = 0; l._nfNumero = ''; });
+  if (cfg && cfg.nfNoLancamento) {   // Variedades: a NF está no próprio lançamento
+    lista.forEach(l => { l._nfProprio = true; l._nfUrl = l.nfFileUrl || ''; l._nfName = l.nfFileName || ''; l._nfValor = Number(l.nfValor) || 0; l._nfNumero = l.nfNumero || ''; l._temNF = !!l._nfUrl; });
+    return;
+  }
   const ids = [...new Set(lista.map(l => l.pedidoId).filter(Boolean))];
   if (!ids.length) return;
   try {
@@ -201,7 +216,7 @@ window.spgRecarregarSup = spgRecarregarSup;
 //  - sem NF: aviso + dias aguardando + botão "Anexar"
 function _spgNfBadge(l) {
   if (l._temNF) {
-    let html = `<a href="${frtEsc(l._nfUrl)}" target="_blank" rel="noopener" title="${frtEsc(l._nfName || 'Ver NF')}" style="color:var(--ok,#16a34a);font-weight:700;white-space:nowrap;text-decoration:none;">📄 Ver NF</a>`;
+    let html = `<a href="${l._nfProprio ? '#' : frtEsc(l._nfUrl)}" ${l._nfProprio ? `onclick="event.preventDefault();verArquivoPedido('${frtEsc(l._nfUrl)}')"` : 'target="_blank" rel="noopener"'} title="${frtEsc(l._nfName || 'Ver NF')}" style="color:var(--ok,#16a34a);font-weight:700;white-space:nowrap;text-decoration:none;">📄 Ver NF</a>`;
     if (l._nfValor > 0) {
       const dif = Math.abs(l._nfValor - (Number(l.valor) || 0)) >= 0.01;
       html += `<div style="font-size:11px;margin-top:2px;${dif ? 'color:var(--danger,#dc2626);font-weight:700;' : 'color:var(--text-muted);'}" ${dif ? `title="Valor da NF (${frtBRL(l._nfValor)}) diferente do valor do lançamento (${frtBRL(l.valor)})"` : ''}>${dif ? '⚠️ ' : ''}NF ${frtBRL(l._nfValor)}${dif ? ' ≠ ' + frtBRL(l.valor) : ''}</div>`;
@@ -209,7 +224,7 @@ function _spgNfBadge(l) {
     return html;
   }
   const dias = _spgDiasEspera(l);
-  const btn = l.pedidoId ? ` <button class="btn btn-outline btn-sm" style="padding:1px 6px;font-size:11px;" onclick="spgAnexarNF('${l.pedidoId}')">➕ Anexar</button>` : '';
+  const btn = l._nfProprio ? ` <button class="btn btn-outline btn-sm" style="padding:1px 6px;font-size:11px;" onclick="spgAnexarNFVar('${l.id}')">➕ Anexar</button>` : l.pedidoId ? ` <button class="btn btn-outline btn-sm" style="padding:1px 6px;font-size:11px;" onclick="spgAnexarNF('${l.pedidoId}')">➕ Anexar</button>` : '';
   return `<span style="color:var(--warn,#d97706);font-weight:600;white-space:nowrap;">⚠️ Sem NF${dias != null ? ` · ${dias}d` : ''}</span>${btn}`;
 }
 
@@ -280,6 +295,8 @@ function spgAtualizarBotoes(k) {
   const ex = document.getElementById(`spg-${k}-exportar`), so = document.getElementById(`spg-${k}-solicitar`);
   if (ex) { ex.disabled = !n; ex.innerHTML = `📊 Exportar planilha (${n})`; }
   if (so) { so.disabled = !n; so.innerHTML = `Marcar selecionados como solicitados (${n})`; }
+  const px = document.getElementById(`spg-${k}-pix`);
+  if (px) { px.disabled = !n; px.innerHTML = `💸 Pago via PIX (${n})`; }
   const todos = document.getElementById(`spg-${k}-todos`);
   if (todos) { const vis = _spgVisiveis(k); todos.checked = vis.length > 0 && vis.every(l => st.sel.has(l.id)); }
 }
@@ -357,5 +374,93 @@ async function spgMarcarSolicitados(k) {
   }
 }
 window.spgMarcarSolicitados = spgMarcarSolicitados;
+
+// Pagamento feito via PIX: o lançamento vai para o Financeiro JÁ PAGO (pago='Sim'), sem ficar em aberto.
+// Mesmo efeito de "marcar como pago" no Financeiro (pagoEm, sincroniza frete/segurança de origem e
+// libera o limite do fornecedor). Se marcar errado, o Financeiro tem "desfazer pago".
+async function spgPagoPix(k) {
+  const c = _SPG[k], st = _spgEstado[k];
+  const ids = [...st.sel];
+  if (!ids.length || _spgBloquear(k)) return;
+  if (c.nf) {
+    const semNf = st.lista.filter(l => st.sel.has(l.id) && !l._temNF);
+    if (semNf.length && !confirm(`⚠️ ${semNf.length} lançamento(s) selecionado(s) estão SEM nota fiscal anexada.\n\nDeseja registrar como pago via PIX mesmo assim?`)) return;
+  }
+  const soma = st.lista.filter(l => st.sel.has(l.id)).reduce((s, l) => s + (Number(l.valor) || 0), 0);
+  if (!confirm(`Registrar ${ids.length} lançamento(s) como PAGO VIA PIX (${frtBRL(soma)})?\n\nEles vão para o Financeiro já como pagos, sem ficar em aberto.`)) return;
+  const nome = (typeof currentUserData !== 'undefined' && currentUserData?.name) || null;
+  const agora = new Date().toISOString();
+  const btn = document.getElementById(`spg-${k}-pix`);
+  if (btn) { btn.disabled = true; btn.innerHTML = '<div class="spinner"></div> Aguarde...'; }
+  let ok = 0;
+  try {
+    for (const id of ids) {
+      const reg = st.lista.find(l => l.id === id);
+      await db.collection('compras_financeiro').doc(id).update({
+        pagamentoSolicitadoEm: agora, pagamentoSolicitadoPor: nome, ...(c.fixos || {}),
+        pago: 'Sim', pagoEm: firebase.firestore.FieldValue.serverTimestamp(),
+      });
+      ok++;
+      if (reg) {
+        if (typeof _syncFinanceiroParaOrigem === 'function') await _syncFinanceiroParaOrigem(reg, 'Sim', Number(reg.valor) || 0);
+        if (typeof _ajustarLimiteFornecedor === 'function') await _ajustarLimiteFornecedor(reg.fornecedorId, -(Number(reg.valor) || 0));
+      }
+    }
+    st.lista = st.lista.filter(l => !st.sel.has(l.id));
+    st.sel = new Set();
+    showToast(`✅ ${ok} lançamento(s) registrado(s) como pago via PIX — já estão no Financeiro como pagos.`);
+  } catch (e) {
+    console.error('spgPagoPix', e);
+    showToast(`❌ Erro (${ok} de ${ids.length} registrados): ` + e.message);
+    st.lista = st.lista.filter(l => !ids.slice(0, ok).includes(l.id));
+    st.sel = new Set(ids.slice(ok));
+  }
+  spgRenderizar(k);
+}
+window.spgPagoPix = spgPagoPix;
+
+window.loadVarSolPagamento = () => spgCarregar('var');
+
+// ── Variedades: anexar a NF de um lançamento (arquivo + número + valor; leitura manual, sem IA) ──
+function spgAnexarNFVar(id) {
+  const l = _spgEstado.var.lista.find(x => x.id === id);
+  if (!l) return;
+  let m = document.getElementById('modal-spg-nf');
+  if (!m) { m = document.createElement('div'); m.className = 'modal-overlay hidden'; m.id = 'modal-spg-nf'; document.body.appendChild(m); }
+  m.innerHTML = `<div class="modal" style="max-width:480px;width:94vw;">
+    <div class="modal-header"><div class="modal-title">📄 Anexar nota fiscal</div><button class="modal-close" onclick="closeModal('modal-spg-nf')">×</button></div>
+    <div class="modal-body">
+      <div style="font-size:13px;margin-bottom:12px;"><b>${frtEsc(l.pedidoRef || '')}</b> — ${frtEsc(l.fornecedor || '')} · lançamento ${frtBRL(l.valor)}</div>
+      <div class="form-group"><label class="form-label">Arquivo da NF (PDF ou foto) *</label><input type="file" class="form-input" id="spg-nf-arq" accept=".pdf,image/*"></div>
+      <div class="form-group"><label class="form-label">Número da NF</label><input class="form-input" id="spg-nf-num" value="${frtEsc(l._nfNumero || '')}"></div>
+      <div class="form-group"><label class="form-label">Valor da NF (R$)</label><input type="number" step="0.01" min="0" class="form-input" id="spg-nf-valor" value="${l._nfValor || Number(l.valor) || ''}"></div>
+    </div>
+    <div class="modal-footer"><button class="btn btn-outline" onclick="closeModal('modal-spg-nf')">Cancelar</button><button class="btn btn-primary" id="spg-nf-salvar" onclick="spgSalvarNFVar('${l.id}')">Salvar NF</button></div></div>`;
+  openModal('modal-spg-nf');
+}
+async function spgSalvarNFVar(id) {
+  const arq = document.getElementById('spg-nf-arq')?.files?.[0];
+  if (!arq) { showToast('Escolha o arquivo da nota fiscal.'); return; }
+  const btn = document.getElementById('spg-nf-salvar');
+  if (btn) { btn.disabled = true; btn.textContent = 'Enviando...'; }
+  try {
+    const seguro = arq.name.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-zA-Z0-9._-]+/g, '_');
+    const up = await storage.ref(`pedidos/${id}/nf_${Date.now()}_${seguro}`).put(arq);
+    const chave = await up.ref.getDownloadURL();
+    await db.collection('compras_financeiro').doc(id).update({
+      nfFileUrl: chave, nfFileName: arq.name,
+      nfNumero: (document.getElementById('spg-nf-num')?.value || '').trim(),
+      nfValor: parseFloat(document.getElementById('spg-nf-valor')?.value) || null,
+    });
+    closeModal('modal-spg-nf');
+    showToast('✅ NF anexada.');
+    await spgCarregar('var');
+  } catch (e) {
+    console.error('spgSalvarNFVar', e);
+    showToast('❌ Erro ao anexar a NF: ' + e.message);
+    if (btn) { btn.disabled = false; btn.textContent = 'Salvar NF'; }
+  }
+}
+window.spgAnexarNFVar = spgAnexarNFVar; window.spgSalvarNFVar = spgSalvarNFVar;
 
 _spgMontarPaginas();

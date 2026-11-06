@@ -968,7 +968,20 @@ async function loadVarHistorico() {
   }
   if (setor) docs = docs.filter(d => d.setor === setor);
 
-  const totalGasto = docs.reduce((a, d) => a + (d.valorEstimado||0), 0);
+  // Valor REAL = cotação do fornecedor escolhido no pedido (var_orcamentos); sem cotação, cai no valor estimado.
+  const escolhido = {};
+  try {
+    for (let i = 0; i < docs.length; i += 100) {
+      const lote = docs.slice(i, i + 100).map(d => d.id);
+      const os = await db.collection('var_orcamentos').where('solicitacaoId', 'in', lote).get();
+      os.docs.forEach(od => {
+        const o = od.data(), e = Array.isArray(o.cotacoes) && o.opcaoEscolhida != null ? o.cotacoes[o.opcaoEscolhida] : null;
+        if (e && (Number(e.valorTotal) || 0) > 0) escolhido[o.solicitacaoId] = { fornecedor: e.fornecedor || '', valor: Number(e.valorTotal) };
+      });
+    }
+  } catch (e) { console.warn('histórico: sem leitura das cotações', e); }
+  const valorDe = d => (escolhido[d.id] ? escolhido[d.id].valor : (d.valorEstimado || 0));
+  const totalGasto = docs.reduce((a, d) => a + valorDe(d), 0);
   const entregues  = docs.filter(d => d.status === 'entregue').length;
 
   if (kpiEl) kpiEl.innerHTML = [
@@ -987,7 +1000,8 @@ async function loadVarHistorico() {
 
   tbEl.innerHTML = docs.map(d => {
     const dt  = d.dataLimite ? new Date(d.dataLimite+'T00:00:00').toLocaleDateString('pt-BR') : '—';
-    const val = d.valorEstimado > 0 ? 'R$ ' + d.valorEstimado.toLocaleString('pt-BR',{minimumFractionDigits:2}) : '—';
+    const vReal = valorDe(d);
+    const val = vReal > 0 ? 'R$ ' + vReal.toLocaleString('pt-BR',{minimumFractionDigits:2}) : '—';
     return `<tr>
       <td><span style="font-weight:600;color:var(--lumen);">${d.codigo||'—'}</span></td>
       <td>${d.setor||'—'}</td>
@@ -995,7 +1009,7 @@ async function loadVarHistorico() {
       <td>${priorLabel[d.prioridade]||d.prioridade||'—'}</td>
       <td>${d.solicitanteNome||'—'}</td>
       <td>${dt}</td>
-      <td>${d.fornecedor?.empresa||'—'}</td>
+      <td>${(escolhido[d.id] && escolhido[d.id].fornecedor) || d.fornecedor?.empresa || '—'}</td>
       <td>${val}</td>
       <td><span class="badge badge-ok">${statusLabel[d.status]||d.status}</span></td>
     </tr>`;

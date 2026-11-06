@@ -198,7 +198,7 @@ function apfNomeArquivoPedido(casa, fornecedor) {
 
 // Gerador único do PDF de pedido por fornecedor (usado aqui e na tela de preços por produto, js/26).
 // linhas = [{ nome, unidade, qtd, preco, obs }]
-function apfGerarPdfPedido({ pedido, fornecedorNome, linhas, valor }) {
+function apfGerarPdfPedido({ pedido, fornecedorNome, linhas, valor, rotuloLocal }) {
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF();
   const blue = [0, 56, 117], gray = [107, 114, 128];
@@ -208,7 +208,7 @@ function apfGerarPdfPedido({ pedido, fornecedorNome, linhas, valor }) {
   doc.text('Obra Lumen — Pedido de Compra', 14, 13);
   doc.setFont('helvetica', 'normal'); doc.setFontSize(9);
   doc.text('Fornecedor: ' + (fornecedorNome || ''), 14, 21);
-  doc.text('Pedido: ' + (pedido.code || pedido.id) + '   |   Casa de entrega: ' + (pedido.house || '') + '   |   Data: ' + new Date().toLocaleDateString('pt-BR'), 14, 27);
+  doc.text('Pedido: ' + (pedido.code || pedido.id) + '   |   ' + (rotuloLocal || 'Casa de entrega') + ': ' + (pedido.house || '') + '   |   Data: ' + new Date().toLocaleDateString('pt-BR'), 14, 27);
   const body = linhas.map(l => [l.nome + (l.obs ? '\n' + l.obs : ''), l.unidade, String(l.qtd), fmt(l.preco), fmt(l.preco * l.qtd)]);
   doc.autoTable({
     startY: 38,

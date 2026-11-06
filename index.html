@@ -680,6 +680,10 @@
         Pedidos
         <span id="var-badge-count" style="display:none;background:var(--danger);color:#fff;border-radius:99px;font-size:10px;font-weight:700;padding:1px 7px;margin-left:auto;"></span>
       </button>
+      <button class="sidebar-item var-admin-only" data-page="var-sol-pagamento" onclick="goPageMobile('var-sol-pagamento')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+        Solicitar Pagamento
+      </button>
       <button class="sidebar-item var-admin-only" data-page="var-historico" onclick="goPageMobile('var-historico')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
         Histórico de Compras
@@ -2490,6 +2494,7 @@
           <input type="checkbox" id="frt-pag-marcar-todos" onchange="frtPagMarcarTodos(this.checked)"> Selecionar todos
         </label>
         <button class="btn btn-outline btn-sm" id="frt-pag-btn-exportar" onclick="frtPagExportarPlanilha()" disabled>📊 Exportar planilha (0)</button>
+        <button class="btn btn-outline btn-sm" id="frt-pag-btn-pix" onclick="frtPagPagoPix()" disabled title="Pagamento já feito via PIX: vai para o Financeiro como pago, não fica em aberto">💸 Pago via PIX (0)</button>
         <button class="btn btn-primary btn-sm" id="frt-pag-btn-solicitar" onclick="frtPagMarcarSolicitados()" disabled>Marcar selecionados como solicitados (0)</button>
       </div>
       <div class="table-wrap">
@@ -3872,7 +3877,7 @@
 <script src="js/01-core.js?v=10"></script>
 <script src="js/02-auth.js?v=9"></script>
 <script src="js/03-navegacao.js?v=2"></script>
-<script src="js/04-percapita.js?v=25"></script>
+<script src="js/04-percapita.js?v=26"></script>
 <script src="js/05-cadastros.js?v=3"></script>
 <script src="js/06-pedidos.js?v=32"></script>
 <script src="js/07-estoque-ia-form.js?v=8"></script>
@@ -3887,7 +3892,7 @@
 <script src="js/16-chat-ia.js?v=2"></script>
 <script src="js/17-metas-wrappers.js?v=2"></script>
 <script src="js/cidades-brasil.js?v=1"></script>
-<script src="js/18-erp.js?v=66"></script>
+<script src="js/18-erp.js?v=68"></script>
 <script src="js/19-dashboard-diretoria.js?v=10"></script>
 <script src="js/20-percapita-diretoria.js?v=2"></script>
 <!-- CHAT IA FLUTUANTE -->
@@ -3973,15 +3978,15 @@
   </div>
 </div>
 
-<script src="js/variedades.js?v=6"></script>
+<script src="js/variedades.js?v=7"></script>
 <script src="js/21-inventario.js?v=3"></script>
 <script src="js/22-coord-dashboard.js?v=17"></script>
 <script src="js/23-importar-precos-nf.js?v=1"></script>
 <script src="js/24-guia-atualizacoes.js?v=1"></script>
 <script src="js/25-seguranca.js?v=7"></script>
 <script src="js/26-cotacao-matriz.js?v=6"></script>
-<script src="js/27-aprovacao-por-produto.js?v=7"></script>
-<script src="js/28-solicitar-pagamento.js?v=5"></script>
+<script src="js/27-aprovacao-por-produto.js?v=8"></script>
+<script src="js/28-solicitar-pagamento.js?v=7"></script>
 <script src="js/29-consumo-alimentar.js?v=4"></script>
 <script src="js/30-consumo-alimentar-etapa2.js?v=1"></script>
 <script src="js/31-coord-ferias.js?v=1"></script>
@@ -4222,7 +4227,7 @@
 </div>
 
 <script src="js/melhorias.js?v=5"></script>
-<script src="js/32-var-pedidos.js?v=1"></script>
+<script src="js/32-var-pedidos.js?v=2"></script>
 
 
 

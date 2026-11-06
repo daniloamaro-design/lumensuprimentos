@@ -338,6 +338,8 @@ function frtPagAtualizarBotao() {
   const n = _frtPagSelecionados.size;
   const btn = document.getElementById('frt-pag-btn-solicitar');
   if (btn) { btn.textContent = `Marcar selecionados como solicitados (${n})`; btn.disabled = n === 0; }
+  const btnPix = document.getElementById('frt-pag-btn-pix');
+  if (btnPix) { btnPix.textContent = `💸 Pago via PIX (${n})`; btnPix.disabled = n === 0; }
   const btnExp = document.getElementById('frt-pag-btn-exportar');
   if (btnExp) { btnExp.textContent = `📊 Exportar planilha (${n})`; btnExp.disabled = n === 0; }
 }
@@ -482,6 +484,49 @@ async function frtPagMarcarSolicitados() {
   }
 }
 window.frtPagMarcarSolicitados = frtPagMarcarSolicitados;
+
+// Frete pago via PIX: registra a solicitação E o pagamento — o frete fica "pago" e o lançamento do
+// Financeiro (compras_financeiro, módulo frete) vai como pago, sem ficar em aberto.
+async function frtPagPagoPix() {
+  const ids = [..._frtPagSelecionados];
+  if (!ids.length) return;
+  const soma = ids.reduce((s, id) => s + (Number((_fretesCache.find(x => x.id === id) || {}).valor) || 0), 0);
+  if (!confirm(`Registrar ${ids.length} frete(s) como PAGO VIA PIX (${frtBRL(soma)})?\n\nVão para o Financeiro já como pagos, sem ficar em aberto.`)) return;
+  const nome = (typeof currentUserData !== 'undefined' && currentUserData?.name) || null;
+  const agora = new Date().toISOString();
+  const hist = { acao: 'Pago via PIX (solicitação e pagamento registrados)', por: nome, data: agora };
+  const btn = document.getElementById('frt-pag-btn-pix');
+  if (btn) { btn.disabled = true; btn.innerHTML = '<div class="spinner"></div> Aguarde...'; }
+  let ok = 0;
+  try {
+    for (const id of ids) {
+      const f = _fretesCache.find(x => x.id === id);
+      const valor = Number(f && f.valor) || 0;
+      await db.collection('fretes').doc(id).update({
+        pagamentoSolicitadoEm: agora, statusPag: 'pago', valorPago: valor,
+        historico: firebase.firestore.FieldValue.arrayUnion(hist),
+        updatedBy: nome, updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+      });
+      // lançamento do Financeiro deste frete (se já existir): marca como pago
+      const fin = await db.collection('compras_financeiro').where('modulo', '==', 'frete').where('pedidoId', '==', id).get();
+      for (const d of fin.docs) {
+        await d.ref.update({ pago: 'Sim', pagoEm: firebase.firestore.FieldValue.serverTimestamp() });
+        if (typeof _ajustarLimiteFornecedor === 'function' && !(d.data().pago === 'Sim' || d.data().pago === 'Pago')) await _ajustarLimiteFornecedor(d.data().fornecedorId, -(Number(d.data().valor) || 0));
+      }
+      if (f) { f.pagamentoSolicitadoEm = agora; f.statusPag = 'pago'; f.valorPago = valor; f.historico = [...(Array.isArray(f.historico) ? f.historico : []), hist]; }
+      ok++;
+    }
+    showToast(`✅ ${ok} frete(s) registrado(s) como pago via PIX.`);
+    _frtPagSelecionados = new Set();
+    renderFrtPagamento();
+  } catch (e) {
+    console.error('frtPagPagoPix', e);
+    showToast(`❌ Erro (${ok} de ${ids.length} registrados): ` + e.message);
+    _frtPagSelecionados = new Set(ids.slice(ok));
+    renderFrtPagamento();
+  }
+}
+window.frtPagPagoPix = frtPagPagoPix;
 
 function abrirFreteDetalhe(id) {
   const f = _fretesCache.find(x => x.id === id);
@@ -2404,7 +2449,7 @@ const _SUP_PAGES = ['dashboard', 'users', 'houses', 'manage-houses', 'manage-cit
   'fornecedores-cadastro', 'fornecedores-consulta', 'my-orders', 'prices', 'percapita', 'calc-real', 'previsao', 'rotina-estoque',
   'cardapio-diario', 'financeiro-compras', 'indicadores', 'irmaos', 'ind-fornecedores', 'metas',
   'var-solicitacoes', 'var-orcamento', 'var-proposta', 'var-historico', 'var-setores', 'solicitar-ajuste',
-  'pas-orcamento', 'seg-lista', 'sup-sol-pagamento', 'consumo-alimentar'];
+  'pas-orcamento', 'seg-lista', 'sup-sol-pagamento', 'var-sol-pagamento', 'consumo-alimentar'];
 const _TODAS_PAGES = [..._SUP_PAGES, ..._MOD_PAGES];
 
 // Matriz padrão = espelha o comportamento atual (js/04-percapita.js antigo)
@@ -2414,7 +2459,7 @@ window.FALLBACK_PERMS = {
   compras: ['new-order', 'movement', 'all-orders', 'prices', 'orcamento-financeiro', 'orc-pendentes',
     'fornecedores-cadastro', 'fornecedores-consulta', 'kanban', 'houses', 'manage-houses', 'manage-cities', 'manage-products',
     'manage-cats', 'manage-cc', 'financeiro-compras', 'percapita', 'stock-view', 'transferencias',
-    'previsao', 'calc-real', 'my-orders', 'var-solicitacoes', 'sup-sol-pagamento', 'consumo-alimentar', ..._MOD_PAGES],
+    'previsao', 'calc-real', 'my-orders', 'var-solicitacoes', 'sup-sol-pagamento', 'var-sol-pagamento', 'consumo-alimentar', ..._MOD_PAGES],
   estoque: ['new-order', 'movement', 'all-orders', 'prices', 'orcamento-financeiro', 'orc-pendentes',
     'fornecedores-cadastro', 'fornecedores-consulta', 'kanban', 'stock-view', 'inventario', 'transferencias', 'percapita', 'previsao', 'my-orders',
     'var-solicitacoes', ..._MOD_PAGES],
