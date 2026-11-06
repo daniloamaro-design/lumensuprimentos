@@ -37,6 +37,19 @@ function selecionarModulo(m) {
 }
 window.selecionarModulo = selecionarModulo;
 
+// Compras de Variedades é um módulo próprio. Quando alguém chega numa tela de variedades por
+// um atalho de outro lugar (cartão do dashboard, busca global, notificação), a barra lateral
+// acompanha: abre o módulo Variedades (e volta para Suprimentos ao sair dele).
+function sincronizarModuloDaPagina(page) {
+  const nav = document.getElementById('sidebar');
+  if (!nav || !page) return;
+  const alvo = String(page).startsWith('var-') ? 'variedades' : (nav.dataset.mod === 'variedades' ? 'suprimentos' : null);
+  if (!alvo || nav.dataset.mod === alvo) return;
+  nav.dataset.mod = alvo;
+  document.querySelectorAll('.modulo-btn').forEach(b => b.classList.toggle('ativo', b.dataset.mod === alvo));
+}
+window.sincronizarModuloDaPagina = sincronizarModuloDaPagina;
+
 /* ══════════════════════════════════════════════════════════════════════
    TELA INICIAL — escolha de módulo, aparece 1x por sessão logo após o
    login (antes disso o app sempre caía direto no módulo Suprimentos).

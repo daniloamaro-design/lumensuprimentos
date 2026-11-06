@@ -486,6 +486,7 @@ function exportarPercapitaFinanceiroPDF() {
 }
 
 function goPage(page) {
+  if (typeof sincronizarModuloDaPagina === 'function') sincronizarModuloDaPagina(page);
   // Desliga qualquer listener de tempo real da página anterior (all-orders,
   // orc-pendentes, var-solicitacoes) antes de trocar de página — evita listener
   // órfão rodando em segundo plano (e falhando contra as regras depois do logout).

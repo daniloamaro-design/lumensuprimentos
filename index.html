@@ -29,7 +29,7 @@
   <!-- SheetJS para leitura e exportação de Excel -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
-  <link rel="stylesheet" href="css/estilos.css?v=11">
+  <link rel="stylesheet" href="css/estilos.css?v=12">
 </head>
 <body>
 
@@ -333,6 +333,7 @@
     <!-- Seletor de módulos do ERP -->
     <div class="modulo-switcher" id="modulo-switcher">
       <button class="modulo-btn ativo" data-mod="suprimentos" onclick="selecionarModulo('suprimentos')" title="Suprimentos">📦 Suprimentos</button>
+      <button class="modulo-btn" data-mod="variedades" onclick="selecionarModulo('variedades')" title="Compras de Variedades">🛍️ Variedades</button>
       <button class="modulo-btn" data-mod="passagens" onclick="selecionarModulo('passagens')" title="Passagens">✈️ Passagens</button>
       <button class="modulo-btn" data-mod="frete" onclick="selecionarModulo('frete')" title="Fretes">🚚 Fretes</button>
       <button class="modulo-btn" data-mod="seguranca" onclick="selecionarModulo('seguranca')" title="Segurança">🛡️ Segurança</button>
@@ -668,7 +669,7 @@
     </div>
 
     <!-- SIDEBAR: VARIEDADES (adminLevel + compras + estoque + financeiro + escritorio) -->
-    <div class="sidebar-section" data-modulo="suprimentos" id="sidebar-variedades" style="display:none;">
+    <div class="sidebar-section" data-modulo="variedades" id="sidebar-variedades" style="display:none;">
       <div class="sidebar-section-title">Compras de Variedades</div>
       <button class="sidebar-item" data-page="var-solicitacoes" onclick="goPageMobile('var-solicitacoes')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
@@ -3879,7 +3880,7 @@
 <script src="js/01-core.js?v=10"></script>
 <script src="js/02-auth.js?v=9"></script>
 <script src="js/03-navegacao.js?v=2"></script>
-<script src="js/04-percapita.js?v=24"></script>
+<script src="js/04-percapita.js?v=25"></script>
 <script src="js/05-cadastros.js?v=3"></script>
 <script src="js/06-pedidos.js?v=32"></script>
 <script src="js/07-estoque-ia-form.js?v=8"></script>
@@ -3894,7 +3895,7 @@
 <script src="js/16-chat-ia.js?v=2"></script>
 <script src="js/17-metas-wrappers.js?v=2"></script>
 <script src="js/cidades-brasil.js?v=1"></script>
-<script src="js/18-erp.js?v=64"></script>
+<script src="js/18-erp.js?v=65"></script>
 <script src="js/19-dashboard-diretoria.js?v=10"></script>
 <script src="js/20-percapita-diretoria.js?v=2"></script>
 <!-- CHAT IA FLUTUANTE -->
