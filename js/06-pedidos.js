@@ -724,8 +724,8 @@ function renderAllOrdersTable() {
       <td>${getStatusBadge(status)}</td>
       <td>${nfStr}</td>
       <td style="text-align:center;">${entregaBtn}</td>
-      <td>
-        <button class="btn btn-secondary btn-sm" onclick="showOrderDetail('${d.id}')">Ver</button>
+      <td style="white-space:nowrap;">
+        ${pedBotoesRapidos(d.id, status)}<button class="btn btn-secondary btn-sm" onclick="showOrderDetail('${d.id}')">Ver</button>
       </td>
     </tr>`;
   }).join('') + `<tr class="no-hover"><td colspan="11" style="padding:0;">${paginacaoHTML(pagObj, 'allOrdersGoToPage')}</td></tr>`;
@@ -737,6 +737,54 @@ function renderAllOrdersTable() {
   }
   updateComprasExportBtn();
 }
+
+// ── Botão rápido por pedido: avança a etapa (cada papel só a sua) ──
+// Etapas com regra própria (avaliação de estoque, orçamento) abrem o pedido
+// na tela certa; as simples (compra realizada, concluído) avançam direto.
+function pedBotoesRapidos(id, status) {
+  const role = currentUserData?.role || 'usuario';
+  const gestao = ['admin', 'diretor', 'gerente', 'coordenador'].includes(role);
+  const compras = gestao || role === 'compras';
+  const estoque = gestao || ['compras', 'estoque'].includes(role);
+  const btn = (txt, acao, cls, tip) => `<button class="btn ${cls} btn-sm" title="${tip}" style="margin-right:4px;" onclick="pedAcaoRapida('${id}','${acao}')">${txt}</button>`;
+  let h = '';
+  if (['aberto', 'aguardando_estoque', 'pendente_pag'].includes(status)) {
+    if (estoque) h += btn('🏪 Avaliar', 'estoque', 'btn-primary', 'Abrir a avaliação de estoque');
+  } else if (['estoque_avaliado', 'andamento', 'aguardando_compra'].includes(status)) {
+    if (compras) h += btn('💰 Orçar', 'orcar', 'btn-primary', 'Abrir os orçamentos deste pedido');
+  } else if (['pedido_liberado', 'aguardando_nf'].includes(status)) {
+    if (compras) h += btn('🛍 Compra realizada', 'compra_realizada', 'btn-primary', 'Marcar como compra realizada');
+  } else if (status === 'compra_realizada') {
+    if (compras) h += btn('🏁 Concluir', 'concluido', 'btn-primary', 'Marcar como concluído');
+  }
+  if (gestao && (status === 'compra_realizada' || status === 'concluido')) {
+    h += btn('↩', 'voltar', 'btn-secondary', 'Voltar uma etapa');
+  }
+  return h;
+}
+
+async function pedAcaoRapida(id, acao) {
+  try {
+    if (acao === 'estoque') { await showOrderDetail(id); openStockEvalModal(); return; }
+    if (acao === 'orcar')   { await showOrderDetail(id); openQuotationModal(); return; }
+    const snap = await db.collection('orders').doc(id).get();
+    if (!snap.exists) { showToast('Pedido não encontrado.'); return; }
+    const o = snap.data();
+    const atual = o.status === 'aguardando_nf' ? 'pedido_liberado' : o.status;
+    const volta = { concluido: 'compra_realizada', compra_realizada: 'pedido_liberado' };
+    const novo = acao === 'voltar' ? volta[atual] : acao;
+    if (!novo || (acao !== 'voltar' && ((atual === 'pedido_liberado' && novo !== 'compra_realizada') || (atual === 'compra_realizada' && novo !== 'concluido')))) {
+      showToast('Este pedido mudou de etapa. Atualizando a lista…'); loadAllOrders(); return;
+    }
+    const nomes = { compra_realizada: 'Compra Realizada', concluido: 'Concluído', pedido_liberado: 'Pedido Liberado' };
+    if (!confirm(`${acao === 'voltar' ? 'Voltar' : 'Avançar'} o pedido ${o.code} para "${nomes[novo]}"?`)) return;
+    await db.collection('orders').doc(id).update({ status: novo, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
+    if (typeof registrarAuditoria === 'function') registrarAuditoria('orders', id, 'status_alterado', `${atual} → ${novo}${acao === 'voltar' ? ' (voltou)' : ''}`);
+    showToast(`✅ ${o.code}: ${nomes[novo]}`);
+    loadAllOrders();
+  } catch (e) { showToast('Erro ao mudar etapa: ' + e.message); }
+}
+window.pedAcaoRapida = pedAcaoRapida;
 
 function allOrdersGoToPage(p) { allOrdersPage = p; renderAllOrdersTable(); }
 window.allOrdersGoToPage = allOrdersGoToPage;

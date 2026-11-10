@@ -378,9 +378,9 @@ async function loadVarSolicitacoes() {
         + '<td><span class="badge ' + (priorBadge[d.prioridade] || 'badge-gray') + '">' + (priorLabel[d.prioridade] || _varEsc(d.prioridade)) + '</span></td>'
         + '<td><span class="badge ' + (statusBadge[g.status] || 'badge-gray') + '">' + (statusLabel[g.status] || _varEsc(g.status)) + '</span></td>'
         + '<td style="text-align:right;white-space:nowrap;">' + (g.valor > 0 ? _varBRL(g.valor) : '—') + '</td>'
-        + '<td><button class="btn btn-secondary btn-sm" onclick="event.stopPropagation();verVarPedido(\'' + k + '\')">Ver</button></td></tr>';
+        + '<td style="white-space:nowrap;">' + _varBotoesRapidos(g, k, canAvancar, _isAdminLvl) + '<button class="btn btn-secondary btn-sm" onclick="event.stopPropagation();verVarPedido(\'' + k + '\')">Ver</button></td></tr>';
     }).join('');
-    listEl.innerHTML = '<div class="card"><div class="table-wrap"><table><thead><tr><th>Pedido</th><th>Itens</th><th>Setor</th><th>Solicitante</th><th>Até</th><th>Prioridade</th><th>Status</th><th style="text-align:right;">Estimado</th><th></th></tr></thead>'
+    listEl.innerHTML = '<div class="card"><div class="table-wrap"><table><thead><tr><th>Pedido</th><th>Itens</th><th>Setor</th><th>Solicitante</th><th>Até</th><th>Prioridade</th><th>Status</th><th style="text-align:right;">Estimado</th><th>Ações</th></tr></thead>'
       + '<tbody>' + rows + '</tbody></table></div></div>' + paginacaoHTML(pag, 'varSolGoToPage');
   } catch (e) {
     listEl.innerHTML = '<div class="empty-state"><div class="empty-state-icon">⚠️</div><div class="empty-state-title">Erro ao carregar: ' + _varEsc(e.message) + '</div></div>';
@@ -390,6 +390,42 @@ let varSolPage = 1;
 function varSolGoToPage(p) { varSolPage = p; loadVarSolicitacoes(); }
 window.varSolGoToPage = varSolGoToPage;
 
+
+// ── Botões rápidos na lista (avançar / voltar etapa) ──────────────
+// Etapas com regra própria (orçar, aprovar) abrem o pedido na tela certa;
+// as simples (compra realizada, concluído) avançam direto.
+function _varBotoesRapidos(g, k, canAvancar, isGestao) {
+  const st = g.status;
+  let h = '';
+  const btn = (txt, fn, cls, tip) => '<button class="btn ' + cls + ' btn-sm" title="' + tip + '" style="margin-right:4px;" onclick="event.stopPropagation();' + fn + '">' + txt + '</button>';
+  if (st === 'pendente' && canAvancar) h += btn('📝 Orçar', "varOrcarPedido('" + k + "')", 'btn-primary', 'Abrir o orçamento deste pedido');
+  else if (st === 'em_proposta' && isGestao) h += btn('✅ Aprovar', "varOrcarPedido('" + k + "')", 'btn-primary', 'Revisar e aprovar o orçamento');
+  else if (st === 'pedido_liberado' && canAvancar) h += btn('🛍 Compra realizada', "acaoRapidaVar('" + k + "','avancar')", 'btn-primary', 'Marcar como compra realizada');
+  else if (st === 'compra_realizada' && canAvancar) h += btn('🏁 Concluir', "acaoRapidaVar('" + k + "','avancar')", 'btn-primary', 'Marcar como concluído');
+  if (isGestao && (st === 'compra_realizada' || st === 'concluido')) h += btn('↩', "acaoRapidaVar('" + k + "','voltar')", 'btn-secondary', 'Voltar uma etapa');
+  return h;
+}
+
+async function acaoRapidaVar(key, acao) {
+  const g = _varGrupos[key]; if (!g) return;
+  if (acao === 'avancar') {
+    if (!confirm('Avançar o pedido ' + g.codigo + ' para a próxima etapa?')) return;
+    return avancarLoteVar(key);
+  }
+  const volta = { concluido: 'compra_realizada', compra_realizada: 'pedido_liberado' };
+  const itens = g.itens.filter(i => volta[_varStatusNorm(i.status)]);
+  if (!itens.length) return;
+  if (!confirm('Voltar o pedido ' + g.codigo + ' uma etapa?')) return;
+  try {
+    const batch = db.batch();
+    itens.forEach(i => batch.update(db.collection('var_solicitacoes').doc(i.id), { status: volta[_varStatusNorm(i.status)] }));
+    await batch.commit();
+    if (typeof registrarAuditoria === 'function') itens.forEach(i => registrarAuditoria('var_solicitacoes', i.id, 'status_alterado', i.status + ' → ' + volta[_varStatusNorm(i.status)] + ' (voltou)'));
+    showToast('↩ Pedido voltou uma etapa.');
+    loadVarSolicitacoes(); atualizarBadgeVar();
+  } catch (e) { showToast('Erro ao voltar: ' + e.message); }
+}
+window.acaoRapidaVar = acaoRapidaVar;
 
 // Avança TODOS os itens ativos do pedido para a próxima fase (cada um para o seu próximo status)
 async function avancarLoteVar(key) {
