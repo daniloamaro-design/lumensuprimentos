@@ -416,6 +416,10 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
         Planejamento de Férias
       </button>
+      <button class="sidebar-item" data-page="coord-rotina" onclick="goPageMobile('coord-rotina')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        Rotina da Equipe
+      </button>
       <button class="sidebar-item" data-page="var-setores" onclick="goPageMobile('var-setores')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
         Gerenciar Setores
@@ -708,6 +712,13 @@
     </div>
 
     <!-- ════════ MÓDULO PASSAGENS ════════ -->
+    <div class="sidebar-section" data-modulo="suprimentos" id="sidebar-minha-rotina" style="display:none;">
+      <div class="sidebar-section-title">Minha Rotina</div>
+      <button class="sidebar-item" data-page="minha-rotina" onclick="goPageMobile('minha-rotina')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        Minha Rotina
+      </button>
+    </div>
     <div class="sidebar-section" data-modulo="passagens" id="sidebar-passagens">
       <div class="sidebar-section-title">Passagens</div>
       <button class="sidebar-item" data-page="pas-nova" onclick="goPageMobile('pas-nova')">
@@ -3083,6 +3094,24 @@
     <div id="fer-root"></div>
   </div>
 
+  <!-- PAGE: ROTINA DA EQUIPE (Coordenador) -->
+  <div class="page" id="page-coord-rotina">
+    <div class="page-header">
+      <div class="page-title">🕒 Rotina da Equipe</div>
+      <div class="page-sub">Monte a semana de cada pessoa, acompanhe a produtividade e autorize atividades extras</div>
+    </div>
+    <div id="rot-root"></div>
+  </div>
+
+  <!-- PAGE: MINHA ROTINA (colaborador vinculado) -->
+  <div class="page" id="page-minha-rotina">
+    <div class="page-header">
+      <div class="page-title">🕒 Minha Rotina</div>
+      <div class="page-sub">Suas atividades da semana, o checklist do dia, sugestões e pedidos de atividade extra</div>
+    </div>
+    <div id="minha-rotina-root"></div>
+  </div>
+
   <!-- PAGE: GUIA E HISTÓRICO DE ATUALIZAÇÕES (Coordenador) -->
   <div class="page" id="page-coord-guia">
     <div class="page-header">
@@ -3875,11 +3904,11 @@
      SCRIPTS
      ════════════════════════════════════════════════════════════ -->
 <script src="js/01-core.js?v=10"></script>
-<script src="js/02-auth.js?v=9"></script>
+<script src="js/02-auth.js?v=10"></script>
 <script src="js/03-navegacao.js?v=2"></script>
-<script src="js/04-percapita.js?v=26"></script>
+<script src="js/04-percapita.js?v=27"></script>
 <script src="js/05-cadastros.js?v=3"></script>
-<script src="js/06-pedidos.js?v=33"></script>
+<script src="js/06-pedidos.js?v=35"></script>
 <script src="js/07-estoque-ia-form.js?v=8"></script>
 <script src="js/08-orcamento-casas.js?v=15"></script>
 <script src="js/09-indicadores-transf.js?v=7"></script>
@@ -3892,7 +3921,7 @@
 <script src="js/16-chat-ia.js?v=2"></script>
 <script src="js/17-metas-wrappers.js?v=2"></script>
 <script src="js/cidades-brasil.js?v=1"></script>
-<script src="js/18-erp.js?v=68"></script>
+<script src="js/18-erp.js?v=69"></script>
 <script src="js/19-dashboard-diretoria.js?v=10"></script>
 <script src="js/20-percapita-diretoria.js?v=2"></script>
 <!-- CHAT IA FLUTUANTE -->
@@ -3990,6 +4019,7 @@
 <script src="js/29-consumo-alimentar.js?v=4"></script>
 <script src="js/30-consumo-alimentar-etapa2.js?v=1"></script>
 <script src="js/31-coord-ferias.js?v=1"></script>
+<script src="js/33-rotina-equipe.js?v=1"></script>
 
 <!-- MODAL: NOVA SOLICITAÇÃO DE VARIEDADES -->
 <div class="modal-overlay hidden" id="modal-nova-var">

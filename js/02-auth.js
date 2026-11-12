@@ -119,6 +119,7 @@ function logoutApp() {
   if (window._pageListener) { window._pageListener(); window._pageListener = null; }
   if (window._pageListenerPending) { clearTimeout(window._pageListenerPending); window._pageListenerPending = null; }
   if (window._pageTimer) { clearInterval(window._pageTimer); window._pageTimer = null; }
+  try { sessionStorage.removeItem('lumen_alerta_pend'); } catch (e) {}
   auth.signOut();
 }
 
@@ -435,6 +436,8 @@ async function showApp() {
   const btnCoord = document.getElementById('btn-mod-coord');
   if (btnCoord) btnCoord.style.display = isCoordNivel ? '' : 'none';
 
+  if (typeof verificarMinhaRotina === 'function') verificarMinhaRotina();
+  if (typeof iniciarAlertaPendencias === 'function') iniciarAlertaPendencias();
   // Carrega casas e cidades dinamicas do Firebase
   await loadDynamicData();
   populateHouseSelects();

@@ -500,7 +500,7 @@ function goPage(page) {
   const role = currentUserData?.role || 'usuario';
   if (role !== 'admin' && typeof permSetDe === 'function') {
     const ps = permSetDe(role);           // Set de páginas, 'ALL', ou null (desconhecido)
-    if (ps && ps !== 'ALL' && !ps.has(page)) {
+    if (ps && ps !== 'ALL' && !ps.has(page) && page !== 'minha-rotina') {
       showToast('⛔ Você não tem permissão para esta página.');
       return;
     }
@@ -599,7 +599,7 @@ function goPage(page) {
     if (_btns[_mobilePages[page]]) _btns[_mobilePages[page]].classList.add('active');
   }
 
-  const titles = {
+  const titles = {'coord-rotina':'Rotina da Equipe','minha-rotina':'Minha Rotina',
     'dashboard':'Painel Geral','users':'Usuários','houses':'Casas e Pessoas',
     'all-orders':'Todos os Pedidos','new-order':'Nova Solicitação','my-orders':'Meus Pedidos',
     'movement':'Entrada / Saída','stock-view':'Estoque Atual','prices':'Preços por Cidade',
@@ -648,6 +648,8 @@ function goPage(page) {
   if (page === 'coord-conciliacao')    { if (typeof initCoordConciliacao === 'function') initCoordConciliacao(); }
   if (page === 'coord-guia')           { if (typeof initCoordGuia === 'function') initCoordGuia(); }
   if (page === 'coord-ferias')         { if (typeof initCoordFerias === 'function') initCoordFerias(); }
+  if (page === 'coord-rotina')         { if (typeof initCoordRotina === 'function') initCoordRotina(); }
+  if (page === 'minha-rotina')         { if (typeof initMinhaRotina === 'function') initMinhaRotina(); }
   if (page === 'importar-precos')      { if (typeof initPageImportarPrecos === 'function') initPageImportarPrecos(); }
 }
 

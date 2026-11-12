@@ -488,6 +488,7 @@ function getStatusBadge(status) {
     'aguardando_nf':       ['badge-status-estoque',     '🏪 Análise Estoque'],
     'pendente_pag':        ['badge-status-pending-pay', '🔴 Pend. Pag.'],
     'pedido_liberado':     ['badge-status-liberado',    '🟩 Pedido Liberado'],
+    'compra_realizada':    ['badge-status-progress',    '🛍 Compra Realizada'],
   };
   const [cls, label] = map[status] || ['badge-gray','🔵 Em aberto'];
   return `<span class="badge ${cls}">${label}</span>`;
@@ -703,8 +704,8 @@ function renderAllOrdersTable() {
     const hasAttach = ''; // incorporado na coluna NF
     const entregue = o.entregue === true;
     const entregaBtn = entregue
-      ? `<button class="btn btn-sm delivery-btn delivered" onclick="toggleDelivery('${d.id}', true)" title="Clique para marcar como não entregue" style="background:var(--ok-bg);color:var(--ok);border:1.5px solid var(--ok);min-width:100px;">✅ Entregue</button>`
-      : `<button class="btn btn-sm delivery-btn" onclick="toggleDelivery('${d.id}', false)" title="Clique para confirmar entrega" style="background:var(--warn-bg);color:var(--warn);border:1.5px solid var(--warn);min-width:100px;">📦 Pendente</button>`;
+      ? `<button class="btn btn-sm delivery-btn delivered" onclick="toggleDelivery('${d.id}', true)" title="Clique para marcar como não entregue" style="background:var(--ok-bg);color:var(--ok);border:1.5px solid var(--ok);min-width:0;padding:3px 8px;font-size:11px;">✅ Entregue</button>`
+      : `<button class="btn btn-sm delivery-btn" onclick="toggleDelivery('${d.id}', false)" title="Clique para confirmar entrega" style="background:var(--warn-bg);color:var(--warn);border:1.5px solid var(--warn);min-width:0;padding:3px 8px;font-size:11px;">📦 Pendente</button>`;
     const oEfetivo = efetivoPorId[d.id] || o;
     const temFornecedor = !!(oEfetivo._fornecedorNomeEfetivo && oEfetivo._fornecedorNomeEfetivo.trim());
     const tituloOrfa = oEfetivo._fornecedorViaCotacaoOrfa
@@ -715,7 +716,7 @@ function renderAllOrdersTable() {
       : `<input type="checkbox" disabled title="Sem fornecedor definido — finalize o orçamento antes de incluir no PDF de compras">`;
     return `<tr style="${entregue ? 'opacity:0.7;' : ''}">
       <td>${checkboxCompra}</td>
-      <td><span class="order-code">${o.code}</span> ${hasAttach}</td>
+      <td style="white-space:nowrap;"><span class="order-code" title="${o.code}" style="display:inline-block;line-height:1.25;padding:2px 6px;">${codigoEm2Linhas(o.code)}</span> ${hasAttach}</td>
       <td>${o.house}</td>
       <td>${formatCats(o.categories)}</td>
       <td>${itemCount} itens</td>
@@ -724,9 +725,9 @@ function renderAllOrdersTable() {
       <td>${getStatusBadge(status)}</td>
       <td>${nfStr}</td>
       <td style="text-align:center;">${entregaBtn}</td>
-      <td style="white-space:nowrap;">
-        ${pedBotoesRapidos(d.id, status)}<button class="btn btn-secondary btn-sm" onclick="showOrderDetail('${d.id}')">Ver</button>
-      </td>
+      <td style="width:1%;"><div style="display:flex;gap:4px;align-items:center;flex-wrap:nowrap;">
+        ${pedBotoesRapidos(d.id, status)}<button class="btn btn-secondary btn-sm" style="width:auto;flex:none;padding:3px 8px;font-size:11px;" onclick="showOrderDetail('${d.id}')">Ver</button>
+      </div></td>
     </tr>`;
   }).join('') + `<tr class="no-hover"><td colspan="11" style="padding:0;">${paginacaoHTML(pagObj, 'allOrdersGoToPage')}</td></tr>`;
 
@@ -738,6 +739,13 @@ function renderAllOrdersTable() {
   updateComprasExportBtn();
 }
 
+// Código do pedido em 2 linhas (ex.: OB-C-MB-GAS / 20261109-020) para ocupar menos largura
+function codigoEm2Linhas(code) {
+  const c = String(code || '');
+  const m = c.match(/^(.*)-(\d{8}-\d+)$/);
+  return m ? `${m[1]}<br>${m[2]}` : c;
+}
+
 // ── Botão rápido por pedido: avança a etapa (cada papel só a sua) ──
 // Etapas com regra própria (avaliação de estoque, orçamento) abrem o pedido
 // na tela certa; as simples (compra realizada, concluído) avançam direto.
@@ -746,14 +754,14 @@ function pedBotoesRapidos(id, status) {
   const gestao = ['admin', 'diretor', 'gerente', 'coordenador'].includes(role);
   const compras = gestao || role === 'compras';
   const estoque = gestao || ['compras', 'estoque'].includes(role);
-  const btn = (txt, acao, cls, tip) => `<button class="btn ${cls} btn-sm" title="${tip}" style="margin-right:4px;" onclick="pedAcaoRapida('${id}','${acao}')">${txt}</button>`;
+  const btn = (txt, acao, cls, tip) => `<button class="btn ${cls} btn-sm" title="${tip}" style="width:auto;flex:none;padding:3px 8px;font-size:11px;white-space:nowrap;" onclick="pedAcaoRapida('${id}','${acao}')">${txt}</button>`;
   let h = '';
   if (['aberto', 'aguardando_estoque', 'pendente_pag'].includes(status)) {
     if (estoque) h += btn('🏪 Avaliar', 'estoque', 'btn-primary', 'Abrir a avaliação de estoque');
   } else if (['estoque_avaliado', 'andamento', 'aguardando_compra'].includes(status)) {
     if (compras) h += btn('💰 Orçar', 'orcar', 'btn-primary', 'Abrir os orçamentos deste pedido');
   } else if (['pedido_liberado', 'aguardando_nf'].includes(status)) {
-    if (compras) h += btn('🛍 Compra realizada', 'compra_realizada', 'btn-primary', 'Marcar como compra realizada');
+    if (compras) h += btn('🛍 Compra', 'compra_realizada', 'btn-primary', 'Marcar como compra realizada');
   } else if (status === 'compra_realizada') {
     if (compras) h += btn('🏁 Concluir', 'concluido', 'btn-primary', 'Marcar como concluído');
   }
@@ -1062,7 +1070,7 @@ async function loadMyOrders() {
     const itemCount = Object.values(o.items || {}).reduce((a,c) => a + Object.keys(c).length, 0);
     const status = o.status || 'aguardando_estoque';
     return `<tr>
-      <td><span class="order-code">${o.code}</span></td>
+      <td style="white-space:nowrap;"><span class="order-code" title="${o.code}" style="display:inline-block;line-height:1.25;padding:2px 6px;">${codigoEm2Linhas(o.code)}</span></td>
       <td>${o.house}</td>
       <td>${formatCats(o.categories)}</td>
       <td>${itemCount} itens</td>

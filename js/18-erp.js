@@ -2449,7 +2449,7 @@ const _SUP_PAGES = ['dashboard', 'users', 'houses', 'manage-houses', 'manage-cit
   'fornecedores-cadastro', 'fornecedores-consulta', 'my-orders', 'prices', 'percapita', 'calc-real', 'previsao', 'rotina-estoque',
   'cardapio-diario', 'financeiro-compras', 'indicadores', 'irmaos', 'ind-fornecedores', 'metas',
   'var-solicitacoes', 'var-orcamento', 'var-proposta', 'var-historico', 'var-setores', 'solicitar-ajuste',
-  'pas-orcamento', 'seg-lista', 'sup-sol-pagamento', 'var-sol-pagamento', 'consumo-alimentar'];
+  'pas-orcamento', 'seg-lista', 'sup-sol-pagamento', 'var-sol-pagamento', 'consumo-alimentar', 'coord-ferias', 'coord-rotina'];
 const _TODAS_PAGES = [..._SUP_PAGES, ..._MOD_PAGES];
 
 // Matriz padrão = espelha o comportamento atual (js/04-percapita.js antigo)
@@ -2513,7 +2513,7 @@ function aplicarPermissoesSidebar(role) {
   const ps = permSetDe(role);
   if (ps === 'ALL' || ps == null) return;           // admin/desconhecido: showApp decide
   document.querySelectorAll('#sidebar .sidebar-item[data-page]').forEach(it => {
-    it.style.display = ps.has(it.dataset.page) ? '' : 'none';
+    it.style.display = (ps.has(it.dataset.page) || it.dataset.page === 'minha-rotina') ? '' : 'none';
   });
   document.querySelectorAll('#sidebar .sidebar-section').forEach(sec => {
     const algum = [...sec.querySelectorAll('.sidebar-item[data-page]')].some(it => it.style.display !== 'none');
