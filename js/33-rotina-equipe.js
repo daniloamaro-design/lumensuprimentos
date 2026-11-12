@@ -184,7 +184,7 @@ function _rotGrade(itens, seg, acoes) {
     return `<div class="rot-col ${dia === hoje ? 'hoje' : ''}"><h4>${_ROT_DIAS[dow].slice(0, 3)} ${_rBRcurto(dia)}</h4>`
       + (doDia.map(x => `<div class="rot-it ${x.concluida ? 'ok' : ''} ${x.extra ? 'extra' : ''} ${x.cancelada ? 'canc' : ''}">
           <small>${_rEsc(x.inicio)}–${_rEsc(x.fim)}${x.extra ? ' · extra' : ''}${x.origem === 'extra' ? ' · pedido aprovado' : ''}</small><br><b>${_rEsc(x.atividade)}</b>
-          ${acoes && !x.cancelada ? `<div style="margin-top:3px"><button class="btn btn-secondary btn-sm" style="padding:1px 6px;font-size:11px" onclick="rotRemoverItem('${x.id}')">🗑</button></div>` : ''}</div>`).join('') || '<small style="color:var(--text-muted)">—</small>')
+          ${acoes && !x.cancelada ? `<div style="margin-top:3px;display:flex;gap:4px"><button class="btn btn-secondary btn-sm" title="Editar" style="padding:1px 6px;font-size:11px" onclick="rotEditarItem('${x.id}')">✏️ Editar</button><button class="btn btn-secondary btn-sm" title="Remover" style="padding:1px 6px;font-size:11px" onclick="rotRemoverItem('${x.id}')">🗑</button></div>` : ''}</div>`).join('') || '<small style="color:var(--text-muted)">—</small>')
       + '</div>';
   }).join('') + '</div>';
 }
@@ -243,7 +243,7 @@ function _rotHtmlModelo() {
   h += '<div class="rot-grade" style="margin-top:12px">' + _ROT_ORDEM.map(dow => {
     const lista = _rot.modelo.filter(m => Number(m.diaSemana) === dow).sort((a, b) => String(a.inicio).localeCompare(String(b.inicio)));
     return `<div class="rot-col"><h4>${_ROT_DIAS[dow]}</h4>` + (lista.map(m => `<div class="rot-it ${m.extra ? 'extra' : ''}"><small>${_rEsc(m.inicio)}–${_rEsc(m.fim)}${m.extra ? ' · extra' : ''}</small><br><b>${_rEsc(m.atividade)}</b>
-      <div style="margin-top:3px"><button class="btn btn-secondary btn-sm" style="padding:1px 6px;font-size:11px" onclick="rotRemoverModelo('${m.id}')">🗑</button></div></div>`).join('') || '<small style="color:var(--text-muted)">—</small>') + '</div>';
+      <div style="margin-top:3px;display:flex;gap:4px"><button class="btn btn-secondary btn-sm" title="Editar" style="padding:1px 6px;font-size:11px" onclick="rotEditarModelo('${m.id}')">✏️ Editar</button><button class="btn btn-secondary btn-sm" style="padding:1px 6px;font-size:11px" onclick="rotRemoverModelo('${m.id}')">🗑</button></div></div>`).join('') || '<small style="color:var(--text-muted)">—</small>') + '</div>';
   }).join('') + '</div>';
   return h;
 }
@@ -278,7 +278,7 @@ window.rotAdicionarModelo = rotAdicionarModelo; window.rotRemoverModelo = rotRem
 function _rotHtmlMeuDia() {
   if (!_rot.minha) return '<div class="card"><div class="card-body">Seu login ainda não está vinculado a uma pessoa da equipe. Em <b>Planejamento de Férias</b>, adicione você mesmo e vincule ao seu login para ter checklist próprio.</div></div>';
   return `<div class="rot-barra">${_rotNavSemana()}</div>` + _rotListaDia(_rot.itens.filter(x => x.data === _rHoje()), _rHoje(), 'rotMarcar')
-    + '<div style="height:12px"></div>' + _rotGrade(_rot.itens, _rot.seg, false);
+    + '<div style="height:12px"></div>' + _rotGrade(_rot.itens, _rot.seg, true);
 }
 
 // Checklist de um dia (usada no coordenador e no colaborador)
@@ -294,6 +294,7 @@ function _rotListaDia(itens, dia, fnMarcar) {
       <span class="rot-hora">${_rEsc(x.inicio)}–${_rEsc(x.fim)}</span>
       <span class="rot-nome">${_rEsc(x.atividade)}${x.extra ? ' <span class="badge badge-warn" style="font-size:10px">extra</span>' : ''}</span>
       <span style="font-size:11px;color:var(--text-muted)">${x.concluida && x.concluidaEm ? 'feito ' + new Date(x.concluidaEm).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : _rFmtMin(_rDur(x.inicio, x.fim))}</span>
+      ${fnMarcar === 'rotMarcar' ? `<button class="btn btn-secondary btn-sm" title="Editar" style="padding:1px 7px" onclick="rotEditarItem('${x.id}')">✏️</button><button class="btn btn-secondary btn-sm" title="Remover" style="padding:1px 7px" onclick="rotRemoverItem('${x.id}')">🗑</button>` : ''}
       ${fnMarcar === 'rotMarcarMeu' ? `<button class="btn btn-secondary btn-sm" title="Sugerir sobre esta atividade" style="padding:1px 7px" onclick="rotSugerirItem('${x.id}')">💬</button>` : ''}
     </div>`).join('') || '<div style="padding:16px;color:var(--text-muted)">Nenhuma atividade neste dia.</div>') + '</div></div>';
   return h;
@@ -548,3 +549,71 @@ function alertaIr(pagina, aba) {
   goPage(pagina);
 }
 window.alertaIr = alertaIr;
+
+// ═══════════════════════════════════════════════════════════════════════
+//  EDITAR atividade (item da semana) e item do modelo — janelinha rápida
+// ═══════════════════════════════════════════════════════════════════════
+function _rotDialogo(titulo, camposHtml, fnSalvar) {
+  const antigo = document.getElementById('rot-dialogo'); if (antigo) antigo.remove();
+  const o = document.createElement('div'); o.id = 'rot-dialogo';
+  o.style.cssText = 'position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;padding:16px';
+  o.onclick = e => { if (e.target === o) o.remove(); };
+  o.innerHTML = `<div style="background:var(--surface,var(--bg));color:var(--text);border:1px solid var(--border);border-radius:14px;padding:18px;width:min(440px,100%)">
+    <b style="font-size:15px">${_rEsc(titulo)}</b><div class="rot-form" style="flex-direction:column;align-items:stretch">${camposHtml}</div>
+    <div style="display:flex;gap:8px;justify-content:flex-end"><button class="btn btn-secondary" onclick="document.getElementById('rot-dialogo').remove()">Cancelar</button><button class="btn btn-primary" onclick="${fnSalvar}">Salvar</button></div></div>`;
+  document.body.appendChild(o);
+  const f = o.querySelector('input[type=text]'); if (f) f.focus();
+}
+
+function rotEditarItem(id) {
+  const it = _rot.itens.find(x => x.id === id); if (!it) return;
+  _rotDialogo('Editar atividade',
+    `<label>Dia<input type="date" id="rot-e-data" value="${it.data}"></label>
+     <div style="display:flex;gap:8px"><label style="flex:1">Início<input type="time" id="rot-e-ini" value="${_rEsc(it.inicio)}"></label><label style="flex:1">Fim<input type="time" id="rot-e-fim" value="${_rEsc(it.fim)}"></label></div>
+     <label>Atividade<input type="text" id="rot-e-ativ" value="${_rEsc(it.atividade)}"></label>`,
+    `rotSalvarItem('${id}')`);
+}
+async function rotSalvarItem(id) {
+  const it = _rot.itens.find(x => x.id === id); if (!it) return;
+  const data = document.getElementById('rot-e-data').value, ini = document.getElementById('rot-e-ini').value, fim = document.getElementById('rot-e-fim').value;
+  const ativ = document.getElementById('rot-e-ativ').value.trim();
+  if (!data || !ini || !fim || !ativ) { showToast('Preencha dia, início, fim e atividade.'); return; }
+  if (fim <= ini) { showToast('O fim precisa ser depois do início.'); return; }
+  const choque = _rot.itens.find(x => x.id !== id && x.data === data && !x.cancelada && _rMin(x.inicio) < _rMin(fim) && _rMin(ini) < _rMin(x.fim));
+  if (choque && !confirm(`Já existe "${choque.atividade}" (${choque.inicio}–${choque.fim}) nesse horário. Salvar mesmo assim?`)) return;
+  try {
+    const upd = { data, inicio: ini, fim, atividade: ativ, extra: _rEhExtra(data, ini, fim) };
+    if (data !== it.data && it.origem === 'modelo') {
+      // moveu uma atividade do modelo para outro dia: deixa um "cancelado" no dia original
+      // (para o modelo não recriar) e solta a atividade do modelo
+      await db.collection('coord_rotina_itens').add({ pessoaId: it.pessoaId, data: it.data, inicio: it.inicio, fim: it.fim, atividade: it.atividade, origem: 'modelo', modeloId: it.modeloId, extra: !!it.extra, concluida: false, cancelada: true });
+      upd.origem = 'semana'; upd.modeloId = null;
+    }
+    await db.collection('coord_rotina_itens').doc(id).update(upd);
+    const d = document.getElementById('rot-dialogo'); if (d) d.remove();
+    showToast('✅ Atividade atualizada.');
+    await _rotRecarregar();
+  } catch (e) { console.error(e); showToast('Erro: ' + e.message); }
+}
+
+function rotEditarModelo(id) {
+  const m = _rot.modelo.find(x => x.id === id); if (!m) return;
+  _rotDialogo('Editar item do modelo',
+    `<label>Dia da semana<select id="rot-e-dia">${_ROT_ORDEM.map(d => `<option value="${d}" ${Number(m.diaSemana) === d ? 'selected' : ''}>${_ROT_DIAS[d]}</option>`).join('')}</select></label>
+     <div style="display:flex;gap:8px"><label style="flex:1">Início<input type="time" id="rot-e-ini" value="${_rEsc(m.inicio)}"></label><label style="flex:1">Fim<input type="time" id="rot-e-fim" value="${_rEsc(m.fim)}"></label></div>
+     <label>Atividade<input type="text" id="rot-e-ativ" value="${_rEsc(m.atividade)}"></label>
+     <div style="font-size:12px;color:var(--text-muted)">A mudança vale para as semanas ainda não abertas. Para corrigir uma semana já aberta, edite a atividade na Semana da equipe.</div>`,
+    `rotSalvarModelo('${id}')`);
+}
+async function rotSalvarModelo(id) {
+  const dia = Number(document.getElementById('rot-e-dia').value), ini = document.getElementById('rot-e-ini').value, fim = document.getElementById('rot-e-fim').value;
+  const ativ = document.getElementById('rot-e-ativ').value.trim();
+  if (!ini || !fim || !ativ) { showToast('Preencha início, fim e atividade.'); return; }
+  if (fim <= ini) { showToast('O fim precisa ser depois do início.'); return; }
+  try {
+    await db.collection('coord_rotina_modelo').doc(id).update({ diaSemana: dia, inicio: ini, fim, atividade: ativ, extra: dia === 0 || dia === 6 || ini < _ROT_EXP_INI || fim > _ROT_EXP_FIM });
+    const d = document.getElementById('rot-dialogo'); if (d) d.remove();
+    showToast('✅ Modelo atualizado.'); await _rotRecarregar();
+  } catch (e) { console.error(e); showToast('Erro: ' + e.message); }
+}
+Object.assign(window, { rotEditarItem, rotSalvarItem, rotEditarModelo, rotSalvarModelo });
