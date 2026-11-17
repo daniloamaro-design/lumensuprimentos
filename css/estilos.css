@@ -1340,6 +1340,26 @@
 
 /* ══ Sem barra de rolagem lateral nas tabelas: o texto quebra em mais linhas ══ */
 thead th { white-space: normal; }
-tbody td { overflow-wrap: anywhere; }
+/* palavras inteiras: só quebra nos espaços (nada de "Conc/luído") */
+tbody td { overflow-wrap: normal; }
 table { min-width: 0 !important; }
 .page { max-width: 100%; }
+
+/* ══ Lista em "cartões" em telas médias/pequenas (tabelas com muitas colunas: Todos os Pedidos, Variedades) ══ */
+@media (max-width: 1280px) {
+  .tbl-cards, .tbl-cards tbody { display: block; width: 100%; }
+  .tbl-cards thead { display: none; }
+  .tbl-cards tbody tr { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px 16px; padding: 12px 14px; margin-bottom: 10px;
+    border: 1px solid var(--border); border-radius: 12px; background: var(--surface); position: relative; }
+  .tbl-cards tbody tr.no-hover { display: block; padding: 0; border: 0; background: transparent; }
+  .tbl-cards tbody td { display: block; padding: 0; border: 0; text-align: left !important; min-width: 0; overflow-wrap: normal; }
+  .tbl-cards tbody td[data-label]::before { content: attr(data-label); display: block; font-size: 10px; font-weight: 700; letter-spacing: .4px; text-transform: uppercase; color: var(--text-muted); margin-bottom: 2px; }
+  .tbl-cards tbody td.tc-check { position: absolute; top: 10px; right: 12px; }
+}
+
+/* Filtros e barras de ferramentas quebram de linha em vez de esmagar os campos */
+@media (max-width: 1280px) {
+  .flex.gap-12, .flex.gap-8 { flex-wrap: wrap; }
+  .flex.gap-12 > .flex-1, .flex.gap-8 > .flex-1 { flex: 1 1 170px; min-width: 150px; }
+  .flex.gap-12 .form-select, .flex.gap-12 .form-input { min-width: 130px; }
+}

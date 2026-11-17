@@ -715,17 +715,17 @@ function renderAllOrdersTable() {
       ? `<input type="checkbox" class="compra-row-check" data-id="${d.id}" ${comprasSelecionadas.has(d.id) ? 'checked' : ''} onchange="comprasToggleCheck('${d.id}', this.checked)"${tituloOrfa}>`
       : `<input type="checkbox" disabled title="Sem fornecedor definido — finalize o orçamento antes de incluir no PDF de compras">`;
     return `<tr style="${entregue ? 'opacity:0.7;' : ''}">
-      <td>${checkboxCompra}</td>
-      <td style="white-space:nowrap;"><span class="order-code" title="${o.code}" style="display:inline-block;line-height:1.25;padding:2px 6px;">${codigoEm2Linhas(o.code)}</span> ${hasAttach}</td>
-      <td>${o.house}</td>
-      <td>${formatCats(o.categories)}</td>
-      <td>${itemCount} itens</td>
-      <td>${o.requesterName || '—'}</td>
-      <td>${formatDate(o.createdAt)}</td>
-      <td>${getStatusBadge(status)}</td>
-      <td>${nfStr}</td>
-      <td style="text-align:center;">${entregaBtn}</td>
-      <td><div style="display:flex;gap:4px;align-items:center;flex-wrap:wrap;">
+      <td class="tc-check">${checkboxCompra}</td>
+      <td data-label="Pedido" style="white-space:nowrap;"><span class="order-code" title="${o.code}" style="display:inline-block;line-height:1.25;padding:2px 6px;">${codigoEm2Linhas(o.code)}</span> ${hasAttach}</td>
+      <td data-label="Casa">${o.house}</td>
+      <td data-label="Categorias">${formatCats(o.categories)}</td>
+      <td data-label="Itens">${itemCount} itens</td>
+      <td data-label="Solicitante">${o.requesterName || '—'}</td>
+      <td data-label="Data">${formatDate(o.createdAt)}</td>
+      <td data-label="Status">${getStatusBadge(status)}</td>
+      <td data-label="NF">${nfStr}</td>
+      <td data-label="Entrega" style="text-align:center;">${entregaBtn}</td>
+      <td data-label="Ações"><div style="display:flex;gap:4px;align-items:center;flex-wrap:wrap;">
         ${pedBotoesRapidos(d.id, status)}<button class="btn btn-secondary btn-sm" style="width:auto;flex:none;padding:3px 8px;font-size:11px;" onclick="showOrderDetail('${d.id}')">Ver</button>
       </div></td>
     </tr>`;

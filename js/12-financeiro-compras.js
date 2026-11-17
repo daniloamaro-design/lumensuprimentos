@@ -124,7 +124,9 @@ function _finClassNorm(s) {
 // ── Inicializa a página ────────────────────────────────────
 async function initFinanceiroCompras() {
   finSetTab('painel', document.getElementById('fin-tab-painel'));
-  if (typeof suppliersCache !== 'undefined' && !suppliersCache.length) {
+  // Sempre recarrega: o cache só era preenchido uma vez por sessão, então um
+  // fornecedor cadastrado depois (ex.: Jean Veleiros) não aparecia no filtro.
+  if (typeof suppliersCache !== 'undefined') {
     try { const snap = await db.collection('suppliers').orderBy('nome').get(); suppliersCache = snap.docs.map(d => ({ id: d.id, ...d.data() })); }
     catch (e) { console.error('suppliers (limite de crédito):', e); }
   }

@@ -369,18 +369,18 @@ async function loadVarSolicitacoes() {
       const resumo = nomes.slice(0, 2).join(', ') + (nomes.length > 2 ? ' <span style="color:var(--text-muted);">+' + (nomes.length - 2) + '</span>' : '');
       const urgente = d.prioridade === 'urgente';
       return '<tr style="cursor:pointer;" onclick="verVarPedido(\'' + k + '\')">'
-        + '<td><span class="order-code">' + _varEsc(g.codigo) + '</span></td>'
-        + '<td>' + (resumo || '—') + '<div style="font-size:11px;color:var(--text-muted);">' + g.itens.length + (g.itens.length === 1 ? ' item' : ' itens')
+        + '<td data-label="Pedido"><span class="order-code">' + _varEsc(g.codigo) + '</span></td>'
+        + '<td data-label="Itens">' + (resumo || '—') + '<div style="font-size:11px;color:var(--text-muted);">' + g.itens.length + (g.itens.length === 1 ? ' item' : ' itens')
           + (g.cancelados && g.status !== 'cancelado' ? ' · ' + g.cancelados + ' cancelado(s)' : '') + '</div></td>'
-        + '<td>' + _varEsc(d.setor) + '</td>'
-        + '<td>' + _varEsc(d.solicitanteNome || '—') + '</td>'
-        + '<td style="white-space:nowrap;">' + dt + '</td>'
-        + '<td><span class="badge ' + (priorBadge[d.prioridade] || 'badge-gray') + '">' + (priorLabel[d.prioridade] || _varEsc(d.prioridade)) + '</span></td>'
-        + '<td><span class="badge ' + (statusBadge[g.status] || 'badge-gray') + '">' + (statusLabel[g.status] || _varEsc(g.status)) + '</span></td>'
-        + '<td style="text-align:right;white-space:nowrap;">' + (g.valor > 0 ? _varBRL(g.valor) : '—') + '</td>'
-        + '<td style="white-space:nowrap;">' + _varBotoesRapidos(g, k, canAvancar, _isAdminLvl) + '<button class="btn btn-secondary btn-sm" onclick="event.stopPropagation();verVarPedido(\'' + k + '\')">Ver</button></td></tr>';
+        + '<td data-label="Setor">' + _varEsc(d.setor) + '</td>'
+        + '<td data-label="Solicitante">' + _varEsc(d.solicitanteNome || '—') + '</td>'
+        + '<td data-label="Até" style="white-space:nowrap;">' + dt + '</td>'
+        + '<td data-label="Prioridade"><span class="badge ' + (priorBadge[d.prioridade] || 'badge-gray') + '">' + (priorLabel[d.prioridade] || _varEsc(d.prioridade)) + '</span></td>'
+        + '<td data-label="Status"><span class="badge ' + (statusBadge[g.status] || 'badge-gray') + '">' + (statusLabel[g.status] || _varEsc(g.status)) + '</span></td>'
+        + '<td data-label="Estimado" style="text-align:right;white-space:nowrap;">' + (g.valor > 0 ? _varBRL(g.valor) : '—') + '</td>'
+        + '<td data-label="Ações" style="white-space:nowrap;">' + _varBotoesRapidos(g, k, canAvancar, _isAdminLvl) + '<button class="btn btn-secondary btn-sm" onclick="event.stopPropagation();verVarPedido(\'' + k + '\')">Ver</button></td></tr>';
     }).join('');
-    listEl.innerHTML = '<div class="card"><div class="table-wrap"><table><thead><tr><th>Pedido</th><th>Itens</th><th>Setor</th><th>Solicitante</th><th>Até</th><th>Prioridade</th><th>Status</th><th style="text-align:right;">Estimado</th><th>Ações</th></tr></thead>'
+    listEl.innerHTML = '<div class="card"><div class="table-wrap"><table class="tbl-cards"><thead><tr><th>Pedido</th><th>Itens</th><th>Setor</th><th>Solicitante</th><th>Até</th><th>Prioridade</th><th>Status</th><th style="text-align:right;">Estimado</th><th>Ações</th></tr></thead>'
       + '<tbody>' + rows + '</tbody></table></div></div>' + paginacaoHTML(pag, 'varSolGoToPage');
   } catch (e) {
     listEl.innerHTML = '<div class="empty-state"><div class="empty-state-icon">⚠️</div><div class="empty-state-title">Erro ao carregar: ' + _varEsc(e.message) + '</div></div>';
