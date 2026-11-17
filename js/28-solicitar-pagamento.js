@@ -332,12 +332,13 @@ async function spgExportar(k) {
       : [l.fornecedor, l.destinatario, l.classificacao].map(v => String(v || '').trim()).filter(Boolean)
           .concat(`Pedido dia ${dd}/${mm}/${dtComp.getFullYear()}`).join(' - ');
     linhas.push([dtComp, dtVenc, '', -Math.abs(Number(l.valor) || 0), c.fixos ? c.fixos.categoriaConta : (l.categoriaConta || ''), desc,
-      l.fornecedor || '', mapaDocs.get(_caNorm(l.fornecedor)) || '', c.fixos ? c.fixos.centroCustoNome : (l.centroCustoNome || ''), l.obs || '']);
+      l.fornecedor || '', _caDocPorNome(mapaDocs, l.fornecedor), c.fixos ? c.fixos.centroCustoNome : (l.centroCustoNome || ''), l.obs || '']);
   });
+  if (!_caConferirDocs(linhas)) return;
   const ws = XLSX.utils.aoa_to_sheet(linhas, { cellDates: true });
   for (let r = 1; r < linhas.length; r++) {
     ['A', 'B'].forEach(col => { const cc = ws[col + (r + 1)]; if (cc && cc.v instanceof Date) { cc.t = 'd'; cc.z = 'dd/mm/yyyy'; } });
-    const h = ws['H' + (r + 1)]; if (h && h.v !== undefined && h.v !== '') { h.t = 's'; h.v = String(h.v); }
+    const h = ws['H' + (r + 1)]; _caFmtCelulaDoc(h);
   }
   ws['!cols'] = [{ wch: 18 }, { wch: 18 }, { wch: 18 }, { wch: 12 }, { wch: 26 }, { wch: 44 }, { wch: 30 }, { wch: 24 }, { wch: 24 }, { wch: 30 }];
   const wb = XLSX.utils.book_new();

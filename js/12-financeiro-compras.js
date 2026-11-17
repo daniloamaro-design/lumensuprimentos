@@ -1144,7 +1144,7 @@ async function finExportarNFsContaAzul() {
     const categoria = catNomes.length ? [...new Set(catNomes)].join(', ') : '';
 
     const forn   = String(d.fornecedorNome || '').trim();
-    const docFis = mapaDocs.get(_caNorm(forn)) || '';
+    const docFis = _caDocPorNome(mapaDocs, forn);
     if (forn && !docFis) semDoc++;
 
     const desc = `Pedido ${d.code || d.id}${d.nfNumero ? ' - NF ' + d.nfNumero : ''}`;
@@ -1154,11 +1154,12 @@ async function finExportarNFsContaAzul() {
 
   if (linhas.length === 1) { showToast('Nenhum pedido com NF lançada para exportar.'); return; }
 
+  if (!_caConferirDocs(linhas)) return;
   const ws = XLSX.utils.aoa_to_sheet(linhas, { cellDates: true });
   for (let r = 1; r < linhas.length; r++) {
     ['A','B','C'].forEach(col => { const c = ws[col + (r+1)]; if (c && c.v instanceof Date) { c.t='d'; c.z='dd/mm/yyyy'; } });
     const h = ws['H' + (r+1)];
-    if (h && h.v !== undefined && h.v !== '') { h.t='s'; h.v = String(h.v); }
+    _caFmtCelulaDoc(h);
   }
   ws['!cols'] = [{wch:18},{wch:18},{wch:18},{wch:12},{wch:18},{wch:40},{wch:30},{wch:24},{wch:20},{wch:30}];
 
@@ -1894,12 +1895,60 @@ async function _caGarantirFornecedores(){
 
 // Mapa nome normalizado -> CNPJ/CPF
 function _caMapaDocs(){
+  // Só números (a planilha do Conta Azul não aceita pontos, barra nem traço).
+  // Guarda também uma chave tolerante (sem espaço/pontuação, ex.: "C&M" e "C & M" casam).
   const m = new Map();
   (suppliersCache||[]).forEach(s => {
-    const doc = String(s.cnpj||'').trim();
-    if (doc) m.set(_caNorm(s.nome), doc);
+    const doc = _caSoDigitos(s.cnpj);
+    if (!doc) return;
+    const n = _caNorm(s.nome);
+    m.set(n, doc);
+    const k = '~' + n.replace(/[^A-Z0-9]/g, '');
+    if (k.length > 1 && !m.has(k)) m.set(k, doc);
   });
   return m;
+}
+
+function _caSoDigitos(s){ return String(s == null ? '' : s).replace(/\D/g, ''); }
+function _caCnpjOk(d){
+  if (!/^\d{14}$/.test(d) || /^(\d)+$/.test(d)) return false;
+  const dv = n => { const p = n === 12 ? [5,4,3,2,9,8,7,6,5,4,3,2] : [6,5,4,3,2,9,8,7,6,5,4,3,2]; const r = p.reduce((a, x, i) => a + x * +d[i], 0) % 11; return r < 2 ? 0 : 11 - r; };
+  return dv(12) === +d[12] && dv(13) === +d[13];
+}
+function _caCpfOk(d){
+  if (!/^\d{11}$/.test(d) || /^(\d)+$/.test(d)) return false;
+  const dv = n => { const r = (d.slice(0, n).split('').reduce((a, x, i) => a + +x * (n + 1 - i), 0) * 10) % 11; return r === 10 ? 0 : r; };
+  return dv(9) === +d[9] && dv(10) === +d[10];
+}
+function _caDocOk(d){ return d.length === 14 ? _caCnpjOk(d) : d.length === 11 ? _caCpfOk(d) : false; }
+// Busca o CNPJ/CPF pelo nome do fornecedor (exato; depois tolerante a espaço/pontuação)
+function _caDocPorNome(mapa, nome){
+  const n = _caNorm(nome); if (!n) return '';
+  return mapa.get(n) || mapa.get('~' + n.replace(/[^A-Z0-9]/g, '')) || '';
+}
+// Célula do CNPJ no padrão da planilha original: número puro; se começa com 0, texto (o apóstrofo do Excel)
+function _caFmtCelulaDoc(h){
+  if (!h || h.v === undefined || h.v === '') return;
+  const d = _caSoDigitos(h.v);
+  delete h.w;
+  if (!d) { h.t = 's'; h.v = String(h.v); return; }
+  if (d[0] === '0') { h.t = 's'; h.v = d; delete h.z; }
+  else { h.t = 'n'; h.v = Number(d); h.z = '0'; }
+}
+// Antes de baixar: avisa quais fornecedores estão sem CNPJ/CPF ou com número inválido. true = pode seguir.
+function _caConferirDocs(linhas){
+  const sem = new Set(), inv = new Map();
+  linhas.slice(1).forEach(l => {
+    const nome = String(l[6] || '').trim(); if (!nome) return;
+    const d = _caSoDigitos(l[7]);
+    if (!d) sem.add(nome); else if (!_caDocOk(d)) inv.set(nome, d);
+  });
+  if (!sem.size && !inv.size) return true;
+  let msg = '⚠️ Confira os CNPJ/CPF antes de enviar ao financeiro:\n';
+  if (sem.size) msg += '\nSEM CNPJ/CPF no cadastro:\n• ' + [...sem].join('\n• ') + '\n';
+  if (inv.size) msg += '\nCNPJ/CPF INVÁLIDO (dígitos não conferem):\n• ' + [...inv].map(([n, d]) => n + ' (' + d + ')').join('\n• ') + '\n';
+  msg += '\nCorrija em Fornecedores → editar o fornecedor e exporte de novo.\n\nBaixar a planilha mesmo assim?';
+  return confirm(msg);
 }
 
 // Constrói as linhas no layout Conta Azul a partir dos lançamentos financeiros
@@ -1926,7 +1975,7 @@ function _caMontarLinhas(dados, mapaDocs){
     const forn   = String(d.fornecedor||'').trim();
     const dest   = String(d.destinatario||'').trim();
     const ref    = String(d.pedidoRef || '').trim();
-    const docFis = mapaDocs.get(_caNorm(forn)) || '';                   // CNPJ/CPF do cadastro (branco se não houver)
+    const docFis = _caDocPorNome(mapaDocs, forn);                   // CNPJ/CPF do cadastro (branco se não houver)
     const fix    = d.modulo === 'passagens' ? FIX_PAS : d.modulo === 'frete' ? FIX_FRT : null;
     let desc;
     if (d.modulo === 'passagens') {
@@ -1949,11 +1998,12 @@ async function exportarContaAzulExcel(dados, nomeArquivo){
   if (!dados || !dados.length){ showToast('Nenhum dado para exportar!'); return; }
   await _caGarantirFornecedores();
   const linhas = _caMontarLinhas(dados, _caMapaDocs());
+  if (!_caConferirDocs(linhas)) return;
   const ws = XLSX.utils.aoa_to_sheet(linhas, { cellDates:true });
   for (let r = 1; r < linhas.length; r++){
     ['A','B'].forEach(col => { const c = ws[col + (r+1)]; if (c && c.v instanceof Date){ c.t='d'; c.z='dd/mm/yyyy'; } });
     const h = ws['H' + (r+1)];
-    if (h && h.v !== undefined && h.v !== '') { h.t='s'; h.v = String(h.v); }
+    _caFmtCelulaDoc(h);
   }
   ws['!cols'] = [{wch:18},{wch:18},{wch:18},{wch:12},{wch:26},{wch:44},{wch:30},{wch:24},{wch:24},{wch:30}];
   const wb = XLSX.utils.book_new();

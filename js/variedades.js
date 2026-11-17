@@ -345,9 +345,9 @@ async function loadVarSolicitacoes() {
       return;
     }
 
-    const _isAdminLvl = ['admin', 'diretor', 'gerente', 'coordenador'].includes(role);
+    const _isAdminLvl = ['admin', 'diretor', 'gerente', 'coordenador', 'compras'].includes(role);   // Compras tem liberdade total em Variedades
     const canAvancar = _isAdminLvl || ['compras', 'estoque'].includes(role);
-    const canEditDelete = ['admin', 'diretor', 'gerente'].includes(role);
+    const canEditDelete = ['admin', 'diretor', 'gerente', 'compras'].includes(role);
 
     const priorBadge = { normal: 'badge-gray', alta: 'badge-warn', urgente: 'badge-danger' };
     const priorLabel = { normal: '🟢 Normal', alta: '🟠 Alta', urgente: '🔴 Urgente' };
@@ -398,7 +398,7 @@ function _varBotoesRapidos(g, k, canAvancar, isGestao) {
   const st = g.status;
   let h = '';
   const btn = (txt, fn, cls, tip) => '<button class="btn ' + cls + ' btn-sm" title="' + tip + '" style="margin-right:4px;" onclick="event.stopPropagation();' + fn + '">' + txt + '</button>';
-  if (st === 'pendente' && canAvancar) h += btn('📝 Orçar', "varOrcarPedido('" + k + "')", 'btn-primary', 'Abrir o orçamento deste pedido');
+  if (st === 'pendente' && (isGestao || (typeof currentUserData !== 'undefined' && currentUserData && currentUserData.role === 'compras'))) h += btn('📝 Orçar', "varOrcarPedido('" + k + "')", 'btn-primary', 'Abrir o orçamento deste pedido');
   else if (st === 'em_proposta' && isGestao) h += btn('✅ Aprovar', "varOrcarPedido('" + k + "')", 'btn-primary', 'Revisar e aprovar o orçamento');
   else if (st === 'pedido_liberado' && canAvancar) h += btn('🛍 Compra realizada', "acaoRapidaVar('" + k + "','avancar')", 'btn-primary', 'Marcar como compra realizada');
   else if (st === 'compra_realizada' && canAvancar) h += btn('🏁 Concluir', "acaoRapidaVar('" + k + "','avancar')", 'btn-primary', 'Marcar como concluído');

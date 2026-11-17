@@ -395,7 +395,7 @@ async function showApp() {
     sidebarVar.style.display = comVar.includes(role) ? 'block' : 'none';
     // Proposta/Historico/Setores: apenas adminLevel
     document.querySelectorAll('.var-admin-only').forEach(el => {
-      el.style.display = isAdminLevel ? 'block' : 'none';
+      el.style.display = (isAdminLevel || role === 'compras') ? 'block' : 'none';
     });
   }
 

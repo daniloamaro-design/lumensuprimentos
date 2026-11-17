@@ -362,7 +362,7 @@ async function frtPagExportarPlanilha() {
     const dtComp = dataStr ? new Date(dataStr + 'T00:00:00') : null;
     const dtVenc = dtComp ? new Date(dtComp.getTime() + 7 * 86400000) : null;
     const desc = `Frete ${f.code || ''} — ${f.origem || ''} → ${f.destino || ''}`;
-    const doc = mapaDocs.get(_caNorm(f.freteiroNome)) || '';
+    const doc = _caDocPorNome(mapaDocs, f.freteiroNome);
     linhas.push([
       dtComp || '', dtVenc || '', '', -Math.abs(Number(f.valor) || 0),
       '2.4.3 Frete', desc, f.freteiroNome || '', doc,
@@ -370,11 +370,12 @@ async function frtPagExportarPlanilha() {
     ]);
   });
 
+  if (!_caConferirDocs(linhas)) return;
   const ws = XLSX.utils.aoa_to_sheet(linhas, { cellDates: true });
   for (let r = 1; r < linhas.length; r++) {
     ['A','B'].forEach(col => { const c = ws[col + (r+1)]; if (c && c.v instanceof Date) { c.t='d'; c.z='dd/mm/yyyy'; } });
     const h = ws['H' + (r+1)];
-    if (h && h.v !== undefined && h.v !== '') { h.t='s'; h.v = String(h.v); }
+    _caFmtCelulaDoc(h);
   }
   ws['!cols'] = [{wch:18},{wch:18},{wch:18},{wch:12},{wch:26},{wch:40},{wch:30},{wch:24},{wch:20},{wch:30}];
 

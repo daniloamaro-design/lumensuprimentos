@@ -22,7 +22,9 @@ const _vc = { key: null, itens: [], cols: [], seq: 0, sel: {}, orc: {} };
 const _vcNum = v => { const n = parseFloat(String(v == null ? '' : v).replace(',', '.')); return Number.isFinite(n) ? n : 0; };
 const _vcNorm = s => String(s || '').trim().toLowerCase();
 const _vcRound = n => Math.round(n * 100) / 100;
-const _vcPodeOrcar = () => _VC_GESTAO.includes(currentUserData?.role || '');
+// Compras tem liberdade total em Variedades: orça, aprova e libera, como a gestão.
+const _vcPodeOrcar = () => [..._VC_GESTAO, 'compras'].includes(currentUserData?.role || '');
+const _vcPodeLiberar = () => [..._VC_GESTAO, 'compras'].includes(currentUserData?.role || '');   // Compras tem liberdade total no módulo
 
 function _vcGarantirModais() {
   if (!document.getElementById('modal-var-pedido')) {
@@ -66,7 +68,7 @@ async function verVarPedido(key) {
   const d = g.base, role = currentUserData?.role || '';
   const dt = d.dataLimite ? new Date(d.dataLimite + 'T00:00:00').toLocaleDateString('pt-BR') : '—';
   const terminal = _VAR_TERMINAIS.includes(g.status);
-  const canEditDelete = ['admin', 'diretor', 'gerente'].includes(role);
+  const canEditDelete = ['admin', 'diretor', 'gerente', 'compras'].includes(role);
   const canAvancar = _VC_GESTAO.includes(role) || ['compras', 'estoque'].includes(role);
   document.getElementById('vp-titulo').textContent = 'Pedido ' + g.codigo;
 
@@ -178,7 +180,7 @@ async function _vcCriarLancamentos(g, porForn) {
 // ── Tabela de cotações (produto × fornecedor) ───────────────────────────
 async function varOrcarPedido(key) {
   const g = _varGrupos[key]; if (!g) return;
-  if (!_vcPodeOrcar()) { showToast('⚠️ Só admin, diretor, gerente e coordenador registram orçamentos.'); return; }
+  if (!_vcPodeOrcar()) { showToast('⚠️ Só a gestão e o perfil Compras registram orçamentos.'); return; }
   _vcGarantirModais();
   document.getElementById('vc-titulo').textContent = 'Orçamentos — ' + g.codigo;
   openModal('modal-var-cot');
@@ -284,8 +286,8 @@ function _vcRenderizar() {
 
   document.getElementById('vc-footer').innerHTML = '<button class="btn btn-outline" onclick="closeModal(\'modal-var-cot\')">Fechar</button>'
     + '<button class="btn btn-outline" onclick="vcSalvar()">💾 Salvar cotações</button>'
-    + '<button class="btn btn-secondary" onclick="vcAprovar(false)">📝 Salvar seleção (Coordenador)</button>'
-    + '<button class="btn btn-primary" onclick="vcAprovar(true)">✅ Aprovar e liberar pedido (Gerente)</button>';
+    + '<button class="btn btn-secondary" onclick="vcAprovar(false)">📝 Salvar seleção (enviar para aprovação)</button>'
+    + (_vcPodeLiberar() ? '<button class="btn btn-primary" onclick="vcAprovar(true)">✅ Aprovar e liberar pedido</button>' : '');
   _vcRecalcular();
 }
 
@@ -399,6 +401,7 @@ window.vcSalvar = vcSalvar;
 // Etapa 2 (liberar=true): gerente aprova e libera → itens ficam "Pedido Liberado".
 async function vcAprovar(liberar) {
   if (!_vcPodeOrcar()) return;
+  if (liberar && !_vcPodeLiberar()) { showToast('⚠️ Seu perfil não pode aprovar e liberar pedidos de Variedades.'); return; }
   const falta = _vc.itens.filter(it => !_vc.sel[it.id]);
   if (falta.length) { showToast('Escolha um fornecedor (ou cancele) em: ' + falta.map(i => i.material).join(', ')); return; }
   const sem = _vc.cols.filter(c => !(c.fornecedor || '').trim() && Object.values(c.precos).some(v => _vcNum(v) > 0));
