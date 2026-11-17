@@ -188,6 +188,7 @@ async function enterGuestMode(page) {
   document.getElementById('topbar-page-title').textContent = TITULOS_GUEST[page] || 'Nova Solicitação de Variedades';
   // Esconde sidebar e mostra apenas a página solicitada
   document.getElementById('sidebar').style.display = 'none';
+  const _mb = document.getElementById('modbar'); if (_mb) _mb.style.display = 'none';
   document.getElementById('sidebar-overlay').style.display = 'none';
   document.querySelector('.main-content').style.marginLeft = '0';
   document.getElementById('btn-hamburger').style.display = 'none';
@@ -234,6 +235,7 @@ function exitGuestMode() {
   if (auth.currentUser && auth.currentUser.isAnonymous) { auth.signOut(); }
   // Restaura sidebar
   document.getElementById('sidebar').style.display = '';
+  const _mb2 = document.getElementById('modbar'); if (_mb2) _mb2.style.display = '';
   document.querySelector('.main-content').style.marginLeft = '';
   document.getElementById('btn-hamburger').style.display = '';
   showAuthScreen('login');

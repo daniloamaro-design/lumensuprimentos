@@ -29,7 +29,7 @@
   <!-- SheetJS para leitura e exportação de Excel -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
-  <link rel="stylesheet" href="css/estilos.css?v=12">
+  <link rel="stylesheet" href="css/estilos.css?v=13">
 </head>
 <body>
 
@@ -325,12 +325,8 @@
     </div>
   </div>
 
-  <!-- SIDEBAR OVERLAY (mobile) -->
-  <div class="sidebar-overlay" id="sidebar-overlay" onclick="closeSidebar()"></div>
-
-  <!-- SIDEBAR -->
-  <nav class="sidebar" id="sidebar" data-mod="suprimentos">
-    <!-- Seletor de módulos do ERP -->
+  <!-- FAIXA DE MÓDULOS (horizontal, logo abaixo da barra superior) -->
+  <div class="modbar" id="modbar">
     <div class="modulo-switcher" id="modulo-switcher">
       <button class="modulo-btn ativo" data-mod="suprimentos" onclick="selecionarModulo('suprimentos')" title="Suprimentos">📦 Suprimentos</button>
       <button class="modulo-btn" data-mod="variedades" onclick="selecionarModulo('variedades')" title="Compras de Variedades">🛍️ Variedades</button>
@@ -342,6 +338,13 @@
       <button class="modulo-btn" data-mod="fornecedores" onclick="selecionarModulo('fornecedores')" title="Fornecedores">🏢 Fornecedores</button>
       <button class="modulo-btn" id="btn-mod-coord" data-mod="coord" onclick="selecionarModulo('coord')" title="Painel do Coordenador" style="display:none;">🎯 Coordenador</button>
     </div>
+  </div>
+
+  <!-- SIDEBAR OVERLAY (mobile) -->
+  <div class="sidebar-overlay" id="sidebar-overlay" onclick="closeSidebar()"></div>
+
+  <!-- SIDEBAR -->
+  <nav class="sidebar" id="sidebar" data-mod="suprimentos">
     <div class="sidebar-section" data-modulo="diretoria" id="sidebar-transversal">
       <div class="sidebar-section-title">Diretoria</div>
       <button class="sidebar-item" data-page="diretoria-dashboard" onclick="goPageMobile('diretoria-dashboard')">
@@ -3904,7 +3907,7 @@
      SCRIPTS
      ════════════════════════════════════════════════════════════ -->
 <script src="js/01-core.js?v=10"></script>
-<script src="js/02-auth.js?v=11"></script>
+<script src="js/02-auth.js?v=12"></script>
 <script src="js/03-navegacao.js?v=2"></script>
 <script src="js/04-percapita.js?v=27"></script>
 <script src="js/05-cadastros.js?v=3"></script>
@@ -3928,7 +3931,7 @@
 <!-- ════════ GEMINI IA — botão movido para a barra superior (id: chat-ia-topbar-btn) ════════ -->
 
 <!-- ════════ GEMINI IA — PAINEL ════════ -->
-<div id="chat-ia-panel" style="display:none;position:fixed;top:calc(var(--topbar-h) + 8px);right:16px;bottom:auto;width:400px;max-width:calc(100vw - 32px);height:min(560px, calc(100vh - var(--topbar-h) - 24px));background:var(--surface);border:1px solid var(--border);border-radius:18px;box-shadow:0 12px 40px rgba(0,0,0,0.3),0 0 0 1px rgba(43,159,168,0.15);z-index:9998;flex-direction:column;overflow:hidden;">
+<div id="chat-ia-panel" style="display:none;position:fixed;top:calc(var(--topbar-h) + var(--modbar-h) + 8px);right:16px;bottom:auto;width:400px;max-width:calc(100vw - 32px);height:min(560px, calc(100vh - var(--topbar-h) - 24px));background:var(--surface);border:1px solid var(--border);border-radius:18px;box-shadow:0 12px 40px rgba(0,0,0,0.3),0 0 0 1px rgba(43,159,168,0.15);z-index:9998;flex-direction:column;overflow:hidden;">
 
   <!-- Header -->
   <div style="padding:14px 16px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;background:linear-gradient(135deg,var(--lumen-dark) 0%,var(--lumen) 100%);border-radius:18px 18px 0 0;">

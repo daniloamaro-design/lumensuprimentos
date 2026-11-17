@@ -1322,3 +1322,16 @@
 .dashdir-legend-val{color:var(--dd-muted);font-weight:600;white-space:nowrap;}
 
 .dashdir-aviso{background:#fff8e8;border:1px solid #f0dca8;color:#8a6a1a;border-radius:10px;padding:10px 14px;font-size:12px;font-weight:600;}
+
+/* ══ Faixa horizontal de módulos (abaixo da barra superior) ══ */
+:root { --modbar-h: 46px; }
+.modbar { position: fixed; top: var(--topbar-h); left: 0; right: 0; height: var(--modbar-h); z-index: 150; background: var(--surface); border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; padding: 0 16px; overflow-x: auto; overflow-y: hidden; scrollbar-width: thin; box-shadow: 0 2px 8px rgba(0,0,0,.12); }
+.modbar .modulo-switcher { flex-direction: row; flex-wrap: nowrap; gap: 8px; padding: 0; margin: 0; border: 0; align-items: center; }
+.modbar .modulo-btn { width: auto; flex: none; white-space: nowrap; padding: 6px 14px; font-size: 13px; }
+.sidebar { top: calc(var(--topbar-h) + var(--modbar-h)); }
+.main-content { margin-top: calc(var(--topbar-h) + var(--modbar-h)); min-height: calc(100vh - var(--topbar-h) - var(--modbar-h)); }
+@media (max-width: 768px) {
+  .modbar { padding: 0 10px; }
+  .modbar .modulo-btn { padding: 6px 11px; font-size: 12px; }
+}
