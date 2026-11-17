@@ -249,47 +249,49 @@ document.addEventListener('click', e => {
   }
 });
 
-// Monitora mudanças de status em pedidos e variedades para notificar
-// Os unsubscribes são guardados em window._notifListeners para cancelamento no logout
-function iniciarMonitorNotificacoes() {
-  if (!db || !currentUser) return;
+// Monitora pedidos/variedades novos para o sino de notificações.
+// ECONOMIA DE EGRESS (Supabase): antes eram 3 consultas que baixavam os pedidos INTEIROS a
+// cada 90 s, o dia todo, para cada usuário logado. Agora só pergunta QUANTOS existem
+// (contagem, sem baixar linhas): ao abrir o sistema, ao voltar para a aba e a cada
+// 10 min com a aba visível. Aba escondida não consulta nada.
+// Os cancelamentos ficam em window._notifListeners (logout limpa, ver 02-auth.js).
+const _NOTIF_INTERVALO_MS = 10 * 60 * 1000;
+const _NOTIF_FONTES = [
+  { tabela: 'orders', status: 'aguardando_estoque', titulo: 'Pedidos aguardando avaliação', txt: n => n + ' pedido(s) aguardando análise de estoque', tipo: 'warn', pagina: 'all-orders' },
+  { tabela: 'orders', status: 'andamento', titulo: 'Orçamentos para aprovar', txt: n => n + ' pedido(s) com orçamentos pendentes', tipo: 'info', pagina: 'orc-pendentes' },
+  { tabela: 'var_solicitacoes', status: 'pendente', titulo: 'Variedades para avaliar', txt: n => n + ' solicitação(ões) pendentes', tipo: 'warn', pagina: 'var-solicitacoes' },
+];
 
-  // Cancela listeners anteriores caso esta função seja chamada mais de uma vez
-  if (window._notifListeners) {
-    window._notifListeners.forEach(fn => fn());
-  }
+function iniciarMonitorNotificacoes() {
+  if (!db || !currentUser || !window._sb) return;
+
+  // Cancela monitor anterior caso esta função seja chamada mais de uma vez
+  if (window._notifListeners) window._notifListeners.forEach(fn => fn());
   window._notifListeners = [];
 
-  // Pedidos em análise de estoque
-  window._notifListeners.push(
-    db.collection('orders').where('status','==','aguardando_estoque')
-      .onSnapshot(snap => {
-        if (snap.docChanges().some(c => c.type === 'added')) {
-          const count = snap.size;
-          if (count > 0) adicionarNotificacao('Pedidos aguardando avaliação', `${count} pedido(s) aguardando análise de estoque`, 'warn', 'all-orders');
-        }
-      })
-  );
-  // Orçamentos pendentes de aprovação
-  window._notifListeners.push(
-    db.collection('orders').where('status','==','andamento')
-      .onSnapshot(snap => {
-        if (snap.docChanges().some(c => c.type === 'added')) {
-          const count = snap.size;
-          if (count > 0) adicionarNotificacao('Orçamentos para aprovar', `${count} pedido(s) com orçamentos pendentes`, 'info', 'orc-pendentes');
-        }
-      })
-  );
-  // Variedades - novas pendentes
-  window._notifListeners.push(
-    db.collection('var_solicitacoes').where('status','==','pendente')
-      .onSnapshot(snap => {
-        if (snap.docChanges().some(c => c.type === 'added')) {
-          const count = snap.size;
-          if (count > 0) adicionarNotificacao('Variedades para avaliar', `${count} solicitação(ões) pendentes`, 'warn', 'var-solicitacoes');
-        }
-      })
-  );
+  const ultimo = {};      // última contagem vista por fonte
+  let ultimaVerif = 0;
+
+  const verificar = async () => {
+    if (document.hidden) return;
+    ultimaVerif = Date.now();
+    for (const f of _NOTIF_FONTES) {
+      try {
+        const { count, error } = await window._sb.from(f.tabela).select('id', { count: 'exact', head: true }).eq('status', f.status);
+        if (error) continue;
+        const n = count || 0, k = f.tabela + '|' + f.status;
+        // avisa na 1ª verificação (se houver algo) e sempre que a contagem AUMENTA
+        if (n > 0 && (ultimo[k] === undefined || n > ultimo[k])) adicionarNotificacao(f.titulo, f.txt(n), f.tipo, f.pagina);
+        ultimo[k] = n;
+      } catch (e) { /* sem rede / sem permissão: tenta de novo no próximo ciclo */ }
+    }
+  };
+  const aoVoltar = () => { if (!document.hidden && Date.now() - ultimaVerif > 5 * 60 * 1000) verificar(); };
+
+  verificar();
+  const timer = setInterval(verificar, _NOTIF_INTERVALO_MS);
+  document.addEventListener('visibilitychange', aoVoltar);
+  window._notifListeners.push(() => { clearInterval(timer); document.removeEventListener('visibilitychange', aoVoltar); });
 }
 
 // ═══════════════════════════════════════════════════════════════════

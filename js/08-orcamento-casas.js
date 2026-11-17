@@ -866,8 +866,8 @@ async function checkCriticalStock(manual = false) {
   }
 }
 
-// Verifica estoque crítico automaticamente a cada 6 horas
-setInterval(() => checkCriticalStock(false), 6 * 60 * 60 * 1000);
+// O alerta de estoque crítico NÃO roda mais sozinho (baixava a tabela de movimentações inteira
+// a cada 6 h por usuário logado). Só roda quando alguém clica em "Alerta de estoque crítico" no menu.
 
 // ─────────────────────────────────────────────
 // 🏠  GERENCIAR CASAS
