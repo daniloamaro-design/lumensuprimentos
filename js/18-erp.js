@@ -2600,3 +2600,13 @@ async function salvarPermissoes() {
   }
 }
 window.salvarPermissoes = salvarPermissoes;
+
+// Altura real da faixa de módulos (ela quebra em várias linhas em telas estreitas): o menu lateral e a página começam abaixo dela.
+(function () {
+  const bar = document.getElementById('modbar');
+  if (!bar) return;
+  const ajustar = () => document.documentElement.style.setProperty('--modbar-h', bar.offsetHeight + 'px');
+  if (window.ResizeObserver) new ResizeObserver(ajustar).observe(bar);
+  window.addEventListener('resize', ajustar);
+  ajustar();
+})();

@@ -1323,15 +1323,23 @@
 
 .dashdir-aviso{background:#fff8e8;border:1px solid #f0dca8;color:#8a6a1a;border-radius:10px;padding:10px 14px;font-size:12px;font-weight:600;}
 
-/* ══ Faixa horizontal de módulos (abaixo da barra superior) ══ */
+/* ══ Faixa horizontal de módulos (abaixo da barra superior) ══
+   Quebra em várias linhas quando a tela é estreita: a altura real é medida por JS (ResizeObserver em 18-erp.js)
+   e gravada em --modbar-h, que o menu lateral e o conteúdo usam para começar logo abaixo. */
 :root { --modbar-h: 46px; }
-.modbar { position: fixed; top: var(--topbar-h); left: 0; right: 0; height: var(--modbar-h); z-index: 150; background: var(--surface); border-bottom: 1px solid var(--border);
-  display: flex; align-items: center; padding: 0 16px; overflow-x: auto; overflow-y: hidden; scrollbar-width: thin; box-shadow: 0 2px 8px rgba(0,0,0,.12); }
-.modbar .modulo-switcher { flex-direction: row; flex-wrap: nowrap; gap: 8px; padding: 0; margin: 0; border: 0; align-items: center; }
+.modbar { position: fixed; top: var(--topbar-h); left: 0; right: 0; min-height: 46px; height: auto; z-index: 150; background: var(--surface); border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; padding: 6px 16px; overflow: visible; box-shadow: 0 2px 8px rgba(0,0,0,.12); }
+.modbar .modulo-switcher { flex-direction: row; flex-wrap: wrap; gap: 6px 8px; padding: 0; margin: 0; border: 0; align-items: center; width: 100%; }
 .modbar .modulo-btn { width: auto; flex: none; white-space: nowrap; padding: 6px 14px; font-size: 13px; }
 .sidebar { top: calc(var(--topbar-h) + var(--modbar-h)); }
-.main-content { margin-top: calc(var(--topbar-h) + var(--modbar-h)); min-height: calc(100vh - var(--topbar-h) - var(--modbar-h)); }
+.main-content { margin-top: calc(var(--topbar-h) + var(--modbar-h)); min-height: calc(100vh - var(--topbar-h) - var(--modbar-h)); min-width: 0; }
 @media (max-width: 768px) {
-  .modbar { padding: 0 10px; }
-  .modbar .modulo-btn { padding: 6px 11px; font-size: 12px; }
+  .modbar { padding: 6px 10px; }
+  .modbar .modulo-btn { flex: 1 1 calc(33.333% - 8px); justify-content: center; padding: 6px 4px; font-size: 12px; }
 }
+
+/* ══ Sem barra de rolagem lateral nas tabelas: o texto quebra em mais linhas ══ */
+thead th { white-space: normal; }
+tbody td { overflow-wrap: anywhere; }
+table { min-width: 0 !important; }
+.page { max-width: 100%; }

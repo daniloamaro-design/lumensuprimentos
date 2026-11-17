@@ -725,7 +725,7 @@ function renderAllOrdersTable() {
       <td>${getStatusBadge(status)}</td>
       <td>${nfStr}</td>
       <td style="text-align:center;">${entregaBtn}</td>
-      <td style="width:1%;"><div style="display:flex;gap:4px;align-items:center;flex-wrap:nowrap;">
+      <td><div style="display:flex;gap:4px;align-items:center;flex-wrap:wrap;">
         ${pedBotoesRapidos(d.id, status)}<button class="btn btn-secondary btn-sm" style="width:auto;flex:none;padding:3px 8px;font-size:11px;" onclick="showOrderDetail('${d.id}')">Ver</button>
       </div></td>
     </tr>`;
