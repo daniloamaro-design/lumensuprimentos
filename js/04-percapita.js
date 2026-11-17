@@ -1544,7 +1544,6 @@ async function loadDashboard() {
         <div class="alert-item-body">
           <div class="alert-item-title" style="color:var(--lumen);">IA detectou padrão crítico recorrente — ${resultado.padroes.length} produto(s)</div>
           <div class="alert-item-sub" style="white-space:pre-line;">${resultado.aiText || resultado.padroes.slice(0,3).map(p=>`${p.house}: ${p.nome} (${p.semanasProblema} semanas)`).join(' | ')}</div>
-          <button class="btn btn-secondary btn-sm" style="margin-top:6px;" onclick="goPage('previsao')">Ver Previsão IA</button>
         </div>`;
       alertsEl2.prepend(aiDiv);
     }).catch(() => {});

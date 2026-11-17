@@ -308,6 +308,14 @@ function spgMarcarTodos(k, marcar) {
 }
 window.spgToggle = spgToggle; window.spgMarcarTodos = spgMarcarTodos;
 
+// Data embutida no código do pedido (ex.: OB-C-M-HIG-20261005-033 → 05/10/2026). null se o código não tiver data.
+function _spgDataDoCodigo(ref) {
+  const m = /-(\d{4})(\d{2})(\d{2})-\d+/.exec(String(ref || ''));
+  if (!m) return null;
+  const d = new Date(+m[1], +m[2] - 1, +m[3]);
+  return d.getFullYear() === +m[1] && d.getMonth() === +m[2] - 1 && d.getDate() === +m[3] ? d : null;
+}
+
 async function spgExportar(k) {
   const c = _SPG[k], st = _spgEstado[k];
   const sel = st.lista.filter(l => st.sel.has(l.id));
@@ -324,7 +332,11 @@ async function spgExportar(k) {
   const linhas = [header];
   sel.forEach(l => {
     const cel = c.linha(l);
-    const dtComp = iso(l.dataCompra && l.dataCompra.toDate ? l.dataCompra.toDate().toISOString() : l.dataCompra) || iso(l.createdAt && l.createdAt.toDate ? l.createdAt.toDate().toISOString() : l.createdAt) || new Date();
+    // Data do pedido: 1º a data que está no próprio código (OB-...-AAAAMMDD-NNN); depois a data de compra do lançamento;
+    // só então a data de criação do lançamento. Nunca o dia em que a planilha foi extraída, salvo se não houver nenhuma.
+    const dtComp = _spgDataDoCodigo(l.pedidoRef)
+      || (typeof _finDataMs === 'function' && _finDataMs(l) > 0 ? (t => new Date(t.getFullYear(), t.getMonth(), t.getDate()))(new Date(_finDataMs(l))) : null)
+      || iso(l.createdAt && l.createdAt.toDate ? l.createdAt.toDate().toISOString() : l.createdAt) || new Date();
     const dtVenc = iso(l.vencimentoStr) || new Date(dtComp.getTime() + 7 * 86400000);
     // Suprimentos: mesmo padrão da planilha antiga → "FORNECEDOR - Casa - Classificação - Pedido dia dd/mm/aaaa"
     const dd = String(dtComp.getDate()).padStart(2, '0'), mm = String(dtComp.getMonth() + 1).padStart(2, '0');

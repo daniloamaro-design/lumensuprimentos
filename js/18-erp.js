@@ -2447,8 +2447,8 @@ const _MOD_PAGES = ['pas-sol-pagamento', 'pas-solicitacoes', 'pas-nova', 'pas-de
 const _SUP_PAGES = ['dashboard', 'users', 'houses', 'manage-houses', 'manage-cities', 'manage-products',
   'manage-cats', 'percapita-financeiro', 'manage-cc', 'all-orders', 'produtividade', 'kanban',
   'coord-dashboard', 'coord-compras', 'importar-precos', 'new-order', 'movement', 'stock-view', 'inventario', 'transferencias', 'orcamento-financeiro', 'orc-pendentes',
-  'fornecedores-cadastro', 'fornecedores-consulta', 'my-orders', 'prices', 'percapita', 'calc-real', 'previsao', 'rotina-estoque',
-  'cardapio-diario', 'financeiro-compras', 'indicadores', 'irmaos', 'ind-fornecedores', 'metas',
+  'fornecedores-cadastro', 'fornecedores-consulta', 'my-orders', 'prices', 'percapita', 'calc-real',
+  'financeiro-compras', 'indicadores', 'irmaos', 'ind-fornecedores', 'metas',
   'var-solicitacoes', 'var-orcamento', 'var-proposta', 'var-historico', 'var-setores', 'solicitar-ajuste',
   'pas-orcamento', 'seg-lista', 'sup-sol-pagamento', 'var-sol-pagamento', 'consumo-alimentar', 'coord-ferias', 'coord-rotina'];
 const _TODAS_PAGES = [..._SUP_PAGES, ..._MOD_PAGES];
@@ -2460,9 +2460,9 @@ window.FALLBACK_PERMS = {
   compras: ['new-order', 'movement', 'all-orders', 'prices', 'orcamento-financeiro', 'orc-pendentes',
     'fornecedores-cadastro', 'fornecedores-consulta', 'kanban', 'houses', 'manage-houses', 'manage-cities', 'manage-products',
     'manage-cats', 'manage-cc', 'financeiro-compras', 'percapita', 'stock-view', 'transferencias',
-    'previsao', 'calc-real', 'my-orders', 'var-solicitacoes', 'sup-sol-pagamento', 'var-sol-pagamento', 'consumo-alimentar', ..._MOD_PAGES],
+    'calc-real', 'my-orders', 'var-solicitacoes', 'sup-sol-pagamento', 'var-sol-pagamento', 'consumo-alimentar', ..._MOD_PAGES],
   estoque: ['new-order', 'movement', 'all-orders', 'prices', 'orcamento-financeiro', 'orc-pendentes',
-    'fornecedores-cadastro', 'fornecedores-consulta', 'kanban', 'stock-view', 'inventario', 'transferencias', 'percapita', 'previsao', 'my-orders',
+    'fornecedores-cadastro', 'fornecedores-consulta', 'kanban', 'stock-view', 'inventario', 'transferencias', 'percapita', 'my-orders',
     'var-solicitacoes', ..._MOD_PAGES],
   financeiro: ['financeiro-compras', 'fornecedores-cadastro', 'fornecedores-consulta', 'var-solicitacoes', ..._MOD_PAGES],
   escritorio: ['var-solicitacoes', ..._MOD_PAGES],
