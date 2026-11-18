@@ -492,6 +492,8 @@ async function showApp() {
   // módulo Suprimentos já foi montado na página certa do perfil acima;
   // se a pessoa clicar "Suprimentos" na tela inicial, entrarModuloInicio()
   // percebe que já está lá e só tira a tela de cima, sem renavegar.
+  // Guia aberta por "Abrir em nova guia" (#/p/pagina ou #/m/modulo): vai direto, sem a tela inicial.
+  if (typeof abrirPaginaDoHash === 'function' && abrirPaginaDoHash()) return;
   if (typeof mostrarTelaInicio === 'function') mostrarTelaInicio();
 }
 
