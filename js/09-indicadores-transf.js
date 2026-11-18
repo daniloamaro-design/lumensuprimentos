@@ -872,7 +872,8 @@ let transfDocsAll = [];
 let transfPage = 1;
 let _transfDetailAtual = null;
 let transfSelecionadas = new Set();
-const TRANSF_CANCEL_ROLES = ['admin','diretor','gerente','coordenador'];
+// Gestão fiscaliza; compras e estoque são quem gerencia as transferências (o RLS do banco já permite).
+const TRANSF_CANCEL_ROLES = ['admin','diretor','gerente','coordenador','compras','estoque'];
 
 function transfGoToPage(p) { transfPage = p; renderTransfPage(); }
 window.transfGoToPage = transfGoToPage;

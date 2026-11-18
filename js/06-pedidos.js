@@ -401,7 +401,7 @@ async function _estornarTransferenciasDoPedido(orderId) {
   const snap = await db.collection('transferencias').where('orderId', '==', orderId).where('status', '==', 'confirmada').get();
   if (snap.empty) return;
   if (!TRANSF_CANCEL_ROLES.includes(currentUserData.role)) {
-    throw new Error('Este pedido já teve transferência de estoque. Só admin/diretor/gerente/coordenador podem editá-lo (precisa estornar a transferência).');
+    throw new Error('Este pedido já teve transferência de estoque. Só gestão, compras e estoque podem editá-lo (precisa estornar a transferência).');
   }
   const hoje = new Date().toISOString().slice(0, 10), hojeStr = hoje.replace(/-/g, '');
   const batch = db.batch();

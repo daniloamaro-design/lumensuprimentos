@@ -1297,7 +1297,13 @@ let pagSelecionados   = new Set();
 function pagPopularFiltroFornecedor() {
   const modulo = document.getElementById('pag-filtro-modulo')?.value || '';
   const base = modulo ? finDados.filter(d => (d.modulo || 'suprimentos') === modulo) : finDados;
-  const forns = [...new Set(base.map(d => _finNomeResolvido(d.fornecedor)).filter(Boolean))].sort();
+  // Também entram os fornecedores cadastrados (do tipo da categoria escolhida),
+  // mesmo sem lançamento ainda — senão um fornecedor novo não aparece no filtro.
+  const tipoDoModulo = { suprimentos: 'produtos', passagens: 'passagens', frete: 'frete' }[modulo];
+  const cadastrados = (typeof suppliersCache !== 'undefined' ? suppliersCache : [])
+    .filter(s => !tipoDoModulo || !Array.isArray(s.tipos) || !s.tipos.length || s.tipos.includes(tipoDoModulo))
+    .map(s => (s.nome || '').trim());
+  const forns = [...new Set([...base.map(d => _finNomeResolvido(d.fornecedor)), ...cadastrados].filter(Boolean))].sort((a, b) => a.localeCompare(b, 'pt-BR'));
   const selF = document.getElementById('pag-filtro-forn');
   if (!selF) return;
   // Reescrever as <option> reseta a seleção pra "Todos" sozinho — preserva
