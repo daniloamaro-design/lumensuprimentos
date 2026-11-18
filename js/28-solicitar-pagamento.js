@@ -41,7 +41,54 @@ _SPG.var = {
   linha: l => [l.pedidoRef || '—', l.fornecedor || '—', l.destinatario || '—', vencBR(l.vencimentoStr) || '—'],
 };
 const _spgListas = { categorias: [], centros: [] };
-const _spgEstado = { sup: { lista: [], sel: new Set(), filtroNF: 'todos' }, pas: { lista: [], sel: new Set() }, var: { lista: [], sel: new Set(), filtroNF: 'todos' } };
+const _spgNovoEstado = extra => Object.assign({ lista: [], sel: new Set(), fForn: '', fCasa: '', busca: '', ordem: null }, extra || {});
+const _spgEstado = { sup: _spgNovoEstado({ filtroNF: 'todos' }), pas: _spgNovoEstado(), var: _spgNovoEstado({ filtroNF: 'todos' }) };
+// Colunas que dá para ordenar clicando no título (rótulo da coluna → valor usado na ordenação).
+const _spgOrdenaveis = {
+  'Pedido': (k, l) => l.pedidoRef, 'Código': (k, l) => l.pedidoRef,
+  'Fornecedor': (k, l) => l.fornecedor, 'Agência': (k, l) => l.fornecedor,
+  'Casa / Destinatário': (k, l) => l.destinatario, 'Setor': (k, l) => l.destinatario,
+  'Passageiro': (k, l) => _SPG[k].linha(l)[1],
+  'Vencimento': (k, l) => l.vencimentoStr || '9999',
+  'Valor': (k, l) => Number(l.valor) || 0,
+};
+function _spgThead(k) {
+  const c = _SPG[k], o = _spgEstado[k].ordem;
+  const ths = c.colunas.map((h, i) => {
+    const ult = i === c.colunas.length - 1;
+    const rot = h.replace(/ \*$/, '');
+    if (!_spgOrdenaveis[rot]) return `<th${ult ? ' style="text-align:right;"' : ''}>${h}</th>`;
+    const seta = o && o.col === rot ? (o.dir === 1 ? ' ▲' : ' ▼') : ' <span style="opacity:.35;">↕</span>';
+    return `<th style="cursor:pointer;user-select:none;${ult ? 'text-align:right;' : ''}" onclick="spgOrdenar('${k}','${rot.replace(/'/g, "\\'")}')" title="Clique para ordenar">${h}${seta}</th>`;
+  }).join('');
+  return `<tr><th style="width:30px;"></th>${c.nf ? '<th>NF</th>' : ''}${ths}</tr>`;
+}
+function spgOrdenar(k, col) {
+  const st = _spgEstado[k];
+  st.ordem = st.ordem && st.ordem.col === col ? (st.ordem.dir === 1 ? { col, dir: -1 } : null) : { col, dir: 1 };
+  spgRenderizar(k);
+}
+window.spgOrdenar = spgOrdenar;
+function spgFiltro(k, campo, valor) { _spgEstado[k][campo] = valor; spgRenderizar(k); }
+window.spgFiltro = spgFiltro;
+function spgLimparFiltros(k) {
+  Object.assign(_spgEstado[k], { fForn: '', fCasa: '', busca: '', ordem: null });
+  _spgPopularFiltros(k);
+  spgRenderizar(k);
+}
+window.spgLimparFiltros = spgLimparFiltros;
+// Preenche os selects de Fornecedor e Casa/Setor com o que existe na lista carregada.
+function _spgPopularFiltros(k) {
+  const st = _spgEstado[k], esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+  const montar = (id, campo, chave, rotulo) => {
+    const sel = document.getElementById(id); if (!sel) return;
+    const vals = [...new Set(st.lista.map(l => String(l[chave] || '').trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'pt-BR'));
+    if (st[campo] && !vals.includes(st[campo])) st[campo] = '';
+    sel.innerHTML = `<option value="">${rotulo}</option>` + vals.map(v => `<option value="${esc(v)}"${v === st[campo] ? ' selected' : ''}>${esc(v)}</option>`).join('');
+  };
+  montar(`spg-${k}-f-forn`, 'fForn', 'fornecedor', 'Todos os fornecedores');
+  montar(`spg-${k}-f-casa`, 'fCasa', 'destinatario', k === 'var' ? 'Todos os setores' : 'Todas as casas');
+}
 // nº de colunas da tabela (checkbox + colunas + coluna NF quando houver)
 const _spgColspan = c => c.colunas.length + 1 + (c.nf ? 1 : 0);
 
@@ -75,8 +122,15 @@ function _spgMontarPaginas() {
         </div>
         <span id="spg-${k}-nfcount" style="font-size:12px;color:var(--text-muted);width:100%;"></span>` : ''}
       </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px;">
+        <select class="form-select" id="spg-${k}-f-forn" onchange="spgFiltro('${k}','fForn',this.value)" style="width:auto;min-width:190px;font-size:12px;padding:5px 10px;"><option value="">Todos os fornecedores</option></select>
+        ${k === 'pas' ? '' : `<select class="form-select" id="spg-${k}-f-casa" onchange="spgFiltro('${k}','fCasa',this.value)" style="width:auto;min-width:170px;font-size:12px;padding:5px 10px;"><option value="">${k === 'var' ? 'Todos os setores' : 'Todas as casas'}</option></select>`}
+        <input class="form-input" id="spg-${k}-f-busca" placeholder="🔍 Buscar pedido ou fornecedor…" oninput="spgFiltro('${k}','busca',this.value)" style="width:auto;min-width:210px;font-size:12px;padding:5px 10px;">
+        <button class="btn btn-outline btn-sm" onclick="spgLimparFiltros('${k}')">✖ Limpar filtros</button>
+        <span style="font-size:11px;color:var(--text-muted);">Clique no título de uma coluna para ordenar (A→Z / Z→A).</span>
+      </div>
       <div class="table-wrap"><table class="fin-table">
-        <thead><tr><th style="width:30px;"></th>${c.nf ? '<th>NF</th>' : ''}${c.colunas.map((h, i) => `<th${i === c.colunas.length - 1 ? ' style="text-align:right;"' : ''}>${h}</th>`).join('')}</tr></thead>
+        <thead id="spg-${k}-thead"><tr><th style="width:30px;"></th></tr></thead>
         <tbody id="spg-${k}-tbody"><tr><td colspan="${_spgColspan(c)}" style="text-align:center;padding:24px;color:var(--text-muted);">Carregando…</td></tr></tbody>
       </table></div>
     </div></div>
@@ -96,6 +150,7 @@ async function spgCarregar(k) {
       .sort((a, b) => String(a.vencimentoStr || '9999').localeCompare(String(b.vencimentoStr || '9999')));
     if (c.editaveis) await _spgPreparar(st.lista);
     if (c.nf) await _spgCarregarNF(st.lista, c);
+    _spgPopularFiltros(k);
     spgRenderizar(k);
   } catch (e) {
     console.error('spgCarregar', e);
@@ -231,10 +286,24 @@ function _spgNfBadge(l) {
 // Lista visível conforme o filtro de NF (só Suprimentos tem filtro).
 function _spgVisiveis(k) {
   const st = _spgEstado[k], c = _SPG[k];
-  if (!c.nf || !st.filtroNF || st.filtroNF === 'todos') return st.lista;
-  if (st.filtroNF === 'com') return st.lista.filter(l => l._temNF);
-  // "Sem NF": mostra os que aguardam há mais tempo primeiro (para cobrar a nota).
-  return st.lista.filter(l => !l._temNF).sort((a, b) => (_spgDiasEspera(b) || 0) - (_spgDiasEspera(a) || 0));
+  let r = st.lista;
+  if (c.nf && st.filtroNF === 'com') r = r.filter(l => l._temNF);
+  else if (c.nf && st.filtroNF === 'sem') {
+    // "Sem NF": mostra os que aguardam há mais tempo primeiro (para cobrar a nota).
+    r = r.filter(l => !l._temNF).sort((a, b) => (_spgDiasEspera(b) || 0) - (_spgDiasEspera(a) || 0));
+  }
+  if (st.fForn) r = r.filter(l => String(l.fornecedor || '').trim() === st.fForn);
+  if (st.fCasa) r = r.filter(l => String(l.destinatario || '').trim() === st.fCasa);
+  const q = (st.busca || '').trim().toLowerCase();
+  if (q) r = r.filter(l => [l.pedidoRef, l.fornecedor, l.destinatario, c.linha(l)[1]].some(v => String(v || '').toLowerCase().includes(q)));
+  if (st.ordem) {
+    const get = _spgOrdenaveis[st.ordem.col], d = st.ordem.dir;
+    r = r.slice().sort((a, b) => {
+      const x = get(k, a), y = get(k, b);
+      return (typeof x === 'number' && typeof y === 'number' ? x - y : String(x ?? '').localeCompare(String(y ?? ''), 'pt-BR', { numeric: true })) * d;
+    });
+  }
+  return r;
 }
 
 function spgFiltrarNF(k, f) {
@@ -253,8 +322,12 @@ function spgRenderizar(k) {
   const c = _SPG[k], st = _spgEstado[k];
   const tb = document.getElementById(`spg-${k}-tbody`);
   if (!tb) return;
-  const total = st.lista.reduce((s, l) => s + (Number(l.valor) || 0), 0);
-  document.getElementById(`spg-${k}-qtd`).textContent = st.lista.length;
+  const thead = document.getElementById(`spg-${k}-thead`);
+  if (thead) thead.innerHTML = _spgThead(k);
+  // Os totais do topo acompanham o filtro (ex.: tudo de um fornecedor).
+  const visTot = _spgVisiveis(k);
+  const total = visTot.reduce((s, l) => s + (Number(l.valor) || 0), 0);
+  document.getElementById(`spg-${k}-qtd`).textContent = visTot.length === st.lista.length ? st.lista.length : `${visTot.length} de ${st.lista.length}`;
   document.getElementById(`spg-${k}-total`).textContent = frtBRL(total);
   if (c.nf) {
     const semList = st.lista.filter(l => !l._temNF);
@@ -280,7 +353,7 @@ function spgRenderizar(k) {
       return `<tr>
         <td><input type="checkbox" ${st.sel.has(l.id) ? 'checked' : ''} onchange="spgToggle('${k}','${l.id}',this.checked)"></td>
         ${c.nf ? `<td>${_spgNfBadge(l)}</td>` : ''}
-        ${cel.slice(0, 3).map(v => `<td>${frtEsc(v)}</td>`).join('')}
+        ${cel.slice(0, 3).map((v, i) => `<td>${frtEsc(v)}${i === 0 && (k === 'sup' || k === 'var') && l.pedidoId ? ` <button class="btn btn-secondary btn-sm" style="padding:1px 8px;font-size:11px;margin-left:4px;" onclick="spgVerPedido('${k}','${l.pedidoId}')" title="Abrir o pedido numa janela, sem sair desta aba">👁 Ver</button>` : ''}</td>`).join('')}
         ${c.editaveis ? _spgSelects(k, l) : ''}
         ${cel.slice(3).map(v => `<td>${frtEsc(v)}</td>`).join('')}
         <td style="text-align:right;font-weight:600;">${frtBRL(l.valor)}</td>
@@ -300,6 +373,15 @@ function spgAtualizarBotoes(k) {
   const todos = document.getElementById(`spg-${k}-todos`);
   if (todos) { const vis = _spgVisiveis(k); todos.checked = vis.length > 0 && vis.every(l => st.sel.has(l.id)); }
 }
+// Abre o pedido numa janela (modal) por cima desta aba — não troca de página.
+function spgVerPedido(k, pedidoId) {
+  if (k === 'sup') { showOrderDetail(pedidoId); return; }
+  if (k === 'var') {
+    if (typeof _varGrupos !== 'undefined' && _varGrupos[pedidoId] && typeof verVarPedido === 'function') verVarPedido(pedidoId);
+    else showToast('Abra a aba Variedades uma vez para carregar os pedidos e tente de novo.');
+  }
+}
+window.spgVerPedido = spgVerPedido;
 function spgToggle(k, id, marcado) { const st = _spgEstado[k]; if (marcado) st.sel.add(id); else st.sel.delete(id); spgAtualizarBotoes(k); }
 function spgMarcarTodos(k, marcar) {
   const st = _spgEstado[k];
