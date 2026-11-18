@@ -150,6 +150,11 @@ async function spgCarregar(k) {
       .sort((a, b) => String(a.vencimentoStr || '9999').localeCompare(String(b.vencimentoStr || '9999')));
     if (c.editaveis) await _spgPreparar(st.lista);
     if (c.nf) await _spgCarregarNF(st.lista, c);
+    // Pedido cancelado não tem o que pagar: sai da fila de solicitação.
+    const antes = st.lista.length;
+    st.canceladosLista = st.lista.filter(l => l._pedidoCancelado);
+    st.lista = st.lista.filter(l => !l._pedidoCancelado);
+    st.canceladosOcultos = antes - st.lista.length;
     _spgPopularFiltros(k);
     spgRenderizar(k);
   } catch (e) {
@@ -171,9 +176,9 @@ async function _spgCarregarNF(lista, cfg) {
     const mapa = {}, lote = 100;
     for (let i = 0; i < ids.length; i += lote) {
       const snap = await db.collection('orders').where(firebase.firestore.FieldPath.documentId(), 'in', ids.slice(i, i + lote)).get();
-      snap.docs.forEach(d => { const o = d.data(); mapa[d.id] = { url: o.nfFileURL || '', nome: o.nfFileName || '', valor: Number(o.nfValor) || 0, numero: o.nfNumero || '' }; });
+      snap.docs.forEach(d => { const o = d.data(); mapa[d.id] = { url: o.nfFileURL || '', nome: o.nfFileName || '', valor: Number(o.nfValor) || 0, numero: o.nfNumero || '', cancelado: o.status === 'cancelado' }; });
     }
-    lista.forEach(l => { const m = mapa[l.pedidoId]; if (m) { l._nfUrl = m.url; l._nfName = m.nome; l._nfValor = m.valor; l._nfNumero = m.numero; l._temNF = !!m.url; } });
+    lista.forEach(l => { const m = mapa[l.pedidoId]; if (m) { l._nfUrl = m.url; l._nfName = m.nome; l._nfValor = m.valor; l._nfNumero = m.numero; l._temNF = !!m.url; l._pedidoCancelado = m.cancelado; } });
   } catch (e) { console.error('_spgCarregarNF', e); }
 }
 window.loadSupSolPagamento = () => spgCarregar('sup');
@@ -336,11 +341,17 @@ function spgRenderizar(k) {
     if (cnt) cnt.textContent = st.lista.length ? `📄 ${com} com NF · ⚠️ ${semList.length} sem NF` : '';
     const banner = document.getElementById(`spg-${k}-banner`);
     if (banner) {
+      const podeExcluir = ['admin', 'coordenador'].includes(currentUserData?.role);
+      const infoCanc = st.canceladosOcultos ? `<div style="border:1px solid var(--danger,#dc2626);border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:13px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+        <span>🗑️ <b>${st.canceladosOcultos}</b> lançamento(s) de pedido(s) <b>cancelado(s)</b> ocultado(s) desta lista${podeExcluir ? ' — aguardando a sua autorização para excluir.' : ' — a exclusão definitiva só pode ser autorizada por admin/coordenador.'}</span>
+        ${podeExcluir ? `<button class="btn btn-danger btn-sm" onclick="spgRevisarCancelados('${k}')">Revisar e excluir…</button>` : ''}
+      </div>` : '';
+      banner.innerHTML = infoCanc;
       if (semList.length) {
         const dias = semList.map(_spgDiasEspera).filter(x => x != null);
         const maxD = dias.length ? Math.max(...dias) : null;
-        banner.innerHTML = `<div style="border:1px solid var(--warn,#d97706);border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:13px;color:var(--text);">⚠️ <b>${semList.length}</b> pagamento(s) aguardando nota fiscal${maxD != null ? ` — o mais antigo há <b>${maxD} dia(s)</b>` : ''}. Cobre a NF do fornecedor para conferir o valor e liberar o pagamento. <a onclick="spgFiltrarNF('${k}','sem')" style="color:var(--lumen);cursor:pointer;font-weight:600;">Ver sem NF →</a></div>`;
-      } else banner.innerHTML = '';
+        banner.innerHTML = infoCanc + `<div style="border:1px solid var(--warn,#d97706);border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:13px;color:var(--text);">⚠️ <b>${semList.length}</b> pagamento(s) aguardando nota fiscal${maxD != null ? ` — o mais antigo há <b>${maxD} dia(s)</b>` : ''}. Cobre a NF do fornecedor para conferir o valor e liberar o pagamento. <a onclick="spgFiltrarNF('${k}','sem')" style="color:var(--lumen);cursor:pointer;font-weight:600;">Ver sem NF →</a></div>`;
+      }
     }
   }
   const vis = _spgVisiveis(k);
@@ -373,6 +384,68 @@ function spgAtualizarBotoes(k) {
   const todos = document.getElementById(`spg-${k}-todos`);
   if (todos) { const vis = _spgVisiveis(k); todos.checked = vis.length > 0 && vis.every(l => st.sel.has(l.id)); }
 }
+// ── Exclusão definitiva de lançamentos de pedidos cancelados (dupla confirmação) ──
+// Só admin/coordenador. Passos: (1) revisar e marcar na janela, (2) digitar EXCLUIR,
+// (3) o sistema baixa um backup JSON antes de apagar e reconfere cada lançamento no banco.
+function spgRevisarCancelados(k) {
+  if (!['admin', 'coordenador'].includes(currentUserData?.role)) { showToast('⛔ Só admin/coordenador podem autorizar a exclusão.'); return; }
+  const lista = _spgEstado[k].canceladosLista || [];
+  if (!lista.length) { showToast('Nada para excluir.'); return; }
+  let m = document.getElementById('modal-spg-canc');
+  if (!m) { m = document.createElement('div'); m.className = 'modal-overlay hidden'; m.id = 'modal-spg-canc'; document.body.appendChild(m); }
+  m.innerHTML = `<div class="modal" style="max-width:760px;width:96vw;">
+    <div class="modal-header"><div class="modal-title">🗑️ Excluir lançamentos de pedidos cancelados</div><button class="modal-close" onclick="closeModal('modal-spg-canc')">×</button></div>
+    <div class="modal-body">
+      <div style="font-size:13px;margin-bottom:10px;color:var(--danger,#dc2626);font-weight:600;">⚠️ A exclusão é definitiva e não tem como desfazer. Marque só o que realmente deve sumir. Um arquivo de backup será baixado antes.</div>
+      <div class="table-wrap"><table class="fin-table"><thead><tr><th style="width:30px;"><input type="checkbox" checked onchange="document.querySelectorAll('.spg-canc-chk').forEach(c=>c.checked=this.checked)"></th><th>Pedido</th><th>Fornecedor</th><th>Casa / Setor</th><th style="text-align:right;">Valor</th></tr></thead><tbody>
+      ${lista.map(l => `<tr><td><input type="checkbox" class="spg-canc-chk" value="${l.id}" checked></td><td>${frtEsc(l.pedidoRef || '—')}</td><td>${frtEsc(l.fornecedor || '—')}</td><td>${frtEsc(l.destinatario || '—')}</td><td style="text-align:right;">${frtBRL(l.valor)}</td></tr>`).join('')}
+      </tbody></table></div>
+    </div>
+    <div class="modal-footer"><button class="btn btn-outline" onclick="closeModal('modal-spg-canc')">Voltar</button><button class="btn btn-danger" id="spg-canc-ok" onclick="spgExcluirCancelados('${k}')">Continuar…</button></div></div>`;
+  openModal('modal-spg-canc');
+}
+async function spgExcluirCancelados(k) {
+  if (!['admin', 'coordenador'].includes(currentUserData?.role)) return;
+  const ids = [...document.querySelectorAll('.spg-canc-chk:checked')].map(c => c.value);
+  if (!ids.length) { showToast('Marque ao menos um lançamento.'); return; }
+  const resp = prompt(`Você vai EXCLUIR DEFINITIVAMENTE ${ids.length} lançamento(s) financeiro(s). Não há como voltar.
+
+Para confirmar, digite: EXCLUIR`);
+  if (resp === null) return;
+  if (resp.trim() !== 'EXCLUIR') { showToast('Confirmação incorreta — nada foi excluído.'); return; }
+  const btn = document.getElementById('spg-canc-ok'); if (btn) { btn.disabled = true; btn.textContent = 'Excluindo…'; }
+  const alvo = (_spgEstado[k].canceladosLista || []).filter(l => ids.includes(l.id));
+  // Backup antes de apagar
+  try {
+    const bk = alvo.map(l => { const o = { ...l }; Object.keys(o).filter(x => x.startsWith('_')).forEach(x => delete o[x]); return o; });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([JSON.stringify(bk, null, 2)], { type: 'application/json' }));
+    a.download = `backup_lancamentos_pedidos_cancelados_${new Date().toISOString().slice(0, 10)}.json`;
+    document.body.appendChild(a); a.click(); a.remove();
+  } catch (e) { console.warn('backup', e); }
+  let ok = 0, pulados = 0, erro = 0;
+  for (const l of alvo) {
+    try {
+      // Reconfere no banco: ainda pendente, sem pagamento solicitado e pedido ainda cancelado
+      const fin = await db.collection('compras_financeiro').doc(l.id).get();
+      const fd = fin.exists ? fin.data() : null;
+      if (!fd) { pulados++; continue; }
+      if (!fd.aguardaSolicitacao || fd.pagamentoSolicitadoEm || fd.pago === 'Sim') { pulados++; continue; }
+      if (l.pedidoId) {
+        const ped = await db.collection('orders').doc(l.pedidoId).get();
+        if (ped.exists && ped.data().status !== 'cancelado') { pulados++; continue; }
+      }
+      await db.collection('compras_financeiro').doc(l.id).delete();
+      if (typeof registrarAuditoria === 'function') registrarAuditoria('compras_financeiro', l.id, 'exclusao_pedido_cancelado', `${l.pedidoRef || ''} · ${l.fornecedor || ''} · ${l.valor}`);
+      ok++;
+    } catch (e) { console.error('spgExcluirCancelados', l, e); erro++; }
+  }
+  closeModal('modal-spg-canc');
+  showToast(`🗑️ ${ok} excluído(s)${pulados ? `, ${pulados} preservado(s) (já tinham andamento)` : ''}${erro ? `, ${erro} com erro` : ''}.`);
+  spgCarregar(k);
+}
+window.spgRevisarCancelados = spgRevisarCancelados;
+window.spgExcluirCancelados = spgExcluirCancelados;
 // Abre o pedido numa janela (modal) por cima desta aba — não troca de página.
 function spgVerPedido(k, pedidoId) {
   if (k === 'sup') { showOrderDetail(pedidoId); return; }
