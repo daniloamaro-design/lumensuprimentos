@@ -109,6 +109,14 @@ function _finAno(d) {
   const t = _finDataMs(d);
   return t ? String(new Date(t).getFullYear()) : '';
 }
+// Dia em que o pedido foi realizado: a data embutida no código (OB-...-AAAAMMDD-NNN) tem prioridade;
+// sem ela, usa a data da compra do lançamento. '' se não houver nenhuma.
+function _finDiaPedido(d) {
+  const m = /-(20\d{2})(\d{2})(\d{2})-\d+/.exec(String(d.pedidoRef || ''));
+  if (m && +m[2] >= 1 && +m[2] <= 12 && +m[3] >= 1 && +m[3] <= 31) return `${m[3]}/${m[2]}/${m[1]}`;
+  const t = _finDataMs(d);
+  return t ? new Date(t).toLocaleDateString('pt-BR') : '';
+}
 function _finDataExibicao(d) {
   const t = _finDataMs(d);
   return t ? new Date(t).toLocaleDateString('pt-BR') : (d.dataCompraStr || '—');
@@ -1526,7 +1534,7 @@ function pagRenderizarTabela() {
       <td style="font-weight:700;white-space:nowrap;">${d.fornecedor||'—'} <button onclick="finVerOrigem('${d.id}')" title="Ver detalhes do pedido" style="background:var(--surface);border:1px solid var(--border);border-radius:5px;cursor:pointer;font-size:13px;padding:2px 6px;vertical-align:middle;color:#fff;">👁️ Ver</button> <button onclick="finAbrirEdicaoLancamento('${d.id}')" title="Editar lançamento" style="background:var(--surface);border:1px solid var(--border);border-radius:5px;cursor:pointer;font-size:13px;padding:2px 6px;vertical-align:middle;color:#fff;">✏️ Editar</button></td>
       <td><span class="block-badge">${d.classificacao||'—'}</span></td>
       <td style="font-size:12px;">${d.destinatario||'—'}</td>
-      <td style="font-size:11px;color:var(--text-muted);white-space:nowrap;">${_finMes(d)}/${_finAno(d)}</td>
+      <td style="font-size:11px;color:var(--text-muted);white-space:nowrap;">${_finMes(d)}/${_finAno(d)}${_finDiaPedido(d) ? `<div style="font-size:11px;color:var(--text);margin-top:2px;" title="Dia em que o pedido foi realizado">📅 ${_finDiaPedido(d)}</div>` : ''}</td>
       <td style="font-size:12px;white-space:nowrap;">${vencLabel}</td>
       <td style="text-align:right;font-weight:700;color:var(--lumen);white-space:nowrap;">${FMT_FIN(d.valor)}</td>
       <td style="font-size:11px;color:var(--text-muted);max-width:120px;">${d.pedidoRealizado||'—'}</td>
